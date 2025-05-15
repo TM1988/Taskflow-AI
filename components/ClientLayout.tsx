@@ -11,7 +11,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="flex">
           <Sidebar />
-          <main className="flex-1 ml-20 lg:ml-64 transition-all duration-300">
+          <main className="flex-1 ml-64 transition-all duration-300">
             {children}
           </main>
         </div>
