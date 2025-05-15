@@ -34,9 +34,17 @@ body {
 }
 
 .kanban-column {
-  @apply bg-gray-100 dark:bg-gray-800 p-4 rounded-lg min-h-[500px] w-80;
+  @apply bg-gray-100 dark:bg-gray-800 p-4 rounded-lg min-h-[400px] w-64;
 }
 
 .kanban-card {
   @apply bg-white dark:bg-gray-700 p-3 rounded shadow-sm mb-2 cursor-move;
+}
+
+.input-field {
+  @apply mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded text-sm text-gray-900 dark:text-gray-200;
+}
+
+.header {
+  @apply bg-white dark:bg-gray-800 p-4 border-b border-gray-300 dark:border-gray-700;
 }

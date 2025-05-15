@@ -24,13 +24,13 @@ export default function TaskForm() {
           value={newTask}
           onChange={(e) => setNewTask(e.target.value)}
           placeholder="New task"
-          className="w-full px-2 py-1 border border-gray-300 font-mono text-sm"
+          className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 font-mono text-sm text-gray-900 dark:text-gray-200"
         />
         <div className="flex gap-2">
           <select
             value={priority}
             onChange={(e) => setPriority(e.target.value as 'low' | 'medium' | 'high')}
-            className="px-2 py-1 border border-gray-300 font-mono text-sm bg-white"
+            className="px-2 py-1 border border-gray-300 dark:border-gray-700 font-mono text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200"
           >
             <option value="low">Low</option>
             <option value="medium">Medium</option>
@@ -38,7 +38,7 @@ export default function TaskForm() {
           </select>
           <button
             type="submit"
-            className="px-2 py-1 bg-gray-200 text-gray-700 font-mono text-sm"
+            className="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-mono text-sm"
           >
             Add
           </button>

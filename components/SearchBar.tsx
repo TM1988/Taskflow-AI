@@ -13,7 +13,7 @@ export default function SearchBar() {
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         placeholder="Search"
-        className="w-full px-2 py-1 border border-gray-300 font-mono text-sm"
+        className="w-full px-2 py-1 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 font-mono text-sm text-gray-900 dark:text-gray-200"
       />
     </div>
   )
