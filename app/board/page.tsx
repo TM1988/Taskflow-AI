@@ -42,11 +42,11 @@ export default function Board() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="p-8">
       <h2 className="text-xl mb-6 text-gray-500 dark:text-gray-400">Board</h2>
       
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex gap-6 overflow-x-auto pb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {Object.entries(columns).map(([columnId, column]) => (
             <div key={columnId} className="kanban-column">
               <h3 className="text-lg mb-4 text-gray-500 dark:text-gray-400">{column.title}</h3>
@@ -56,7 +56,7 @@ export default function Board() {
                   <div
                     {...provided.droppableProps}
                     ref={provided.innerRef}
-                    className="min-h-[500px]"
+                    className="h-full min-h-[400px]"
                   >
                     {column.items.map((task, index) => (
                       <Draggable
