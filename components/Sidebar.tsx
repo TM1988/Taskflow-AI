@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { 
@@ -8,11 +9,14 @@ import {
   RiPieChartLine,
   RiGitRepositoryLine,
   RiTeamLine,
-  RiSettings3Line 
+  RiSettings3Line,
+  RiMenuFoldLine,
+  RiMenuUnfoldLine 
 } from 'react-icons/ri'
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const [isCollapsed, setIsCollapsed] = useState(false)
 
   const links = [
     { href: '/', icon: RiDashboardLine, label: 'Dashboard' },
@@ -24,11 +28,17 @@ export default function Sidebar() {
   ]
 
   return (
-    <div className="w-64 bg-gray-900 border-r border-gray-800 p-4">
-      <div className="mb-8">
-        <h1 className="text-xl text-gray-200 font-mono">Taskflow-AI</h1>
-        <p className="text-gray-500 text-sm">v1.0</p>
+    <div className={`${isCollapsed ? 'w-16' : 'w-64'} bg-gray-900 border-r border-gray-800 p-4 transition-all duration-300`}>
+      <div className="flex items-center justify-between mb-8">
+        {!isCollapsed && <h1 className="text-xl text-gray-200">Taskflow-AI</h1>}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="text-gray-400 hover:text-gray-200 transition-colors"
+        >
+          {isCollapsed ? <RiMenuUnfoldLine size={20} /> : <RiMenuFoldLine size={20} />}
+        </button>
       </div>
+      
       <nav className="space-y-1">
         {links.map((link) => {
           const Icon = link.icon
@@ -36,10 +46,10 @@ export default function Sidebar() {
             <Link
               key={link.href}
               href={link.href}
-              className={`sidebar-link ${pathname === link.href ? 'active' : ''}`}
+              className={`sidebar-link ${pathname === link.href ? 'active' : ''} ${isCollapsed ? 'justify-center' : ''}`}
             >
               <Icon className="text-lg" />
-              <span>{link.label}</span>
+              {!isCollapsed && <span>{link.label}</span>}
             </Link>
           )
         })}
