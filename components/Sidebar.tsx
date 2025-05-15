@@ -16,7 +16,7 @@ export default function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="w-64 h-screen fixed left-0 top-0 bg-white dark:bg-white border-r border-gray-200 dark:border-gray-800">
+    <aside className="w-64 h-screen fixed left-0 top-0 bg-white dark:bg-white border-r bg-white dark:bg-white">
       <div className="p-6">
         <div className="mb-8">
           <h1 className="text-xl font-mono text-gray-900 dark:text-gray-100">
