@@ -18,17 +18,17 @@ export default function TaskItem({ task }: { task: Task }) {
         />
         <div className="flex-1 text-sm">
           <div className="flex justify-between items-start">
-            <span className={`font-mono ${task.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+            <span className={`font-mono ${task.completed ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300'}`}>
               {task.title}
             </span>
             <button
               onClick={() => deleteTask(task.id)}
-              className="text-gray-400 hover:text-gray-600 px-1"
+              className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 px-1"
             >
               x
             </button>
           </div>
-          <div className="text-xs text-gray-500 font-mono mt-1">
+          <div className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-1">
             {format(new Date(task.createdAt), 'MM/dd/yy HH:mm')} | {task.priority}
           </div>
         </div>

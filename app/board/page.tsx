@@ -46,10 +46,10 @@ export default function Board() {
       <h2 className="text-xl mb-6 text-gray-500 dark:text-gray-400">Board</h2>
       
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex gap-6">
+        <div className="flex gap-6 overflow-x-auto pb-4">
           {Object.entries(columns).map(([columnId, column]) => (
             <div key={columnId} className="kanban-column">
-              <h3 className="text-lg mb-4">{column.title}</h3>
+              <h3 className="text-lg mb-4 text-gray-500 dark:text-gray-400">{column.title}</h3>
               
               <Droppable droppableId={columnId}>
                 {(provided) => (
@@ -71,7 +71,7 @@ export default function Board() {
                             {...provided.dragHandleProps}
                             className="kanban-card"
                           >
-                            <div className="text-sm">{task.title}</div>
+                            <div className="text-sm text-gray-700 dark:text-gray-300">{task.title}</div>
                             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                               Priority: {task.priority}
                             </div>
