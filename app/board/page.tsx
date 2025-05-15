@@ -43,7 +43,7 @@ export default function Board() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <h2 className="text-xl mb-6">Board</h2>
+      <h2 className="text-xl mb-6 text-gray-500 dark:text-gray-400">Board</h2>
       
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-6">
