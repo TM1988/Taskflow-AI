@@ -7,22 +7,36 @@ body {
   padding: 0;
   box-sizing: border-box;
   font-family: monospace;
-  background-color: #e5e5e5;
 }
 
 .task-container {
-  border: 1px solid #d4d4d4;
-  background-color: #ffffff;
+  @apply border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800;
 }
 
 .task-priority-high {
-  border-left: 4px solid #404040;
+  @apply border-l-4 border-l-gray-700 dark:border-l-gray-300;
 }
 
 .task-priority-medium {
-  border-left: 4px solid #737373;
+  @apply border-l-4 border-l-gray-600 dark:border-l-gray-400;
 }
 
 .task-priority-low {
-  border-left: 4px solid #a3a3a3;
+  @apply border-l-4 border-l-gray-500;
+}
+
+.sidebar-link {
+  @apply flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-800 transition-colors;
+}
+
+.sidebar-link.active {
+  @apply bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200;
+}
+
+.kanban-column {
+  @apply bg-gray-100 dark:bg-gray-800 p-4 rounded-lg min-h-[500px] w-80;
+}
+
+.kanban-card {
+  @apply bg-white dark:bg-gray-700 p-3 rounded shadow-sm mb-2 cursor-move;
 }

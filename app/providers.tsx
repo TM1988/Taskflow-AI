@@ -9,6 +9,7 @@ export interface Task {
   completed: boolean
   createdAt: string
   priority: 'low' | 'medium' | 'high'
+  status: 'todo' | 'inProgress' | 'review' | 'done'
 }
 
 interface TodoContextType {
@@ -16,6 +17,7 @@ interface TodoContextType {
   addTask: (title: string, priority: 'low' | 'medium' | 'high') => void
   toggleTask: (id: string) => void
   deleteTask: (id: string) => void
+  updateTaskStatus: (id: string, status: 'todo' | 'inProgress' | 'review' | 'done') => void
   filter: 'all' | 'active' | 'completed'
   setFilter: (filter: 'all' | 'active' | 'completed') => void
   searchQuery: string
@@ -27,6 +29,7 @@ export const TodoContext = createContext<TodoContextType>({
   addTask: () => {},
   toggleTask: () => {},
   deleteTask: () => {},
+  updateTaskStatus: () => {},
   filter: 'all',
   setFilter: () => {},
   searchQuery: '',
@@ -48,7 +51,6 @@ export function Providers({ children }: { children: ReactNode }) {
         setTasks([])
       }
     } else {
-      // Add some initial sample tasks if none exist
       const initialTasks: Task[] = [
         {
           id: uuidv4(),
@@ -56,6 +58,7 @@ export function Providers({ children }: { children: ReactNode }) {
           completed: false,
           createdAt: new Date().toISOString(),
           priority: 'high',
+          status: 'todo'
         },
         {
           id: uuidv4(),
@@ -63,6 +66,7 @@ export function Providers({ children }: { children: ReactNode }) {
           completed: true,
           createdAt: new Date().toISOString(),
           priority: 'medium',
+          status: 'done'
         },
         {
           id: uuidv4(),
@@ -70,6 +74,7 @@ export function Providers({ children }: { children: ReactNode }) {
           completed: false,
           createdAt: new Date().toISOString(),
           priority: 'low',
+          status: 'todo'
         },
       ]
       setTasks(initialTasks)
@@ -88,6 +93,7 @@ export function Providers({ children }: { children: ReactNode }) {
       completed: false,
       createdAt: new Date().toISOString(),
       priority,
+      status: 'todo'
     }
     setTasks([...tasks, newTask])
   }
@@ -95,7 +101,15 @@ export function Providers({ children }: { children: ReactNode }) {
   const toggleTask = (id: string) => {
     setTasks(
       tasks.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task
+        task.id === id ? { ...task, completed: !task.completed, status: task.completed ? 'todo' : 'done' } : task
+      )
+    )
+  }
+
+  const updateTaskStatus = (id: string, status: 'todo' | 'inProgress' | 'review' | 'done') => {
+    setTasks(
+      tasks.map((task) =>
+        task.id === id ? { ...task, status, completed: status === 'done' } : task
       )
     )
   }
@@ -111,6 +125,7 @@ export function Providers({ children }: { children: ReactNode }) {
         addTask,
         toggleTask,
         deleteTask,
+        updateTaskStatus,
         filter,
         setFilter,
         searchQuery,

@@ -4,8 +4,8 @@ import Dashboard from '@/components/Dashboard'
 
 export default function Home() {
   return (
-    <main className="min-h-screen p-4">
+    <div className="min-h-screen">
       <Dashboard />
-    </main>
+    </div>
   )
 }

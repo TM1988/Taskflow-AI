@@ -9,7 +9,7 @@ import SearchBar from './SearchBar'
 import { TodoContext } from '@/app/providers'
 
 export default function Dashboard() {
-  const { tasks, filter, searchQuery } = useContext(TodoContext)
+  const { tasks = [], filter = 'all', searchQuery = '' } = useContext(TodoContext) || {}
   
   const filteredTasks = tasks.filter(task => {
     const statusMatch = 
@@ -26,7 +26,7 @@ export default function Dashboard() {
   return (
     <div>
       <Header />
-      <main className="p-4">
+      <div className="p-4">
         <SearchBar />
         <TaskForm />
         <FilterTabs />
@@ -36,7 +36,7 @@ export default function Dashboard() {
             {filteredTasks.length} tasks
           </div>
         </div>
-      </main>
+      </div>
     </div>
   )
 }
