@@ -30,49 +30,51 @@ export default function Sidebar() {
   ]
 
   return (
-    <div className={`${isCollapsed ? 'w-16' : 'w-64'} transition-all duration-300 ${
-      theme === 'light' 
-        ? 'bg-white border-gray-200' 
-        : 'bg-gray-900 border-gray-800'
-    } border-r p-4`}>
-      <div className="flex items-center justify-between mb-8">
-        {!isCollapsed && (
-          <h1 className={`text-xl ${theme === 'light' ? 'text-gray-800' : 'text-gray-200'}`}>
-            Taskflow-AI
-          </h1>
-        )}
-        <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className={`${theme === 'light' ? 'text-gray-600 hover:text-gray-800' : 'text-gray-400 hover:text-gray-200'} transition-colors`}
-        >
-          {isCollapsed ? <RiMenuUnfoldLine size={20} /> : <RiMenuFoldLine size={20} />}
-        </button>
+    <div 
+      className={`${isCollapsed ? 'w-16' : 'w-64'} transition-all duration-300 border-r ${
+        theme === 'light' 
+          ? 'bg-white text-gray-800 border-gray-200' 
+          : 'bg-gray-900 text-gray-200 border-gray-800'
+      }`}
+    >
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-8">
+          {!isCollapsed && (
+            <h1 className="text-xl">Taskflow-AI</h1>
+          )}
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className={theme === 'light' ? 'text-gray-600 hover:text-gray-800' : 'text-gray-400 hover:text-gray-200'}
+          >
+            {isCollapsed ? <RiMenuUnfoldLine size={20} /> : <RiMenuFoldLine size={20} />}
+          </button>
+        </div>
+        
+        <nav className="space-y-1">
+          {links.map((link) => {
+            const Icon = link.icon
+            const isActive = pathname === link.href
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md ${isCollapsed ? 'justify-center' : ''} ${
+                  isActive 
+                    ? theme === 'light'
+                      ? 'bg-gray-100 text-gray-800'
+                      : 'bg-gray-800 text-gray-200'
+                    : theme === 'light'
+                      ? 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+                      : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                }`}
+              >
+                <Icon className="text-lg" />
+                {!isCollapsed && <span>{link.label}</span>}
+              </Link>
+            )
+          })}
+        </nav>
       </div>
-      
-      <nav className="space-y-1">
-        {links.map((link) => {
-          const Icon = link.icon
-          const isActive = pathname === link.href
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`flex items-center gap-2 px-4 py-2 ${isCollapsed ? 'justify-center' : ''} ${
-                isActive 
-                  ? theme === 'light'
-                    ? 'bg-gray-100 text-gray-800'
-                    : 'bg-gray-800 text-gray-200'
-                  : theme === 'light'
-                    ? 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
-                    : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-              } transition-colors rounded-md`}
-            >
-              <Icon className="text-lg" />
-              {!isCollapsed && <span>{link.label}</span>}
-            </Link>
-          )
-        })}
-      </nav>
     </div>
   )
 }
