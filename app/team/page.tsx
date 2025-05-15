@@ -25,23 +25,23 @@ export default function Team() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h2 className="text-xl mb-6">Team</h2>
+      <h2 className="text-xl mb-6 text-gray-500 dark:text-gray-400">Team</h2>
       
       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg mb-6">
-        <h3 className="text-lg mb-2">Team Owner</h3>
+        <h3 className="text-lg mb-2 text-gray-500 dark:text-gray-400">Team Owner</h3>
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+          <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center text-gray-700 dark:text-gray-300">
             {name[0]}
           </div>
           <div>
-            <div className="font-semibold">{name}</div>
+            <div className="font-semibold text-gray-700 dark:text-gray-300">{name}</div>
             <div className="text-sm text-gray-500 dark:text-gray-400">{email}</div>
           </div>
         </div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg mb-6">
-        <h3 className="text-lg mb-4">Add Team Member</h3>
+        <h3 className="text-lg mb-4 text-gray-500 dark:text-gray-400">Add Team Member</h3>
         <form onSubmit={handleAddMember} className="space-y-4">
           <div>
             <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Name</label>
@@ -72,15 +72,15 @@ export default function Team() {
 
       {teamMembers.length > 0 && (
         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
-          <h3 className="text-lg mb-4">Team Members</h3>
+          <h3 className="text-lg mb-4 text-gray-500 dark:text-gray-400">Team Members</h3>
           <div className="space-y-4">
             {teamMembers.map((member, index) => (
               <div key={index} className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center text-gray-700 dark:text-gray-300">
                   {member.name[0]}
                 </div>
                 <div>
-                  <div className="font-semibold">{member.name}</div>
+                  <div className="font-semibold text-gray-700 dark:text-gray-300">{member.name}</div>
                   <div className="text-sm text-gray-500 dark:text-gray-400">{member.email}</div>
                 </div>
               </div>
