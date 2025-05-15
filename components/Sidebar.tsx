@@ -29,52 +29,68 @@ export default function Sidebar() {
     { href: '/settings', icon: RiSettings3Line, label: 'Settings' },
   ]
 
+  const bgColor = theme === 'light' ? 'bg-gray-50' : 'bg-gray-900'
+  const borderColor = theme === 'light' ? 'border-gray-200' : 'border-gray-800'
+  const textColor = theme === 'light' ? 'text-gray-900' : 'text-gray-100'
+  const iconColor = theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+
   return (
-    <div 
-      className={`${isCollapsed ? 'w-16' : 'w-64'} transition-all duration-300 border-r ${
-        theme === 'light' 
-          ? 'bg-white text-gray-800 border-gray-200' 
-          : 'bg-gray-900 text-gray-200 border-gray-800'
-      }`}
+    <aside 
+      className={`
+        ${isCollapsed ? 'w-16' : 'w-64'} 
+        ${bgColor} 
+        ${borderColor} 
+        ${textColor}
+        transition-all duration-300 ease-in-out
+        border-r
+        flex flex-col
+        h-screen
+      `}
     >
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-8">
-          {!isCollapsed && (
-            <h1 className="text-xl">Taskflow-AI</h1>
-          )}
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className={theme === 'light' ? 'text-gray-600 hover:text-gray-800' : 'text-gray-400 hover:text-gray-200'}
-          >
-            {isCollapsed ? <RiMenuUnfoldLine size={20} /> : <RiMenuFoldLine size={20} />}
-          </button>
-        </div>
-        
-        <nav className="space-y-1">
-          {links.map((link) => {
-            const Icon = link.icon
-            const isActive = pathname === link.href
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md ${isCollapsed ? 'justify-center' : ''} ${
-                  isActive 
-                    ? theme === 'light'
-                      ? 'bg-gray-100 text-gray-800'
-                      : 'bg-gray-800 text-gray-200'
-                    : theme === 'light'
-                      ? 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
-                      : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-                }`}
-              >
-                <Icon className="text-lg" />
-                {!isCollapsed && <span>{link.label}</span>}
-              </Link>
-            )
-          })}
-        </nav>
+      <div className="p-4 flex items-center justify-between">
+        {!isCollapsed && (
+          <h1 className="text-xl font-mono truncate">Taskflow-AI</h1>
+        )}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className={`${iconColor} hover:${textColor} transition-colors`}
+          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {isCollapsed ? <RiMenuUnfoldLine size={20} /> : <RiMenuFoldLine size={20} />}
+        </button>
       </div>
-    </div>
+
+      <nav className="flex-1 p-2">
+        {links.map((link) => {
+          const Icon = link.icon
+          const isActive = pathname === link.href
+          
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`
+                flex items-center gap-3 px-3 py-2 rounded-lg mb-1
+                ${isCollapsed ? 'justify-center' : ''}
+                transition-colors duration-200
+                ${isActive 
+                  ? theme === 'light'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'bg-gray-800 text-white'
+                  : theme === 'light'
+                    ? 'text-gray-600 hover:bg-white hover:text-gray-900'
+                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                }
+              `}
+            >
+              <Icon className={`text-xl ${isActive ? 'text-current' : iconColor}`} />
+              {!isCollapsed && (
+                <span className="font-medium truncate">{link.label}</span>
+              )}
+            </Link>
+          )
+        })}
+      </nav>
+    </aside>
   )
 }
