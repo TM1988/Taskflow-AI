@@ -2,6 +2,7 @@
 
 import { useContext } from 'react'
 import { TodoContext } from '@/app/providers'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts'
 
 export default function Analytics() {
   const { tasks = [] } = useContext(TodoContext) || {}
@@ -17,42 +18,77 @@ export default function Analytics() {
     lowPriority: tasks.filter(task => task.priority === 'low').length,
   }
 
+  const statusData = [
+    { name: 'To Do', value: stats.todo },
+    { name: 'In Progress', value: stats.inProgress },
+    { name: 'Review', value: stats.review },
+    { name: 'Done', value: stats.done },
+  ]
+
+  const priorityData = [
+    { name: 'High', value: stats.highPriority },
+    { name: 'Medium', value: stats.mediumPriority },
+    { name: 'Low', value: stats.lowPriority },
+  ]
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042']
+
   return (
-    <div className="max-w-4xl mx-auto">
-      <h2 className="text-xl mb-6">Analytics</h2>
+    <div className="max-w-6xl mx-auto">
+      <h2 className="text-xl mb-6 text-gray-500 dark:text-gray-400">Analytics</h2>
       
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
           <h3 className="text-sm text-gray-500 dark:text-gray-400">Total Tasks</h3>
-          <p className="text-2xl font-bold">{stats.total}</p>
+          <p className="text-2xl font-bold text-gray-700 dark:text-gray-200">{stats.total}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
           <h3 className="text-sm text-gray-500 dark:text-gray-400">To Do</h3>
-          <p className="text-2xl font-bold">{stats.todo}</p>
+          <p className="text-2xl font-bold text-gray-700 dark:text-gray-200">{stats.todo}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
           <h3 className="text-sm text-gray-500 dark:text-gray-400">In Progress</h3>
-          <p className="text-2xl font-bold">{stats.inProgress}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
-          <h3 className="text-sm text-gray-500 dark:text-gray-400">In Review</h3>
-          <p className="text-2xl font-bold">{stats.review}</p>
+          <p className="text-2xl font-bold text-gray-700 dark:text-gray-200">{stats.inProgress}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
           <h3 className="text-sm text-gray-500 dark:text-gray-400">Completed</h3>
-          <p className="text-2xl font-bold">{stats.done}</p>
+          <p className="text-2xl font-bold text-gray-700 dark:text-gray-200">{stats.done}</p>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
-          <h3 className="text-sm text-gray-500 dark:text-gray-400">High Priority</h3>
-          <p className="text-2xl font-bold">{stats.highPriority}</p>
+          <h3 className="text-lg mb-4 text-gray-500 dark:text-gray-400">Task Status Distribution</h3>
+          <PieChart width={400} height={300}>
+            <Pie
+              data={statusData}
+              cx={200}
+              cy={150}
+              innerRadius={60}
+              outerRadius={100}
+              fill="#8884d8"
+              dataKey="value"
+              label
+            >
+              {statusData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip />
+            <Legend />
+          </PieChart>
         </div>
+
         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
-          <h3 className="text-sm text-gray-500 dark:text-gray-400">Medium Priority</h3>
-          <p className="text-2xl font-bold">{stats.mediumPriority}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
-          <h3 className="text-sm text-gray-500 dark:text-gray-400">Low Priority</h3>
-          <p className="text-2xl font-bold">{stats.lowPriority}</p>
+          <h3 className="text-lg mb-4 text-gray-500 dark:text-gray-400">Task Priority Distribution</h3>
+          <BarChart width={400} height={300} data={priorityData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey="value" fill="#8884d8" />
+          </BarChart>
         </div>
       </div>
     </div>

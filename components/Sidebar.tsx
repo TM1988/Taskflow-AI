@@ -3,15 +3,24 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { RiMenuFoldLine, RiMenuUnfoldLine } from 'react-icons/ri'
+import { 
+  RiMenuFoldLine, 
+  RiMenuUnfoldLine,
+  RiDashboardLine,
+  RiLayoutMasonryLine,
+  RiPieChartLine,
+  RiGitRepositoryLine,
+  RiTeamLine,
+  RiSettings3Line 
+} from 'react-icons/ri'
 
 const navigation = [
-  { name: 'Dashboard', href: '/' },
-  { name: 'Board', href: '/board' },
-  { name: 'Analytics', href: '/analytics' },
-  { name: 'Repositories', href: '/repositories' },
-  { name: 'Team', href: '/team' },
-  { name: 'Settings', href: '/settings' },
+  { name: 'Dashboard', href: '/', icon: RiDashboardLine },
+  { name: 'Board', href: '/board', icon: RiLayoutMasonryLine },
+  { name: 'Analytics', href: '/analytics', icon: RiPieChartLine },
+  { name: 'Repositories', href: '/repositories', icon: RiGitRepositoryLine },
+  { name: 'Team', href: '/team', icon: RiTeamLine },
+  { name: 'Settings', href: '/settings', icon: RiSettings3Line },
 ]
 
 export default function Sidebar() {
@@ -43,21 +52,23 @@ export default function Sidebar() {
         <nav className="space-y-1">
           {navigation.map((item) => {
             const isActive = pathname === item.href
+            const Icon = item.icon
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={`
-                  block px-4 py-2 rounded-md text-sm font-medium transition-colors
+                  flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors
                   ${isActive 
                     ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
                     : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
                   }
-                  ${isCollapsed ? 'text-center' : ''}
+                  ${isCollapsed ? 'justify-center' : 'gap-3'}
                 `}
                 title={isCollapsed ? item.name : ''}
               >
-                {isCollapsed ? item.name.charAt(0) : item.name}
+                <Icon size={20} />
+                {!isCollapsed && <span>{item.name}</span>}
               </Link>
             )
           })}
