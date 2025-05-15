@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: monospace;
+  background-color: #e5e5e5;
+}
+
+.task-container {
+  border: 1px solid #d4d4d4;
+  background-color: #ffffff;
+}
+
+.task-priority-high {
+  border-left: 4px solid #404040;
+}
+
+.task-priority-medium {
+  border-left: 4px solid #737373;
+}
+
+.task-priority-low {
+  border-left: 4px solid #a3a3a3;
+}
