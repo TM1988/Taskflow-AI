@@ -53,7 +53,7 @@ export default function Repositories() {
             <div key={repo.name} className="bg-white dark:bg-gray-800 p-4 rounded-lg">
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="text-lg font-semibold">{repo.name}</h3>
+                  <h3 className="text-lg font-semibold text-gray-500 dark:text-gray-400">{repo.name}</h3>
                   <p className="text-gray-500 dark:text-gray-400 text-sm">{repo.description}</p>
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">
