@@ -11,7 +11,7 @@ export default function Settings() {
       
       <div className="space-y-6">
         <div className="space-y-4">
-          <h3 className="text-lg">Profile</h3>
+          <h3 className="text-lg text-gray-500 dark:text-gray-400">Profile</h3>
           <div className="space-y-2">
             <label className="block">
               <span className="text-sm text-gray-500 dark:text-gray-400">Name</span>
