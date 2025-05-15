@@ -30,7 +30,11 @@ export default function Sidebar() {
   ]
 
   return (
-    <div className={`${isCollapsed ? 'w-16' : 'w-64'} ${theme === 'light' ? 'bg-gray-100 border-gray-200' : 'bg-gray-900 border-gray-800'} border-r p-4 transition-all duration-300`}>
+    <div className={`${isCollapsed ? 'w-16' : 'w-64'} transition-all duration-300 ${
+      theme === 'light' 
+        ? 'bg-white border-gray-200' 
+        : 'bg-gray-900 border-gray-800'
+    } border-r p-4`}>
       <div className="flex items-center justify-between mb-8">
         {!isCollapsed && (
           <h1 className={`text-xl ${theme === 'light' ? 'text-gray-800' : 'text-gray-200'}`}>
@@ -56,12 +60,12 @@ export default function Sidebar() {
               className={`flex items-center gap-2 px-4 py-2 ${isCollapsed ? 'justify-center' : ''} ${
                 isActive 
                   ? theme === 'light'
-                    ? 'bg-white text-gray-800'
+                    ? 'bg-gray-100 text-gray-800'
                     : 'bg-gray-800 text-gray-200'
                   : theme === 'light'
-                    ? 'text-gray-600 hover:bg-white hover:text-gray-800'
+                    ? 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
                     : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-              } transition-colors`}
+              } transition-colors rounded-md`}
             >
               <Icon className="text-lg" />
               {!isCollapsed && <span>{link.label}</span>}
