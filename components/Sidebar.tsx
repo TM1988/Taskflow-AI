@@ -16,7 +16,7 @@ export default function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="w-64 h-screen fixed left-0 top-0 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800">
+    <aside className="w-64 h-screen fixed left-0 top-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-800">
       <div className="p-6">
         <div className="mb-8">
           <h1 className="text-xl font-mono text-gray-900 dark:text-gray-100">
@@ -37,8 +37,8 @@ export default function Sidebar() {
                 className={`
                   block px-4 py-2 rounded-md text-sm font-medium transition-colors
                   ${isActive 
-                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
-                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                    ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
                   }
                 `}
               >
