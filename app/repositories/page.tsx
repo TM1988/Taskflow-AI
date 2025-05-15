@@ -35,7 +35,7 @@ export default function Repositories() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h2 className="text-xl mb-6">Repositories</h2>
+      <h2 className="text-xl mb-6 text-gray-500 dark:text-gray-400">Repositories</h2>
       
       {!isConnected ? (
         <div className="text-center py-8">
