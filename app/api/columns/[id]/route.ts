@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/services/admin/firebaseAdmin";
 
+// Get a specific column
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } },
@@ -27,6 +28,7 @@ export async function GET(
   }
 }
 
+// Update a column
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } },
@@ -53,6 +55,7 @@ export async function PUT(
   }
 }
 
+// Delete a column
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } },

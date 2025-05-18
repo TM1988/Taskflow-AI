@@ -1,6 +1,12 @@
-'use client';
+"use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -42,7 +48,9 @@ export default function ProjectsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">My Projects</h1>
-          <p className="text-muted-foreground">Manage and monitor your projects</p>
+          <p className="text-muted-foreground">
+            Manage and monitor your projects
+          </p>
         </div>
         <Button>
           <Plus className="mr-2 h-4 w-4" />
@@ -61,10 +69,15 @@ export default function ProjectsPage() {
                     {project.description}
                   </CardDescription>
                 </div>
-                <Badge variant={
-                  project.status === 'active' ? 'default' :
-                  project.status === 'completed' ? 'success' : 'secondary'
-                }>
+                <Badge
+                  variant={
+                    project.status === "active"
+                      ? "default"
+                      : project.status === "completed"
+                        ? "default"
+                        : "secondary"
+                  }
+                >
                   {project.status}
                 </Badge>
               </div>
@@ -78,7 +91,7 @@ export default function ProjectsPage() {
                   </div>
                   <Progress value={project.progress} />
                 </div>
-                
+
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <Users className="h-4 w-4" />

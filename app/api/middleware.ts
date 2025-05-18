@@ -1,6 +1,6 @@
 // app/api/middleware.ts
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/config/firebase";
+import { adminAuth } from "@/services/admin/firebaseAdmin";
 
 export async function apiAuthMiddleware(req: NextRequest) {
   const authHeader = req.headers.get("Authorization");
@@ -13,7 +13,7 @@ export async function apiAuthMiddleware(req: NextRequest) {
 
   try {
     // Verify Firebase token
-    await auth.verifyIdToken(token);
+    await adminAuth.verifyIdToken(token);
     return null; // Continue to handler
   } catch (error) {
     return NextResponse.json({ error: "Invalid token" }, { status: 401 });
