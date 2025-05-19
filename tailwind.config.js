@@ -6,6 +6,12 @@ module.exports = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   darkMode: 'class',
+  safelist: [
+    {
+      pattern: /bg-primary-dark/,
+      variants: ['hover']
+    }
+  ],
   theme: {
     extend: {
       colors: {
