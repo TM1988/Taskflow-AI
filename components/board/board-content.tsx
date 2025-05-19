@@ -292,6 +292,19 @@ export default function BoardContent({
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Task Board</h1>
+          <p className="text-muted-foreground">
+            {currentProject ? currentProject.name : "Loading project..."}
+          </p>
+        </div>
+        <Button onClick={() => setIsTaskDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Task
+        </Button>
+      </div>
+
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 overflow-x-auto pb-4">
           {columns.map((column) => (
