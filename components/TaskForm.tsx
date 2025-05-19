@@ -34,6 +34,7 @@ export default function TaskForm({ onComplete }: Props) {
           onChange={(e) => setNewTask(e.target.value)}
           placeholder="What needs to be done?"
           className="search-input flex-1"
+          required
         />
         <select
           value={priority}

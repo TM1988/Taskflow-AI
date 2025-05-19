@@ -133,20 +133,20 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Tasks</h2>
               <button 
-                onClick={() => setShowNewTaskForm(true)} 
+                onClick={() => setShowNewTaskForm(true)}
                 className="button-primary flex items-center gap-2"
               >
                 <RiAddLine className="w-5 h-5" />
                 New Task
               </button>
             </div>
-            
+
             {showNewTaskForm && (
-              <div className="mb-8">
+              <div className="chart-container mb-6">
                 <TaskForm onComplete={() => setShowNewTaskForm(false)} />
               </div>
             )}
-            
+
             <SearchBar />
             <FilterTabs />
             <TaskList tasks={filteredTasks} />
