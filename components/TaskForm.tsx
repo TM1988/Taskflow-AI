@@ -12,11 +12,11 @@ export default function TaskForm({ onComplete }: Props) {
   const [newTask, setNewTask] = useState('')
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium')
   const [description, setDescription] = useState('')
-  const { addTask } = useContext(TodoContext)
+  const { addTask } = useContext(TodoContext) || {}
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (newTask.trim()) {
+    if (newTask.trim() && addTask) {
       addTask(newTask.trim(), priority, description.trim() || undefined)
       setNewTask('')
       setDescription('')

@@ -7,7 +7,7 @@ import TaskList from './TaskList'
 import FilterTabs from './FilterTabs'
 import SearchBar from './SearchBar'
 import { TodoContext } from '@/app/providers'
-import { RiTaskLine, RiCheckLine, RiGitPullRequestLine, RiTimeLine } from 'react-icons/ri'
+import { RiTaskLine, RiCheckLine, RiGitPullRequestLine, RiTimeLine, RiAddLine } from 'react-icons/ri'
 
 export default function Dashboard() {
   const { tasks = [], filter = 'all', searchQuery = '' } = useContext(TodoContext) || {}
