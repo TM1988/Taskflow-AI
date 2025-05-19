@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 interface BoardContentProps {
   onTaskSelect?: (taskId: string) => void;
   refreshTrigger?: number;
-  onProjectUpdate?: (project: any) => void; // New prop to update parent with project info
+  onProjectUpdate?: (project: any) => void;
 }
 
 declare global {
@@ -68,9 +68,9 @@ export default function BoardContent({
     };
   }, []);
 
-  // Fetch projects
+  // Fetch projects once
   const fetchProjects = useCallback(async () => {
-    if (!user) return;
+    if (!user || currentProject) return; // Prevent refetching if we already have a project
 
     try {
       const projectsResponse = await fetch(`/api/projects?userId=${user.uid}`);
@@ -101,7 +101,7 @@ export default function BoardContent({
         const newProject = await newProjectResponse.json();
         setCurrentProject(newProject);
 
-        // Notify parent component about project
+        // Notify parent component
         if (onProjectUpdate) {
           onProjectUpdate(newProject);
         }
@@ -109,7 +109,7 @@ export default function BoardContent({
         // Use first project
         setCurrentProject(projects[0]);
 
-        // Notify parent component about project
+        // Notify parent component
         if (onProjectUpdate) {
           onProjectUpdate(projects[0]);
         }
@@ -122,7 +122,7 @@ export default function BoardContent({
         variant: "destructive",
       });
     }
-  }, [user, toast, onProjectUpdate]);
+  }, [user, toast, onProjectUpdate, currentProject]);
 
   // Fetch board data
   const fetchBoardData = useCallback(async () => {
@@ -161,7 +161,7 @@ export default function BoardContent({
     }
   }, [currentProject?.id, toast]);
 
-  // Initial load
+  // Initial project fetch - do only once
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
@@ -172,6 +172,13 @@ export default function BoardContent({
       fetchBoardData();
     }
   }, [currentProject, fetchBoardData, refreshTrigger]);
+
+  // Notify parent about project - only when it changes
+  useEffect(() => {
+    if (currentProject && onProjectUpdate) {
+      onProjectUpdate(currentProject);
+    }
+  }, [currentProject, onProjectUpdate]);
 
   // Handle new task creation
   const handleTaskCreated = (newTask: any) => {

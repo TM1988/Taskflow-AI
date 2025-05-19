@@ -13,6 +13,12 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface TaskImportExportProps {
   projectId: string;
@@ -42,16 +48,12 @@ export default function TaskImportExport({
         throw new Error(`Failed to export tasks: ${response.statusText}`);
       }
 
-      // Get the tasks as JSON
       const tasks = await response.json();
-
-      // Create a JSON file for download
       const blob = new Blob([JSON.stringify(tasks, null, 2)], {
         type: "application/json",
       });
       const url = URL.createObjectURL(blob);
 
-      // Create a download link and trigger it
       const downloadLink = document.createElement("a");
       downloadLink.href = url;
       downloadLink.download = `taskflow-tasks-${projectId}-${new Date().toISOString().slice(0, 10)}.json`;
@@ -59,7 +61,6 @@ export default function TaskImportExport({
       downloadLink.click();
       document.body.removeChild(downloadLink);
 
-      // Clean up the URL object
       URL.revokeObjectURL(url);
 
       toast({
@@ -91,7 +92,6 @@ export default function TaskImportExport({
 
     setIsImporting(true);
     try {
-      // Read the file content
       const fileContent = await importFile.text();
       let tasksToImport: any[];
 
@@ -108,7 +108,6 @@ export default function TaskImportExport({
         );
       }
 
-      // Send tasks to the API
       const response = await fetch(`/api/projects/${projectId}/import-tasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -127,11 +126,9 @@ export default function TaskImportExport({
         description: `Successfully imported ${result.importedCount} tasks`,
       });
 
-      // Close the dialog and reset state
       setImportDialogOpen(false);
       setImportFile(null);
 
-      // Notify parent component to refresh
       if (onTasksImported) {
         onTasksImported();
       }
@@ -152,28 +149,40 @@ export default function TaskImportExport({
 
   return (
     <div className="flex space-x-2">
-      <Button
-        variant="secondary"
-        onClick={handleExport}
-        disabled={isExporting}
-        className="flex items-center"
-      >
-        {isExporting ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        ) : (
-          <Download className="mr-2 h-4 w-4" />
-        )}
-        Export Tasks
-      </Button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleExport}
+              disabled={isExporting}
+            >
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Export Tasks</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
-      <Button
-        variant="secondary"
-        onClick={() => setImportDialogOpen(true)}
-        className="flex items-center"
-      >
-        <Upload className="mr-2 h-4 w-4" />
-        Import Tasks
-      </Button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setImportDialogOpen(true)}
+            >
+              <Upload className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Import Tasks</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
       {/* Import Dialog */}
       <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
