@@ -1,6 +1,6 @@
 'use client'
 
-import { useContext } from 'react'
+import { useContext, useState } from 'react'
 import Header from './Header'
 import TaskForm from './TaskForm'
 import TaskList from './TaskList'
@@ -11,6 +11,7 @@ import { RiTaskLine, RiCheckLine, RiGitPullRequestLine, RiTimeLine } from 'react
 
 export default function Dashboard() {
   const { tasks = [], filter = 'all', searchQuery = '' } = useContext(TodoContext) || {}
+  const [showNewTaskForm, setShowNewTaskForm] = useState(false)
   
   const filteredTasks = tasks.filter(task => {
     const statusMatch = 
@@ -131,8 +132,21 @@ export default function Dashboard() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Tasks</h2>
-              <button className="button-primary">New Task</button>
+              <button 
+                onClick={() => setShowNewTaskForm(true)} 
+                className="button-primary flex items-center gap-2"
+              >
+                <RiAddLine className="w-5 h-5" />
+                New Task
+              </button>
             </div>
+            
+            {showNewTaskForm && (
+              <div className="mb-8">
+                <TaskForm onComplete={() => setShowNewTaskForm(false)} />
+              </div>
+            )}
+            
             <SearchBar />
             <FilterTabs />
             <TaskList tasks={filteredTasks} />

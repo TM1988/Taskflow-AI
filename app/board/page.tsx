@@ -5,8 +5,8 @@ import { TodoContext } from '@/app/providers'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import Header from '@/components/Header'
 import TaskDetailsModal from '@/components/TaskDetailsModal'
-import { RiDragMoveLine, RiAddLine } from 'react-icons/ri'
 import TaskForm from '@/components/TaskForm'
+import { RiDragMoveLine, RiAddLine } from 'react-icons/ri'
 
 export default function Board() {
   const { tasks = [], toggleTask, updateTaskStatus } = useContext(TodoContext) || {}
@@ -152,4 +152,3 @@ export default function Board() {
       </div>
     </div>
   )
-}
