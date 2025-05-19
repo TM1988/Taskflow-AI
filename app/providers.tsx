@@ -10,14 +10,24 @@ export interface Task {
   createdAt: string
   priority: 'low' | 'medium' | 'high'
   status: 'todo' | 'inProgress' | 'review' | 'done'
+  description?: string
+  comments?: Comment[]
+}
+
+interface Comment {
+  id: string
+  text: string
+  author: string
+  createdAt: string
 }
 
 interface TodoContextType {
   tasks: Task[]
-  addTask: (title: string, priority: 'low' | 'medium' | 'high') => void
+  addTask: (title: string, priority: 'low' | 'medium' | 'high', description?: string) => void
   toggleTask: (id: string) => void
   deleteTask: (id: string) => void
   updateTaskStatus: (id: string, status: 'todo' | 'inProgress' | 'review' | 'done') => void
+  updateTask: (id: string, updates: Partial<Task>) => void
   filter: 'all' | 'active' | 'completed'
   setFilter: (filter: 'all' | 'active' | 'completed') => void
   searchQuery: string
@@ -30,6 +40,7 @@ export const TodoContext = createContext<TodoContextType>({
   toggleTask: () => {},
   deleteTask: () => {},
   updateTaskStatus: () => {},
+  updateTask: () => {},
   filter: 'all',
   setFilter: () => {},
   searchQuery: '',
@@ -58,24 +69,27 @@ export function Providers({ children }: { children: ReactNode }) {
           completed: false,
           createdAt: new Date().toISOString(),
           priority: 'high',
-          status: 'todo'
+          status: 'todo',
+          description: 'Implement the main dashboard with all required features and analytics.'
         },
         {
           id: uuidv4(),
-          title: 'Buy groceries',
-          completed: true,
+          title: 'Review pull requests',
+          completed: false,
           createdAt: new Date().toISOString(),
           priority: 'medium',
-          status: 'done'
+          status: 'inProgress',
+          description: 'Review and merge pending pull requests from the team.'
         },
         {
           id: uuidv4(),
-          title: 'Call mom',
+          title: 'Update documentation',
           completed: false,
           createdAt: new Date().toISOString(),
           priority: 'low',
-          status: 'todo'
-        },
+          status: 'review',
+          description: 'Update project documentation with latest changes and features.'
+        }
       ]
       setTasks(initialTasks)
       localStorage.setItem('tasks', JSON.stringify(initialTasks))
@@ -86,14 +100,15 @@ export function Providers({ children }: { children: ReactNode }) {
     localStorage.setItem('tasks', JSON.stringify(tasks))
   }, [tasks])
 
-  const addTask = (title: string, priority: 'low' | 'medium' | 'high') => {
+  const addTask = (title: string, priority: 'low' | 'medium' | 'high', description?: string) => {
     const newTask: Task = {
       id: uuidv4(),
       title,
       completed: false,
       createdAt: new Date().toISOString(),
       priority,
-      status: 'todo'
+      status: 'todo',
+      description
     }
     setTasks([...tasks, newTask])
   }
@@ -114,6 +129,14 @@ export function Providers({ children }: { children: ReactNode }) {
     )
   }
 
+  const updateTask = (id: string, updates: Partial<Task>) => {
+    setTasks(
+      tasks.map((task) =>
+        task.id === id ? { ...task, ...updates } : task
+      )
+    )
+  }
+
   const deleteTask = (id: string) => {
     setTasks(tasks.filter((task) => task.id !== id))
   }
@@ -126,6 +149,7 @@ export function Providers({ children }: { children: ReactNode }) {
         toggleTask,
         deleteTask,
         updateTaskStatus,
+        updateTask,
         filter,
         setFilter,
         searchQuery,

@@ -4,16 +4,24 @@ import { useState, useContext } from 'react'
 import { TodoContext } from '@/app/providers'
 import { RiAddLine } from 'react-icons/ri'
 
-export default function TaskForm() {
+interface Props {
+  onComplete?: () => void
+}
+
+export default function TaskForm({ onComplete }: Props) {
   const [newTask, setNewTask] = useState('')
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium')
+  const [description, setDescription] = useState('')
   const { addTask } = useContext(TodoContext)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (newTask.trim()) {
-      addTask(newTask.trim(), priority)
+      addTask(newTask.trim(), priority, description.trim() || undefined)
       setNewTask('')
+      setDescription('')
+      setPriority('medium')
+      onComplete?.()
     }
   }
 
@@ -36,8 +44,17 @@ export default function TaskForm() {
           <option value="medium">Medium</option>
           <option value="high">High</option>
         </select>
-        <button type="submit" className="button-primary px-6">
+      </div>
+      <textarea
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder="Add a description (optional)"
+        className="search-input w-full h-24 resize-none"
+      />
+      <div className="flex justify-end">
+        <button type="submit" className="button-primary px-6 flex items-center gap-2">
           <RiAddLine className="w-5 h-5" />
+          Add Task
         </button>
       </div>
     </form>
