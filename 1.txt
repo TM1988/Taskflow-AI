@@ -1,0 +1,456 @@
+[
+  {
+    "id": "1jS9W02YEnjnNqsZcSoz",
+    "title": "make the sidebar be always visible",
+    "description": "Right now, it scales with the page length and so I want it to be the same lengths and it doesnt scroll with the page.",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "columnId": "APNhMbTt4Pdmw4Zp0N63",
+    "status": "todo",
+    "priority": "high",
+    "order": 7,
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747594919,
+      "_nanoseconds": 283000000
+    },
+    "updatedAt": {
+      "_seconds": 1747594919,
+      "_nanoseconds": 283000000
+    }
+  },
+  {
+    "id": "4OocTm1jQ2RknpMnOOW1",
+    "title": "extra space under the analytics colored bubbles on dashboard page",
+    "description": "the colored backgrounds of the icons of the analytics have extra space under",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "columnId": "5dVQ8WYJCxbjTxfKWeHY",
+    "status": "todo",
+    "priority": "low",
+    "order": 12,
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747588326,
+      "_nanoseconds": 341000000
+    },
+    "updatedAt": {
+      "_seconds": 1747588326,
+      "_nanoseconds": 341000000
+    }
+  },
+  {
+    "id": "E0fJaMrxOq5wVjBrqaS3",
+    "title": "fix due date selector",
+    "description": "",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "status": "todo",
+    "priority": "high",
+    "isBlocked": false,
+    "createdAt": "2025-05-15T02:37:45.203Z",
+    "dueDate": "2025-05-15T05:00:00.000Z",
+    "columnId": "ABHuWcFjp1UNp3L0FLpu",
+    "order": 1,
+    "updatedAt": {
+      "_seconds": 1747322386,
+      "_nanoseconds": 553000000
+    }
+  },
+  {
+    "id": "E5bdRqCzY82ejMb3SLGh",
+    "title": "integrate the actual ai suggestions based on your current tasks",
+    "description": "",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "columnId": "5dVQ8WYJCxbjTxfKWeHY",
+    "status": "todo",
+    "priority": "medium",
+    "order": 9,
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747269746,
+      "_nanoseconds": 713000000
+    },
+    "updatedAt": {
+      "_seconds": 1747269746,
+      "_nanoseconds": 713000000
+    }
+  },
+  {
+    "id": "EXuWRM2R1ErDx6VG41kd",
+    "title": "make it so that I can edit and delete team members? and also implement the actual email invitation.",
+    "description": "",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "columnId": "APNhMbTt4Pdmw4Zp0N63",
+    "status": "todo",
+    "priority": "high",
+    "order": 8,
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747596652,
+      "_nanoseconds": 338000000
+    },
+    "updatedAt": {
+      "_seconds": 1747596652,
+      "_nanoseconds": 338000000
+    }
+  },
+  {
+    "id": "FV99hctpf5GZPRnQ0Iqk",
+    "title": "add taskflow logo somewhere",
+    "description": "",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "columnId": "5dVQ8WYJCxbjTxfKWeHY",
+    "status": "todo",
+    "priority": "low",
+    "order": 11,
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747322529,
+      "_nanoseconds": 142000000
+    },
+    "updatedAt": {
+      "_seconds": 1747322529,
+      "_nanoseconds": 142000000
+    }
+  },
+  {
+    "id": "H0SO5l3xI5nNAqvDK0l0",
+    "title": "due date selector improvements",
+    "description": "make it so that if you click the month in the top of the date selector, it changes to show all the months and if you click year it has a list of years up to 3000",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "columnId": "APNhMbTt4Pdmw4Zp0N63",
+    "status": "todo",
+    "priority": "medium",
+    "order": 6,
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747322492,
+      "_nanoseconds": 512000000
+    },
+    "updatedAt": {
+      "_seconds": 1747322492,
+      "_nanoseconds": 512000000
+    }
+  },
+  {
+    "id": "Jf2trpp6LgE6rJxy0Mxc",
+    "title": "fix edit menu in task details",
+    "description": "",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "status": "todo",
+    "priority": "high",
+    "isBlocked": false,
+    "columnId": "ABHuWcFjp1UNp3L0FLpu",
+    "order": 0,
+    "createdAt": "2025-05-15T00:40:29.866Z",
+    "dueDate": "2025-05-19T05:00:00.000Z",
+    "updatedAt": {
+      "_seconds": 1747277846,
+      "_nanoseconds": 85000000
+    }
+  },
+  {
+    "id": "KEVbzf9Rb2rNsNFfhRna",
+    "title": "fix error when clicking for task details",
+    "description": "when a task is first clicked it says error, then it loads details normally on 2nd click",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "status": "todo",
+    "priority": "high",
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747269661,
+      "_nanoseconds": 232000000
+    },
+    "columnId": "ABHuWcFjp1UNp3L0FLpu",
+    "order": 2,
+    "updatedAt": {
+      "_seconds": 1747322354,
+      "_nanoseconds": 610000000
+    }
+  },
+  {
+    "id": "RDM6g2jBJt6kDrMTt7Ks",
+    "title": "make analytics page",
+    "description": "",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "columnId": "5dVQ8WYJCxbjTxfKWeHY",
+    "status": "todo",
+    "priority": "low",
+    "order": 7,
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747269691,
+      "_nanoseconds": 600000000
+    },
+    "updatedAt": {
+      "_seconds": 1747269691,
+      "_nanoseconds": 600000000
+    }
+  },
+  {
+    "id": "SB1KJVDHjNMXswpn0gjr",
+    "title": "move 'X' icon in the edit menu to not be on the delete button",
+    "description": "",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "status": "todo",
+    "priority": "high",
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747278652,
+      "_nanoseconds": 493000000
+    },
+    "columnId": "ABHuWcFjp1UNp3L0FLpu",
+    "order": 0,
+    "updatedAt": {
+      "_seconds": 1747326006,
+      "_nanoseconds": 660000000
+    }
+  },
+  {
+    "id": "ULOGM52oIcXN2YbL2vKd",
+    "title": "make teams page and make it functional throughout app",
+    "description": "",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "columnId": "5dVQ8WYJCxbjTxfKWeHY",
+    "status": "todo",
+    "priority": "low",
+    "order": 8,
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747269713,
+      "_nanoseconds": 49000000
+    },
+    "updatedAt": {
+      "_seconds": 1747269713,
+      "_nanoseconds": 49000000
+    }
+  },
+  {
+    "id": "UTltww2li7oLseFCVuN9",
+    "title": "Edit menu takes long time to load",
+    "description": "",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "status": "todo",
+    "priority": "high",
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747322380,
+      "_nanoseconds": 492000000
+    },
+    "columnId": "ABHuWcFjp1UNp3L0FLpu",
+    "order": 2,
+    "updatedAt": {
+      "_seconds": 1747326014,
+      "_nanoseconds": 471000000
+    }
+  },
+  {
+    "id": "WEAOHWy4cBJ6RQmcdGds",
+    "title": "make repos page",
+    "description": "",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "columnId": "5dVQ8WYJCxbjTxfKWeHY",
+    "status": "todo",
+    "priority": "low",
+    "order": 6,
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747269679,
+      "_nanoseconds": 180000000
+    },
+    "updatedAt": {
+      "_seconds": 1747269679,
+      "_nanoseconds": 180000000
+    }
+  },
+  {
+    "id": "YYT4wvsf2GpASnt2gtj4",
+    "title": "change date format",
+    "description": "change how the due date looks in the board view",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "status": "todo",
+    "priority": "high",
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747277875,
+      "_nanoseconds": 290000000
+    },
+    "columnId": "ABHuWcFjp1UNp3L0FLpu",
+    "order": 1,
+    "updatedAt": {
+      "_seconds": 1747322279,
+      "_nanoseconds": 687000000
+    }
+  },
+  {
+    "id": "Zk5eRnQsqCYVBvru6UZR",
+    "title": "page switching is slow and laggy",
+    "description": "",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "status": "todo",
+    "priority": "low",
+    "order": 2,
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747269581,
+      "_nanoseconds": 653000000
+    },
+    "columnId": "APNhMbTt4Pdmw4Zp0N63",
+    "updatedAt": {
+      "_seconds": 1747587535,
+      "_nanoseconds": 437000000
+    }
+  },
+  {
+    "id": "gGABlRyiczf6XSwIEAg2",
+    "title": "github repositories refresh when github is changed/disconnected (Without manual page refresh)",
+    "description": "",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "columnId": "5dVQ8WYJCxbjTxfKWeHY",
+    "status": "todo",
+    "priority": "medium",
+    "order": 14,
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747594127,
+      "_nanoseconds": 928000000
+    },
+    "updatedAt": {
+      "_seconds": 1747594127,
+      "_nanoseconds": 928000000
+    }
+  },
+  {
+    "id": "q09FcZWiiiHvmuSDA2UX",
+    "title": "have to reload whole site on first load stuck on loading screen",
+    "description": "",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "status": "todo",
+    "priority": "high",
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747278611,
+      "_nanoseconds": 770000000
+    },
+    "order": 1,
+    "columnId": "ABHuWcFjp1UNp3L0FLpu",
+    "updatedAt": {
+      "_seconds": 1747588383,
+      "_nanoseconds": 676000000
+    }
+  },
+  {
+    "id": "t81fnS0cjztiiAnA5vZl",
+    "title": "HOST THE APP!!!",
+    "description": "vercel hosting for app.",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "columnId": "APNhMbTt4Pdmw4Zp0N63",
+    "status": "todo",
+    "priority": "high",
+    "order": 9,
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747596669,
+      "_nanoseconds": 167000000
+    },
+    "updatedAt": {
+      "_seconds": 1747596669,
+      "_nanoseconds": 167000000
+    }
+  },
+  {
+    "id": "tS2Su3ibpUzPrZLkxFGZ",
+    "title": "instant refresh without refreshing page",
+    "description": "edits to the board dont need to refresh the whole page",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "status": "todo",
+    "priority": "high",
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747278702,
+      "_nanoseconds": 85000000
+    },
+    "columnId": "ABHuWcFjp1UNp3L0FLpu",
+    "order": 0,
+    "updatedAt": {
+      "_seconds": 1747331297,
+      "_nanoseconds": 22000000
+    }
+  },
+  {
+    "id": "ufKseRKukwKFN1vOft9l",
+    "title": "make the navigation tabs on the ai suggestions not like attached",
+    "description": "",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "columnId": "5dVQ8WYJCxbjTxfKWeHY",
+    "status": "todo",
+    "priority": "low",
+    "order": 13,
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747588353,
+      "_nanoseconds": 150000000
+    },
+    "updatedAt": {
+      "_seconds": 1747588353,
+      "_nanoseconds": 150000000
+    }
+  },
+  {
+    "id": "z8thll5rxB2AlnLia6Qb",
+    "title": "supabase migration instead of firebase for storing things, possibly faster querys by doing this",
+    "description": "",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "status": "todo",
+    "priority": "high",
+    "order": 7,
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747322571,
+      "_nanoseconds": 840000000
+    },
+    "columnId": "5dVQ8WYJCxbjTxfKWeHY",
+    "updatedAt": {
+      "_seconds": 1747324698,
+      "_nanoseconds": 26000000
+    }
+  },
+  {
+    "id": "zofFBxQfyR7opNrxNaK9",
+    "title": "better delete UI instead of native browser dialog",
+    "description": "",
+    "projectId": "RfcK5dqKKrvBI0yoVNyY",
+    "status": "todo",
+    "priority": "high",
+    "isBlocked": false,
+    "dueDate": null,
+    "createdAt": {
+      "_seconds": 1747278670,
+      "_nanoseconds": 856000000
+    },
+    "order": 0,
+    "columnId": "ABHuWcFjp1UNp3L0FLpu",
+    "updatedAt": {
+      "_seconds": 1747331296,
+      "_nanoseconds": 499000000
+    }
+  }
+]

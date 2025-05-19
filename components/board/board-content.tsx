@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 interface BoardContentProps {
   onTaskSelect?: (taskId: string) => void;
   refreshTrigger?: number;
+  onProjectUpdate?: (project: any) => void; // New prop to update parent with project info
 }
 
 declare global {
@@ -27,6 +28,7 @@ declare global {
 export default function BoardContent({
   onTaskSelect,
   refreshTrigger = 0,
+  onProjectUpdate,
 }: BoardContentProps) {
   const [boardData, setBoardData] = useState<Record<string, any>>({});
   const [columns, setColumns] = useState<any[]>([]);
@@ -98,9 +100,19 @@ export default function BoardContent({
 
         const newProject = await newProjectResponse.json();
         setCurrentProject(newProject);
+
+        // Notify parent component about project
+        if (onProjectUpdate) {
+          onProjectUpdate(newProject);
+        }
       } else {
         // Use first project
         setCurrentProject(projects[0]);
+
+        // Notify parent component about project
+        if (onProjectUpdate) {
+          onProjectUpdate(projects[0]);
+        }
       }
     } catch (error) {
       console.error("Error fetching projects:", error);
@@ -110,7 +122,7 @@ export default function BoardContent({
         variant: "destructive",
       });
     }
-  }, [user, toast]);
+  }, [user, toast, onProjectUpdate]);
 
   // Fetch board data
   const fetchBoardData = useCallback(async () => {
@@ -280,42 +292,23 @@ export default function BoardContent({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Task Board</h1>
-          <p className="text-muted-foreground">
-            {currentProject ? currentProject.name : "Loading project..."}
-          </p>
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 overflow-x-auto pb-4">
+          {columns.map((column) => (
+            <KanbanColumn
+              key={column.id}
+              id={column.id}
+              title={column.name}
+              tasks={boardData[column.id]?.tasks || []}
+              onTaskClick={(taskId) => {
+                if (onTaskSelect) {
+                  onTaskSelect(taskId);
+                }
+              }}
+            />
+          ))}
         </div>
-        <Button onClick={() => setIsTaskDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Task
-        </Button>
-      </div>
-
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : (
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 overflow-x-auto pb-4">
-            {columns.map((column) => (
-              <KanbanColumn
-                key={column.id}
-                id={column.id}
-                title={column.name}
-                tasks={boardData[column.id]?.tasks || []}
-                onTaskClick={(taskId) => {
-                  if (onTaskSelect) {
-                    onTaskSelect(taskId);
-                  }
-                }}
-              />
-            ))}
-          </div>
-        </DragDropContext>
-      )}
+      </DragDropContext>
 
       <TaskDialog
         open={isTaskDialogOpen}

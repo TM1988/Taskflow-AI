@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import BoardContent from "@/components/board/board-content";
 import TaskDetail from "@/components/board/task-detail";
+import TaskImportExport from "@/components/board/task-import-export"; // Add this import
 import { useSearchParams } from "next/navigation";
 import { taskService } from "@/services/tasks/taskService";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +19,7 @@ export default function BoardPage() {
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentProject, setCurrentProject] = useState<any>(null); // Add this state
 
   // Handle task selection
   useEffect(() => {
@@ -103,6 +105,12 @@ export default function BoardPage() {
     }
   };
 
+  // Function to handle after tasks are imported
+  const handleTasksImported = () => {
+    // Refresh the board to show new tasks
+    setBoardRefreshTrigger((prev) => prev + 1);
+  };
+
   // Show loading state if still initializing
   if (isLoading && !initialLoadComplete) {
     return (
@@ -123,12 +131,37 @@ export default function BoardPage() {
     );
   }
 
+  // Get current project from BoardContent component
+  const updateCurrentProject = (project: any) => {
+    setCurrentProject(project);
+  };
+
   return (
     <>
-      <BoardContent
-        onTaskSelect={handleTaskSelect}
-        refreshTrigger={boardRefreshTrigger}
-      />
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Task Board</h1>
+            <p className="text-muted-foreground">
+              {currentProject ? currentProject.name : "Loading project..."}
+            </p>
+          </div>
+
+          {/* Import/Export Component */}
+          {currentProject && (
+            <TaskImportExport
+              projectId={currentProject.id}
+              onTasksImported={handleTasksImported}
+            />
+          )}
+        </div>
+
+        <BoardContent
+          onTaskSelect={handleTaskSelect}
+          refreshTrigger={boardRefreshTrigger}
+          onProjectUpdate={updateCurrentProject} // New prop to get current project
+        />
+      </div>
 
       <TaskDetail
         open={taskDetailOpen}
