@@ -1,13 +1,17 @@
 'use client'
 
-import { useContext } from 'react'
+import { useContext, useState } from 'react'
 import { TodoContext } from '@/app/providers'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import Header from '@/components/Header'
-import { RiDragMoveLine } from 'react-icons/ri'
+import TaskDetailsModal from '@/components/TaskDetailsModal'
+import { RiDragMoveLine, RiAddLine } from 'react-icons/ri'
+import TaskForm from '@/components/TaskForm'
 
 export default function Board() {
   const { tasks = [], toggleTask, updateTaskStatus } = useContext(TodoContext) || {}
+  const [selectedTask, setSelectedTask] = useState(null)
+  const [showNewTaskForm, setShowNewTaskForm] = useState(false)
 
   const columns = {
     todo: {
@@ -54,10 +58,25 @@ export default function Board() {
       <Header />
       <div className="p-8">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-8">
-            <h1 className="section-title">Board</h1>
-            <p className="section-subtitle">Manage your tasks with a drag-and-drop Kanban board</p>
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="section-title">Board</h1>
+              <p className="section-subtitle">Manage your tasks with a drag-and-drop Kanban board</p>
+            </div>
+            <button 
+              onClick={() => setShowNewTaskForm(true)}
+              className="button-primary flex items-center gap-2"
+            >
+              <RiAddLine className="w-5 h-5" />
+              New Task
+            </button>
           </div>
+
+          {showNewTaskForm && (
+            <div className="mb-8">
+              <TaskForm onComplete={() => setShowNewTaskForm(false)} />
+            </div>
+          )}
           
           <DragDropContext onDragEnd={handleDragEnd}>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -85,7 +104,8 @@ export default function Board() {
                               <div
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
-                                className="kanban-card group"
+                                className="kanban-card group cursor-pointer"
+                                onClick={() => setSelectedTask(task)}
                               >
                                 <div className="flex items-start gap-3">
                                   <div
@@ -117,6 +137,17 @@ export default function Board() {
               ))}
             </div>
           </DragDropContext>
+
+          {selectedTask && (
+            <TaskDetailsModal
+              task={selectedTask}
+              onClose={() => setSelectedTask(null)}
+              onUpdate={(updatedTask) => {
+                // Handle task update
+                setSelectedTask(null)
+              }}
+            />
+          )}
         </div>
       </div>
     </div>
