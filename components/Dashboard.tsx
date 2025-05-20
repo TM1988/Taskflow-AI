@@ -35,7 +35,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen">
-      <Header />
+      <Header title="Dashboard" subtitle="Your AI-powered project insights and management overview" />
       <div className="p-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
@@ -133,13 +133,15 @@ export default function Dashboard() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Tasks</h2>
-              <button 
-                onClick={() => setShowNewTaskForm(true)}
-                className="button-primary flex items-center gap-2"
-              >
-                <RiAddLine className="w-5 h-5" />
-                New Task
-              </button>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowNewTaskForm(true)}
+                  className="button-primary flex items-center gap-2"
+                >
+                  <RiAddLine className="w-5 h-5" />
+                  New Task
+                </button>
+              </div>
             </div>
 
             <TaskFormModal 

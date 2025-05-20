@@ -12,7 +12,7 @@ import {
 } from 'react-icons/ri'
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: RiDashboardLine },
+  { name: 'Dashboard', href: '/dashboard', icon: RiDashboardLine },
   { name: 'Board', href: '/board', icon: RiLayoutMasonryLine },
   { name: 'Analytics', href: '/analytics', icon: RiPieChartLine },
   { name: 'Repositories', href: '/repositories', icon: RiGitRepositoryLine },
@@ -40,7 +40,10 @@ export default function Sidebar() {
 
         <nav className="space-y-1">
           {navigation.map((item) => {
-            const isActive = pathname === item.href
+            // Check if the current path matches the navigation item's path exactly
+            // or if it's a sub-path (for nested routes)
+            const isActive = pathname === item.href || 
+              (item.href !== '/' && pathname.startsWith(item.href + '/'));
             const Icon = item.icon
             return (
               <Link

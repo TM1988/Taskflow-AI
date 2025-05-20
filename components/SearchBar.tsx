@@ -9,12 +9,13 @@ export default function SearchBar() {
 
   return (
     <div className="relative">
+      <RiSearchLine className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
       <input
         type="text"
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         placeholder="Search tasks..."
-        className="search-input"
+        className="search-input pl-10"
       />
     </div>
   )

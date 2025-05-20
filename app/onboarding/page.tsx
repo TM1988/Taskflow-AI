@@ -141,41 +141,50 @@ export default function OnboardingPage() {
               <div className="grid grid-cols-3 gap-3">
                 <button
                   type="button"
-                  onClick={() => setTheme('light')}
-                  className={`flex flex-col items-center justify-center p-3 rounded-lg border ${
-                    theme === 'light'
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
+                  onClick={() => {
+                    console.log('Setting theme to light in onboarding');
+                    setTheme('light');
+                  }}
+                  className={`flex flex-col items-center justify-center p-4 rounded-lg border ${
+                    theme === 'light' 
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
+                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                  } transition-all duration-200 hover:border-blue-500`}
                 >
-                  <RiSunLine className={`h-6 w-6 mb-1 ${theme === 'light' ? 'text-primary' : 'text-gray-700 dark:text-white'}`} />
-                  <span className={`text-sm ${theme === 'light' ? 'text-primary' : 'text-gray-700 dark:text-white'}`}>Light</span>
+                  <RiSunLine className="w-6 h-6 mb-2" />
+                  <span>Light {theme === 'light' ? '(active)' : ''}</span>
                 </button>
                 
                 <button
                   type="button"
-                  onClick={() => setTheme('dark')}
-                  className={`flex flex-col items-center justify-center p-3 rounded-lg border ${
-                    theme === 'dark'
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
+                  onClick={() => {
+                    console.log('Setting theme to dark in onboarding');
+                    setTheme('dark');
+                  }}
+                  className={`flex flex-col items-center justify-center p-4 rounded-lg border ${
+                    theme === 'dark' 
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
+                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                  } transition-all duration-200 hover:border-blue-500`}
                 >
-                  <RiMoonLine className={`h-6 w-6 mb-1 ${theme === 'dark' ? 'text-primary' : 'text-gray-700 dark:text-white'}`} />
-                  <span className={`text-sm ${theme === 'dark' ? 'text-primary' : 'text-gray-700 dark:text-white'}`}>Dark</span>
+                  <RiMoonLine className="w-6 h-6 mb-2" />
+                  <span>Dark {theme === 'dark' ? '(active)' : ''}</span>
                 </button>
                 
                 <button
                   type="button"
-                  onClick={() => setTheme('system')}
-                  className={`flex flex-col items-center justify-center p-3 rounded-lg border ${
-                    theme === 'system'
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
+                  onClick={() => {
+                    console.log('Setting theme to system in onboarding');
+                    setTheme('system');
+                  }}
+                  className={`flex flex-col items-center justify-center p-4 rounded-lg border ${
+                    theme === 'system' 
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
+                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                  } transition-all duration-200 hover:border-blue-500`}
                 >
-                  <RiComputerLine className={`h-6 w-6 mb-1 ${theme === 'system' ? 'text-primary' : 'text-gray-700 dark:text-white'}`} />
-                  <span className={`text-sm ${theme === 'system' ? 'text-primary' : 'text-gray-700 dark:text-white'}`}>System</span>
+                  <RiComputerLine className="w-6 h-6 mb-2" />
+                  <span>System {theme === 'system' ? '(active)' : ''}</span>
                 </button>
               </div>
             </div>

@@ -11,8 +11,8 @@ export default function Home() {
   useEffect(() => {
     if (!loading) {
       if (user) {
-        // If user is authenticated, redirect to dashboard
-        router.push('/dashboard')
+        // If user is authenticated, redirect to board
+        router.push('/board')
       } else {
         // If user is not authenticated, redirect to login
         router.push('/login')

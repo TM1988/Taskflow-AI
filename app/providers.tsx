@@ -1,34 +1,25 @@
 'use client'
 
-import { createContext, useState, useEffect, ReactNode } from 'react'
-import { v4 as uuidv4 } from 'uuid'
+import React, { createContext, useState, useEffect, useContext } from 'react'
 import { AuthProvider } from '@/contexts/AuthContext'
 
+// Define the Task type
 export interface Task {
   id: string
   title: string
   completed: boolean
-  createdAt: string
   priority: 'low' | 'medium' | 'high'
-  status: 'todo' | 'inProgress' | 'review' | 'done'
   description?: string
   dueDate?: string
-  comments?: Comment[]
-}
-
-interface Comment {
-  id: string
-  text: string
-  author: string
   createdAt: string
 }
 
+// Define the context type
 interface TodoContextType {
   tasks: Task[]
   addTask: (title: string, priority: 'low' | 'medium' | 'high', description?: string, dueDate?: string) => void
   toggleTask: (id: string) => void
   deleteTask: (id: string) => void
-  updateTaskStatus: (id: string, status: 'todo' | 'inProgress' | 'review' | 'done') => void
   updateTask: (id: string, updates: Partial<Task>) => void
   filter: 'all' | 'active' | 'completed'
   setFilter: (filter: 'all' | 'active' | 'completed') => void
@@ -36,263 +27,94 @@ interface TodoContextType {
   setSearchQuery: (query: string) => void
 }
 
-export const TodoContext = createContext<TodoContextType>({
-  tasks: [],
-  addTask: () => {},
-  toggleTask: () => {},
-  deleteTask: () => {},
-  updateTaskStatus: () => {},
-  updateTask: () => {},
-  filter: 'all',
-  setFilter: () => {},
-  searchQuery: '',
-  setSearchQuery: () => {}
-} as TodoContextType)
+// Create the context
+export const TodoContext = createContext<TodoContextType | null>(null)
 
-export function TodoProviders({ children }: { children: ReactNode }) {
-  // Initialize tasks with an empty array to avoid hydration errors
-  const [tasks, setTasks] = useState<Task[]>([]);
+// Create a provider component
+export function Providers({ children }: { children: React.ReactNode }) {
+  // State for tasks
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all')
+  const [searchQuery, setSearchQuery] = useState('')
   
-  // Flag to track if component is mounted (client-side only)
-  const [isClient, setIsClient] = useState(false);
-
-  const toggleTask = (id: string) => {
-    try {
-      // Log the toggle action for debugging
-      console.log('Toggling task completion:', { id });
-      
-      // Update tasks using setTasks
-      setTasks((prevTasks: Task[]) => {
-        const updatedTasks = prevTasks.map((task: Task) => {
-          if (task.id === id) {
-            // Toggle completion and update status accordingly
-            const completed = !task.completed;
-            const status = completed ? 'done' : 'todo' as 'todo' | 'inProgress' | 'review' | 'done';
-            
-            // Create a deep copy with updated values
-            return { 
-              ...task, 
-              completed, 
-              status 
-            };
-          }
-          return task;
-        });
-        
-        // Save to localStorage
-        localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-        return updatedTasks;
-      });
-    } catch (error) {
-      console.error('Error toggling task:', error);
-    }
-  };
-
-  const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Set isClient to true once component mounts (client-side only)
+  // Load tasks from localStorage on component mount
   useEffect(() => {
-    setIsClient(true)
-  }, [])
-
-  // Load tasks from localStorage only on the client-side
-  useEffect(() => {
-    if (!isClient) return;
-    
     const savedTasks = localStorage.getItem('tasks')
     if (savedTasks) {
       try {
         setTasks(JSON.parse(savedTasks))
       } catch (error) {
-        console.error('Failed to parse saved tasks', error)
+        console.error('Error parsing saved tasks:', error)
         setTasks([])
       }
-    } else {
-      const initialTasks: Task[] = [
-        {
-          id: uuidv4(),
-          title: 'Complete project dashboard',
-          completed: false,
-          createdAt: new Date().toISOString(),
-          priority: 'high',
-          status: 'todo',
-          description: 'Implement the main dashboard with all required features and analytics.',
-          comments: []
-        },
-        {
-          id: uuidv4(),
-          title: 'Review pull requests',
-          completed: false,
-          createdAt: new Date().toISOString(),
-          priority: 'medium',
-          status: 'inProgress',
-          description: 'Review and merge pending pull requests from the team.',
-          comments: []
-        },
-        {
-          id: uuidv4(),
-          title: 'Update documentation',
-          completed: false,
-          createdAt: new Date().toISOString(),
-          priority: 'low',
-          status: 'review',
-          description: 'Update project documentation with latest changes and features.',
-          comments: []
-        }
-      ]
-      setTasks(initialTasks)
-      localStorage.setItem('tasks', JSON.stringify(initialTasks))
     }
-  }, [isClient])
-
-  // This useEffect is removed as it's redundant with the one above
-
-  // Save tasks to localStorage whenever they change, but only on client-side
+  }, [])
+  
+  // Save tasks to localStorage whenever they change
   useEffect(() => {
-    if (!isClient) return;
-    
-    try {
-      console.log('Saving tasks to localStorage:', tasks.length, 'tasks');
-      localStorage.setItem('tasks', JSON.stringify(tasks));
-    } catch (error) {
-      console.error('Error saving tasks to localStorage:', error);
-    }
-  }, [tasks, isClient])
-
+    localStorage.setItem('tasks', JSON.stringify(tasks))
+  }, [tasks])
+  
+  // Function to add a new task
   const addTask = (title: string, priority: 'low' | 'medium' | 'high', description?: string, dueDate?: string) => {
-    try {
-      const newTask: Task = {
-        id: uuidv4(),
-        title,
-        completed: false,
-        createdAt: new Date().toISOString(),
-        priority,
-        status: 'todo',
-        description,
-        dueDate,
-        comments: []
-      };
-      
-      console.log('Adding new task:', newTask);
-      setTasks([...tasks, newTask]);
-    } catch (error) {
-      console.error('Error adding task:', error);
+    const newTask: Task = {
+      id: Date.now().toString(),
+      title,
+      completed: false,
+      priority,
+      description,
+      dueDate,
+      createdAt: new Date().toISOString()
     }
+    setTasks([...tasks, newTask])
   }
-
-  // toggleTask function is already defined above
-
-  const updateTaskStatus = (id: string, status: 'todo' | 'inProgress' | 'review' | 'done') => {
-    try {
-      // Log the status update for debugging
-      console.log('Updating task status:', { id, status });
-      
-      // Create new tasks array with the updated status
-      const updatedTasks = tasks.map((task) => {
-        if (task.id === id) {
-          // Create a deep copy with updated status
-          const updatedTask = { 
-            ...task, 
-            status, 
-            completed: status === 'done' 
-          };
-          
-          // Log the specific task update
-          console.log('Task status updated:', { 
-            id, 
-            oldStatus: task.status, 
-            newStatus: status,
-            wasCompleted: task.completed,
-            isNowCompleted: status === 'done'
-          });
-          
-          return updatedTask;
-        }
-        return task;
-      });
-      
-      // Update the state
-      setTasks(updatedTasks);
-      
-      // Save to localStorage immediately to ensure persistence
-      localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-      console.log('Tasks saved to localStorage after status update');
-    } catch (error) {
-      console.error('Error updating task status:', error);
-    }
+  
+  // Function to toggle a task's completed status
+  const toggleTask = (id: string) => {
+    setTasks(tasks.map(task => 
+      task.id === id ? { ...task, completed: !task.completed } : task
+    ))
   }
-
-  const updateTask = (id: string, updates: Partial<Task>) => {
-    try {
-      // Log what we're updating for debugging
-      console.log('Updating task in context:', { id, updates });
-      
-      // Create new tasks array with the updated task
-      const updatedTasks = tasks.map((task: Task) => {
-        if (task.id === id) {
-          // Create a deep copy to avoid reference issues
-          const updatedTask = { ...task, ...updates };
-          
-          // Ensure the due date is properly handled
-          if (updates.dueDate !== undefined) {
-            updatedTask.dueDate = updates.dueDate;
-          }
-          
-          // Log the specific task update
-          console.log('Task updated:', { before: task, after: updatedTask });
-          
-          return updatedTask;
-        }
-        return task;
-      });
-      
-      // Update the state
-      setTasks(updatedTasks);
-      
-      // Save to localStorage immediately to ensure persistence
-      localStorage.setItem('tasks', JSON.stringify(updatedTasks));
-      console.log('Tasks saved to localStorage after update');
-      
-      // Force a re-render to ensure UI updates
-      setTimeout(() => {
-        console.log('UI updated after task update');
-      }, 10);
-    } catch (error) {
-      console.error('Error updating task:', error);
-    }
-  }
-
+  
+  // Function to delete a task
   const deleteTask = (id: string) => {
-    setTasks(tasks.filter((task) => task.id !== id))
+    setTasks(tasks.filter(task => task.id !== id))
   }
-
+  
+  // Function to update a task
+  const updateTask = (id: string, updates: Partial<Task>) => {
+    setTasks(tasks.map(task => 
+      task.id === id ? { ...task, ...updates } : task
+    ))
+  }
+  
+  // Provide the context value
+  const contextValue: TodoContextType = {
+    tasks,
+    addTask,
+    toggleTask,
+    deleteTask,
+    updateTask,
+    filter,
+    setFilter,
+    searchQuery,
+    setSearchQuery
+  }
+  
   return (
-    <TodoContext.Provider
-      value={{
-        tasks,
-        addTask,
-        toggleTask,
-        deleteTask,
-        updateTaskStatus,
-        updateTask,
-        filter,
-        setFilter,
-        searchQuery,
-        setSearchQuery,
-      }}
-    >
-      {children}
-    </TodoContext.Provider>
+    <AuthProvider>
+      <TodoContext.Provider value={contextValue}>
+        {children}
+      </TodoContext.Provider>
+    </AuthProvider>
   )
 }
 
-export function Providers({ children }: { children: ReactNode }) {
-  return (
-    <AuthProvider>
-      <TodoProviders>
-        {children}
-      </TodoProviders>
-    </AuthProvider>
-  )
+// Custom hook to use the todo context
+export const useTodo = () => {
+  const context = useContext(TodoContext)
+  if (!context) {
+    throw new Error('useTodo must be used within a TodoProvider')
+  }
+  return context
 }
