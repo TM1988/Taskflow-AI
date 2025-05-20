@@ -1,6 +1,6 @@
 'use client'
 
-import { useContext, useState, useRef, useCallback } from 'react'
+import { useContext, useState, useRef, useCallback, useEffect } from 'react'
 import { TodoContext } from '@/app/providers'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
@@ -150,21 +150,44 @@ function Board() {
   // Add local state to force re-render when tasks are moved
   const [, forceUpdate] = useState({})
 
-  // Group tasks by completion status
-  // We'll use the completed property to determine if a task is done
-  // For other columns, we'll use the priority property
+  // We need to track which column each task is in
+  const [taskColumns, setTaskColumns] = useState<Record<string, string>>({});
+
+  // Initialize task columns if they don't exist
+  useEffect(() => {
+    const newTaskColumns = { ...taskColumns };
+    let changed = false;
+
+    tasks.forEach(task => {
+      if (!taskColumns[task.id]) {
+        // Default new tasks to the appropriate column
+        if (task.completed) {
+          newTaskColumns[task.id] = 'done';
+        } else {
+          newTaskColumns[task.id] = 'todo';
+        }
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      setTaskColumns(newTaskColumns);
+    }
+  }, [tasks, taskColumns]);
+
+  // Group tasks by their assigned column
   const columns = {
     todo: {
       title: 'To Do',
-      items: tasks.filter(task => !task.completed)
+      items: tasks.filter(task => !task.completed && taskColumns[task.id] === 'todo')
     },
     inProgress: {
       title: 'In Progress',
-      items: []
+      items: tasks.filter(task => !task.completed && taskColumns[task.id] === 'inProgress')
     },
     review: {
       title: 'Review',
-      items: []
+      items: tasks.filter(task => !task.completed && taskColumns[task.id] === 'review')
     },
     done: {
       title: 'Done',
@@ -188,8 +211,11 @@ function Board() {
       // Determine if the task should be marked as completed
       const shouldComplete = targetColumn === 'done';
       
-      // Don't change the priority when moving between columns
-      // Only update the completion status
+      // Update the task column in our local state
+      setTaskColumns(prev => ({
+        ...prev,
+        [taskId]: targetColumn
+      }));
       
       console.log('Moving task from', sourceColumn, 'to', targetColumn, 'with completion:', shouldComplete);
       
