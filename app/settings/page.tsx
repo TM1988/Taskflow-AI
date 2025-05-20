@@ -129,17 +129,18 @@ export default function Settings() {
               </div>
               
               <div className="p-6">
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-3">
                   <button
                     type="button"
                     onClick={() => {
-                      console.log('Setting theme to light');
+                      console.log('Setting theme to light in settings');
                       setTheme('light');
                     }}
-                    className={`flex flex-col items-center justify-center p-4 rounded-lg border ${theme === 'light' 
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
-                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'} 
-                      transition-all duration-200 hover:border-blue-500`}
+                    className={`flex flex-col items-center justify-center p-4 rounded-lg border ${
+                      theme === 'light' 
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
+                        : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                    } transition-all duration-200 hover:border-blue-500`}
                   >
                     <RiSunLine className="w-6 h-6 mb-2" />
                     <span>Light {theme === 'light' ? '(active)' : ''}</span>
@@ -148,13 +149,14 @@ export default function Settings() {
                   <button
                     type="button"
                     onClick={() => {
-                      console.log('Setting theme to dark');
+                      console.log('Setting theme to dark in settings');
                       setTheme('dark');
                     }}
-                    className={`flex flex-col items-center justify-center p-4 rounded-lg border ${theme === 'dark' 
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
-                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'} 
-                      transition-all duration-200 hover:border-blue-500`}
+                    className={`flex flex-col items-center justify-center p-4 rounded-lg border ${
+                      theme === 'dark' 
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
+                        : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                    } transition-all duration-200 hover:border-blue-500`}
                   >
                     <RiMoonLine className="w-6 h-6 mb-2" />
                     <span>Dark {theme === 'dark' ? '(active)' : ''}</span>

@@ -151,20 +151,20 @@ function Board() {
   const [, forceUpdate] = useState({})
 
   // Group tasks by completion status
-  // Since we don't have a status property, we'll use the completed property
-  // and priority to determine which column a task belongs to
+  // We'll use the completed property to determine if a task is done
+  // For other columns, we'll use the priority property
   const columns = {
     todo: {
       title: 'To Do',
-      items: tasks.filter(task => !task.completed && task.priority === 'low')
+      items: tasks.filter(task => !task.completed)
     },
     inProgress: {
       title: 'In Progress',
-      items: tasks.filter(task => !task.completed && task.priority === 'medium')
+      items: []
     },
     review: {
       title: 'Review',
-      items: tasks.filter(task => !task.completed && task.priority === 'high')
+      items: []
     },
     done: {
       title: 'Done',
@@ -188,25 +188,21 @@ function Board() {
       // Determine if the task should be marked as completed
       const shouldComplete = targetColumn === 'done';
       
-      // Determine the new priority based on the target column
-      let newPriority = taskToMove.priority;
-      if (targetColumn === 'todo') newPriority = 'low';
-      if (targetColumn === 'inProgress') newPriority = 'medium';
-      if (targetColumn === 'review') newPriority = 'high';
+      // Don't change the priority when moving between columns
+      // Only update the completion status
       
       console.log('Moving task from', sourceColumn, 'to', targetColumn, 'with completion:', shouldComplete);
       
-      // Create an updated task with the new priority and completion status
+      // Create an updated task with the new completion status only
       const updatedTask = {
         ...taskToMove,
-        priority: newPriority as 'low' | 'medium' | 'high',
         completed: shouldComplete
       };
       
       // Use the updateTask function to update the task directly
       if (updateTask) {
         updateTask(taskId, updatedTask);
-        console.log('Task updated successfully with new priority:', newPriority, 'and completion:', shouldComplete);
+        console.log('Task updated successfully with completion:', shouldComplete);
         
         // Force a re-render to update the UI immediately
         setTimeout(() => forceUpdate({}), 10);
@@ -227,7 +223,7 @@ function Board() {
   
   return (
     <div className="min-h-screen">
-      <Header title="Board" subtitle="Organize and manage your tasks" />
+      {/* Header is removed to avoid duplication */}
       <div className="p-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-8">
