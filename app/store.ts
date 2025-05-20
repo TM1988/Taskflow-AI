@@ -8,6 +8,11 @@ interface SettingsStore {
   setName: (name: string) => void
   email: string
   setEmail: (email: string) => void
+  apiKeys: {
+    openai?: string
+    github?: string
+  }
+  setApiKey: (provider: 'openai' | 'github', key: string) => void
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -19,6 +24,10 @@ export const useSettingsStore = create<SettingsStore>()(
       setName: (name) => set({ name }),
       email: 'john@example.com',
       setEmail: (email) => set({ email }),
+      apiKeys: {},
+      setApiKey: (provider, key) => set((state) => ({
+        apiKeys: { ...state.apiKeys, [provider]: key }
+      })),
     }),
     {
       name: 'settings-storage',
