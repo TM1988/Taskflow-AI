@@ -4,7 +4,7 @@ import { useContext } from 'react'
 import { TodoContext } from '@/app/providers'
 
 export default function FilterTabs() {
-  const { filter, setFilter } = useContext(TodoContext)
+  const { filter = 'all', setFilter = () => {} } = useContext(TodoContext) || {}
 
   return (
     <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-lg w-fit">

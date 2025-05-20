@@ -6,7 +6,7 @@ import { TodoContext, Task } from '@/app/providers'
 import { RiCheckLine, RiCloseLine } from 'react-icons/ri'
 
 export default function TaskItem({ task }: { task: Task }) {
-  const { toggleTask, deleteTask } = useContext(TodoContext)
+  const { toggleTask = () => {}, deleteTask = () => {} } = useContext(TodoContext) || {}
 
   const priorityColors = {
     high: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',

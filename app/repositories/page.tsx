@@ -45,7 +45,7 @@ export default function Repositories() {
 
   return (
     <div className="min-h-screen">
-      <Header />
+      <Header title="Repositories" subtitle="Connect and manage your GitHub repositories" />
       <div className="p-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">

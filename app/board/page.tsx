@@ -144,25 +144,27 @@ const Column = ({ columnId, title, tasks, onTaskClick, onDrop }: {
 }
 
 function Board() {
-  const { tasks = [], toggleTask, updateTaskStatus, updateTask } = useContext(TodoContext) || {}
+  const { tasks = [], toggleTask, updateTask } = useContext(TodoContext) || {}
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [showNewTaskForm, setShowNewTaskForm] = useState(false)
   // Add local state to force re-render when tasks are moved
   const [, forceUpdate] = useState({})
 
-  // Group tasks by status
+  // Group tasks by completion status
+  // Since we don't have a status property, we'll use the completed property
+  // and priority to determine which column a task belongs to
   const columns = {
     todo: {
       title: 'To Do',
-      items: tasks.filter(task => task.status === 'todo' && !task.completed)
+      items: tasks.filter(task => !task.completed && task.priority === 'low')
     },
     inProgress: {
       title: 'In Progress',
-      items: tasks.filter(task => task.status === 'inProgress')
+      items: tasks.filter(task => !task.completed && task.priority === 'medium')
     },
     review: {
       title: 'Review',
-      items: tasks.filter(task => task.status === 'review')
+      items: tasks.filter(task => !task.completed && task.priority === 'high')
     },
     done: {
       title: 'Done',
@@ -183,24 +185,28 @@ function Board() {
     }
     
     try {
-      // Determine the new status based on the target column
-      const newStatus = targetColumn as 'todo' | 'inProgress' | 'review' | 'done';
+      // Determine if the task should be marked as completed
       const shouldComplete = targetColumn === 'done';
+      
+      // Determine the new priority based on the target column
+      let newPriority = taskToMove.priority;
+      if (targetColumn === 'todo') newPriority = 'low';
+      if (targetColumn === 'inProgress') newPriority = 'medium';
+      if (targetColumn === 'review') newPriority = 'high';
       
       console.log('Moving task from', sourceColumn, 'to', targetColumn, 'with completion:', shouldComplete);
       
-      // Create an updated task with the new status
+      // Create an updated task with the new priority and completion status
       const updatedTask = {
         ...taskToMove,
-        status: newStatus,
+        priority: newPriority as 'low' | 'medium' | 'high',
         completed: shouldComplete
       };
       
       // Use the updateTask function to update the task directly
-      // This will ensure all properties are preserved and the task is saved to localStorage
       if (updateTask) {
         updateTask(taskId, updatedTask);
-        console.log('Task updated successfully with new status:', newStatus);
+        console.log('Task updated successfully with new priority:', newPriority, 'and completion:', shouldComplete);
         
         // Force a re-render to update the UI immediately
         setTimeout(() => forceUpdate({}), 10);
@@ -221,7 +227,7 @@ function Board() {
   
   return (
     <div className="min-h-screen">
-      <Header />
+      <Header title="Board" subtitle="Organize and manage your tasks" />
       <div className="p-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-8">
@@ -263,36 +269,7 @@ function Board() {
             <TaskDetailsModal
               task={selectedTask}
               onClose={() => setSelectedTask(null)}
-              onUpdate={(updatedTask) => {
-                try {
-                  // Use the updateTask function from context to update the task
-                  if (updateTask) {
-                    // Log the update for debugging
-                    console.log('Updating task from modal:', {
-                      id: updatedTask.id,
-                      title: updatedTask.title,
-                      dueDate: updatedTask.dueDate,
-                      status: updatedTask.status
-                    });
-                    
-                    // Update the task with all the changes
-                    updateTask(updatedTask.id, updatedTask);
-                    
-                    // Force a re-render to update the UI immediately
-                    setTimeout(() => {
-                      forceUpdate({});
-                      console.log('UI updated after task edit');
-                    }, 10);
-                  } else {
-                    console.error('updateTask function not available');
-                  }
-                } catch (error) {
-                  console.error('Error updating task from modal:', error);
-                } finally {
-                  // Always close the modal
-                  setSelectedTask(null);
-                }
-              }}
+              isOpen={!!selectedTask}
             />
           )}
         </div>

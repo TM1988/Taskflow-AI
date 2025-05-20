@@ -57,7 +57,7 @@ export default function Team() {
 
   return (
     <div className="min-h-screen">
-      <Header />
+      <Header title="Team" subtitle="Manage your team members and their roles" />
       <div className="p-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">

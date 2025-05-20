@@ -35,7 +35,7 @@ export default function Dashboard() {
   
   return (
     <div className="min-h-screen">
-      <Header />
+      <Header title="Dashboard" subtitle={`Welcome back, ${user?.displayName || 'Tanish'}`} />
       <div className="p-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">

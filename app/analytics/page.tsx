@@ -9,11 +9,13 @@ import { RiTaskLine, RiTimeLine, RiCheckLine, RiErrorWarningLine } from 'react-i
 export default function Analytics() {
   const { tasks = [] } = useContext(TodoContext) || {}
 
+  // Since we don't have a status field, we'll use the completed field to determine status
+  // We'll consider all incomplete tasks as 'todo' for simplicity
   const stats = {
     total: tasks.length,
-    todo: tasks.filter(task => task.status === 'todo').length,
-    inProgress: tasks.filter(task => task.status === 'inProgress').length,
-    review: tasks.filter(task => task.status === 'review').length,
+    todo: tasks.filter(task => !task.completed).length,
+    inProgress: 0, // We don't have this status in our current model
+    review: 0, // We don't have this status in our current model
     done: tasks.filter(task => task.completed).length,
     highPriority: tasks.filter(task => task.priority === 'high').length,
     mediumPriority: tasks.filter(task => task.priority === 'medium').length,
@@ -37,7 +39,7 @@ export default function Analytics() {
 
   return (
     <div className="min-h-screen">
-      <Header />
+      <Header title="Analytics" subtitle="Track your project progress and team performance" />
       <div className="p-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">

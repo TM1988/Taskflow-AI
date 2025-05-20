@@ -5,7 +5,7 @@ import { TodoContext } from '@/app/providers'
 import { RiSearchLine } from 'react-icons/ri'
 
 export default function SearchBar() {
-  const { searchQuery, setSearchQuery } = useContext(TodoContext)
+  const { searchQuery = '', setSearchQuery = () => {} } = useContext(TodoContext) || {}
 
   return (
     <div className="relative">
