@@ -1,6 +1,7 @@
 // app/api/projects/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/firebaseAdmin";
+import { adminDb } from "@/services/admin/mongoAdmin";
+import { ObjectId } from "mongodb";
 
 export async function GET(
   request: NextRequest,
@@ -8,23 +9,29 @@ export async function GET(
 ) {
   try {
     const projectId = params.id;
+    
+    if (!adminDb) {
+      throw new Error("Database not initialized");
+    }
+
     const projectDoc = await adminDb
       .collection("projects")
-      .doc(projectId)
-      .get();
+      .findOne({ _id: new ObjectId(projectId) });
 
-    if (!projectDoc.exists) {
+    if (!projectDoc) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
     return NextResponse.json({
-      id: projectDoc.id,
-      ...projectDoc.data(),
+      id: projectDoc._id.toString(),
+      ...projectDoc,
+      _id: undefined,
     });
-  } catch (error) {
-    console.error("Error fetching project:", error);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("Error fetching project:", err);
     return NextResponse.json(
-      { error: "Failed to fetch project" },
+      { error: "Failed to fetch project", details: err?.message || 'Unknown error' },
       { status: 500 },
     );
   }
@@ -37,24 +44,33 @@ export async function PUT(
   try {
     const projectId = params.id;
     const data = await request.json();
+    
+    if (!adminDb) {
+      throw new Error("Database not initialized");
+    }
 
     // Update the project
     await adminDb
       .collection("projects")
-      .doc(projectId)
-      .update({
-        ...data,
-        updatedAt: new Date(),
-      });
+      .updateOne(
+        { _id: new ObjectId(projectId) },
+        {
+          $set: {
+            ...data,
+            updatedAt: new Date(),
+          },
+        },
+      );
 
     return NextResponse.json({
       id: projectId,
       ...data,
     });
-  } catch (error) {
-    console.error("Error updating project:", error);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("Error updating project:", err);
     return NextResponse.json(
-      { error: "Failed to update project" },
+      { error: "Failed to update project", details: err?.message || 'Unknown error' },
       { status: 500 },
     );
   }
@@ -66,13 +82,16 @@ export async function DELETE(
 ) {
   try {
     const projectId = params.id;
+    
+    if (!adminDb) {
+      throw new Error("Database not initialized");
+    }
 
     // Check if project exists
     const projectDoc = await adminDb
       .collection("projects")
-      .doc(projectId)
-      .get();
-    if (!projectDoc.exists) {
+      .findOne({ _id: new ObjectId(projectId) });
+    if (!projectDoc) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
@@ -85,7 +104,7 @@ export async function DELETE(
       );
     }
 
-    const projectData = projectDoc.data();
+    const projectData = projectDoc;
     if (projectData?.ownerId !== userId) {
       return NextResponse.json(
         { error: "Only the project owner can delete a project" },
@@ -94,16 +113,17 @@ export async function DELETE(
     }
 
     // Delete the project
-    await adminDb.collection("projects").doc(projectId).delete();
+    await adminDb.collection("projects").deleteOne({ _id: new ObjectId(projectId) });
 
     // TODO: In a production app, you'd also delete related resources
     // like tasks, columns, etc. in a transaction or with Cloud Functions
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error deleting project:", error);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error("Error deleting project:", err);
     return NextResponse.json(
-      { error: "Failed to delete project" },
+      { error: "Failed to delete project", details: err?.message || 'Unknown error' },
       { status: 500 },
     );
   }

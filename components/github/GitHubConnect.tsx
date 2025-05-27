@@ -1,7 +1,7 @@
 // components/github/GitHubConnect.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,17 +13,20 @@ import {
 import { GitHubIcon } from "@/components/icons";
 import { useAuth } from "@/services/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { getDocument } from "@/services/db/firestore";
 import { Loader2 } from "lucide-react";
 
-const GITHUB_CLIENT_ID = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
-const GITHUB_TOKENS_COLLECTION = "githubTokens";
+interface GitHubConnectProps {
+  projectId?: string;
+}
 
-export default function GitHubConnect() {
-  const [isConnected, setIsConnected] = useState<boolean | null>(null);
-  const [isConnecting, setIsConnecting] = useState(false);
+export const GitHubConnect: React.FC<GitHubConnectProps> = ({ projectId }) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [repositories, setRepositories] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState<boolean | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
 
   // Check if user has connected GitHub
   useEffect(() => {
@@ -31,9 +34,13 @@ export default function GitHubConnect() {
       if (!user?.uid) return;
 
       try {
-        // Check if user has a GitHub token directly
-        const tokenDoc = await getDocument(GITHUB_TOKENS_COLLECTION, user.uid);
-        setIsConnected(!!tokenDoc);
+        // Use API route instead of direct MongoDB call
+        const response = await fetch(`/api/github/connection-status?userId=${user.uid}`);
+        if (!response.ok) {
+          throw new Error('Failed to check connection status');
+        }
+        const data = await response.json();
+        setIsConnected(data.isConnected);
       } catch (error) {
         console.error("Error checking GitHub connection:", error);
         setIsConnected(false);
@@ -47,7 +54,58 @@ export default function GitHubConnect() {
     }
   }, [user]);
 
+  const connectRepository = async (fullName: string) => {
+    if (!user || !projectId) return;
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/github/connect-repository', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.uid, projectId, repositoryFullName: fullName }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to connect repository');
+      }
+      
+      // Refresh repositories
+      loadRepositories();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to connect repository");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadRepositories = async () => {
+    if (!user) return;
+
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/github/repositories?userId=${user.uid}`);
+      if (response.ok) {
+        const repos = await response.json();
+        setRepositories(repos);
+      } else {
+        throw new Error('Failed to load repositories');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load repositories");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      loadRepositories();
+    }
+  }, [user]);
+
   const handleConnectGitHub = () => {
+    const GITHUB_CLIENT_ID = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
+    
     if (!GITHUB_CLIENT_ID) {
       toast({
         title: "Configuration Error",
@@ -192,4 +250,6 @@ export default function GitHubConnect() {
       </CardContent>
     </Card>
   );
-}
+};
+
+export default GitHubConnect;

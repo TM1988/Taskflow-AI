@@ -1,6 +1,7 @@
 // app/api/users/[id]/ai-config/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/firebaseAdmin";
+import { adminDb } from "@/services/admin/mongoAdmin";
+import { ObjectId } from "mongodb";
 
 export async function GET(
   request: NextRequest,
@@ -10,10 +11,24 @@ export async function GET(
     const userId = params.id;
     console.log("GET AI config for user:", userId);
 
-    // Return a simple response for testing
+    if (!adminDb) {
+      throw new Error("MongoDB not initialized");
+    }
+
+    const userDoc = await adminDb.collection("users").findOne({ _id: new ObjectId(userId) });
+    
+    if (!userDoc) {
+      return NextResponse.json({
+        isEnabled: false,
+        hasApiKey: false,
+      });
+    }
+
+    const aiConfig = userDoc.aiConfig || { isEnabled: false };
+    
     return NextResponse.json({
-      isEnabled: false,
-      hasApiKey: false,
+      isEnabled: aiConfig.isEnabled || false,
+      hasApiKey: !!aiConfig.apiKey,
     });
   } catch (error) {
     console.error("Error in AI config GET:", error);
@@ -27,13 +42,23 @@ export async function POST(
 ) {
   try {
     const userId = params.id;
-    console.log("POST AI config for user:", userId);
-
-    // For testing, just log what we received
     const body = await request.json();
-    console.log("Received data:", body);
+    
+    if (!adminDb) {
+      throw new Error("MongoDB not initialized");
+    }
 
-    // Return a simple success response
+    await adminDb.collection("users").updateOne(
+      { _id: new ObjectId(userId) },
+      { 
+        $set: {
+          aiConfig: body,
+          updatedAt: new Date(),
+        },
+      },
+      { upsert: true }
+    );
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error in AI config POST:", error);

@@ -215,6 +215,8 @@ export default function BoardContent({
   const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
 
+    console.log("Drag end result:", { destination, source, draggableId });
+
     // If dropped outside a droppable area
     if (!destination) return;
 
@@ -228,7 +230,18 @@ export default function BoardContent({
 
     // Find the task being dragged
     const task = tasks.find((t) => t.id === draggableId);
-    if (!task) return;
+    if (!task) {
+      console.error("Task not found:", draggableId);
+      return;
+    }
+
+    console.log("Moving task:", {
+      taskId: task.id,
+      taskTitle: task.title,
+      fromColumn: source.droppableId,
+      toColumn: destination.droppableId,
+      currentColumnId: task.columnId,
+    });
 
     try {
       // Make an optimistic update to the UI first
@@ -257,6 +270,12 @@ export default function BoardContent({
       // Update the state immediately for better UX
       setBoardData(updatedBoardData);
 
+      console.log("Making API call to update task column:", {
+        taskId: task.id,
+        newColumnId: destination.droppableId,
+        order: destination.index,
+      });
+
       // Then make the API call
       const response = await fetch(`/api/tasks/${task.id}`, {
         method: "PUT",
@@ -268,24 +287,36 @@ export default function BoardContent({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to update task");
+        const errorData = await response.json();
+        console.error("API response error:", errorData);
+        throw new Error(`API Error: ${errorData.error || response.statusText}`);
       }
+
+      const updateResult = await response.json();
+      console.log("Task update successful:", updateResult);
 
       // Update the tasks array
       const updatedTasks = tasks.map((t) =>
         t.id === draggableId ? { ...t, columnId: destination.droppableId } : t,
       );
       setTasks(updatedTasks);
+
+      toast({
+        title: "Task moved",
+        description: `Task "${task.title}" moved successfully`,
+      });
     } catch (error) {
       console.error("Error updating task:", error);
       toast({
         title: "Error",
-        description: "Failed to update task",
+        description: `Failed to move task: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
         variant: "destructive",
       });
 
       // Revert to previous state
-      fetchBoardData();
+      await fetchBoardData();
     }
   };
 

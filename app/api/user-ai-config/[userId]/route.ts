@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/firebaseAdmin";
+import { adminDb } from "@/services/admin/mongoAdmin";
 import { GoogleAiService } from "@/services/ai/googleAiService";
+import { ObjectId } from "mongodb";
 
 // Function to verify API key is valid
 async function verifyApiKey(apiKey: string): Promise<boolean> {
@@ -23,12 +24,17 @@ export async function GET(
     const userId = params.userId;
     console.log("GET AI config for user:", userId);
 
+    if (!adminDb) {
+      throw new Error("MongoDB not initialized");
+    }
+
     // Get the user document
-    const userDoc = await adminDb.collection("users").doc(userId).get();
+    const userDoc = await adminDb
+      .collection("users")
+      .findOne({ _id: new ObjectId(userId) });
 
     // If user document doesn't exist, return default values
-    // We don't create it on GET to avoid unnecessary writes
-    if (!userDoc.exists) {
+    if (!userDoc) {
       console.log(`User document for ${userId} not found, returning defaults`);
       return NextResponse.json({
         isEnabled: false,
@@ -37,8 +43,7 @@ export async function GET(
     }
 
     // Get the AI configuration
-    const userData = userDoc.data();
-    const aiConfig = userData?.aiConfig || { isEnabled: false };
+    const aiConfig = userDoc.aiConfig || { isEnabled: false };
 
     console.log(
       `Retrieved AI config for ${userId}: enabled=${aiConfig.isEnabled}, hasKey=${!!aiConfig.apiKey}`,
@@ -79,14 +84,20 @@ export async function POST(
       console.log("API key verification successful");
     }
 
+    if (!adminDb) {
+      throw new Error("MongoDB not initialized");
+    }
+
     // Update user document - create if it doesn't exist
-    const userRef = adminDb.collection("users").doc(userId);
-    const userDoc = await userRef.get();
+    const userDoc = await adminDb
+      .collection("users")
+      .findOne({ _id: new ObjectId(userId) });
 
     // If user document doesn't exist, create it with basic info
-    if (!userDoc.exists) {
+    if (!userDoc) {
       console.log(`Creating new user document for ${userId}`);
-      await userRef.set({
+      await adminDb.collection("users").insertOne({
+        _id: new ObjectId(userId),
         id: userId,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -97,15 +108,15 @@ export async function POST(
       });
     } else {
       // Just update the AI config if user exists
-      await userRef.set(
+      await adminDb.collection("users").updateOne(
+        { _id: new ObjectId(userId) },
         {
-          aiConfig: {
-            isEnabled: isEnabled !== undefined ? isEnabled : false,
-            ...(apiKey !== undefined && { apiKey }),
+          $set: {
+            "aiConfig.isEnabled": isEnabled !== undefined ? isEnabled : false,
+            ...(apiKey !== undefined && { "aiConfig.apiKey": apiKey }),
+            updatedAt: new Date(),
           },
-          updatedAt: new Date(),
         },
-        { merge: true },
       );
     }
 

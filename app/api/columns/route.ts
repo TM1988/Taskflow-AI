@@ -1,7 +1,7 @@
 // app/api/columns/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/firebaseAdmin";
-import { FirestoreQueryDocumentSnapshot } from "@/types/firestore-types";
+import { getAdminDb } from "@/services/admin/mongoAdmin";
+import { ObjectId } from "mongodb";
 
 // Get columns for a project
 export async function GET(request: NextRequest) {
@@ -16,20 +16,30 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const columnsSnapshot = await adminDb
+    const adminDb = await getAdminDb();
+    if (!adminDb) {
+      return NextResponse.json(
+        { error: "Database connection failed" },
+        { status: 500 },
+      );
+    }
+
+    const columns = await adminDb
       .collection("columns")
-      .where("projectId", "==", projectId)
-      .orderBy("order", "asc")
-      .get();
+      .find({ projectId: new ObjectId(projectId) })
+      .sort({ order: 1 })
+      .toArray();
 
-    const columns = columnsSnapshot.docs.map(
-      (doc: FirestoreQueryDocumentSnapshot) => ({
-        id: doc.id,
-        ...doc.data(),
-      }),
-    );
+    const transformedColumns = columns.map(col => ({
+      id: col._id.toString(),
+      name: col.name,
+      projectId: col.projectId.toString(),
+      order: col.order,
+      createdAt: col.createdAt,
+      updatedAt: col.updatedAt,
+    }));
 
-    return NextResponse.json(columns);
+    return NextResponse.json(transformedColumns);
   } catch (error) {
     console.error("Error fetching columns:", error);
     return NextResponse.json(
@@ -51,31 +61,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const adminDb = await getAdminDb();
+    if (!adminDb) {
+      return NextResponse.json(
+        { error: "Database connection failed" },
+        { status: 500 },
+      );
+    }
+
     // Get the max order value to place this column at the end
-    const columnsSnapshot = await adminDb
+    const columns = await adminDb
       .collection("columns")
-      .where("projectId", "==", data.projectId)
-      .orderBy("order", "desc")
+      .find({ projectId: new ObjectId(data.projectId) })
+      .sort({ order: -1 })
       .limit(1)
-      .get();
+      .toArray();
 
-    const maxOrder = columnsSnapshot.empty
-      ? 0
-      : (columnsSnapshot.docs[0].data().order || 0) + 1;
+    const maxOrder = columns.length > 0 ? (columns[0].order || 0) + 1 : 0;
 
-    const columnRef = adminDb.collection("columns").doc();
     const columnData = {
-      ...data,
+      name: data.name,
+      projectId: new ObjectId(data.projectId),
       order: data.order !== undefined ? data.order : maxOrder,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
-    await columnRef.set(columnData);
+    const result = await adminDb.collection("columns").insertOne(columnData);
 
     return NextResponse.json({
-      id: columnRef.id,
-      ...columnData,
+      id: result.insertedId.toString(),
+      name: columnData.name,
+      projectId: data.projectId,
+      order: columnData.order,
+      createdAt: columnData.createdAt,
+      updatedAt: columnData.updatedAt,
     });
   } catch (error) {
     console.error("Error creating column:", error);

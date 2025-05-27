@@ -1,6 +1,6 @@
 // app/api/github/auth/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/firebaseAdmin";
+import { getAdminDb } from "@/services/admin/mongoAdmin";
 
 export async function DELETE(request: NextRequest) {
   try {
@@ -18,8 +18,14 @@ export async function DELETE(request: NextRequest) {
 
     console.log(`Deleting GitHub token for user ${userId}`);
 
-    // Delete using Admin SDK
-    await adminDb.collection("githubTokens").doc(userId).delete();
+    const adminDb = await getAdminDb();
+
+    if (!adminDb) {
+      throw new Error("MongoDB connection failed");
+    }
+
+    // Remove GitHub token
+    await adminDb.collection("githubTokens").deleteOne({ userId });
 
     console.log("GitHub token deleted successfully");
     return NextResponse.json({ success: true });

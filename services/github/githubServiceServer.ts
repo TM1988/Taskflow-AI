@@ -6,7 +6,7 @@ import {
   updateDocument,
   deleteDocument,
   setDocument,
-} from "@/services/db/firestore";
+} from "@/services/db/mongodb";
 
 // Collection names
 const GITHUB_TOKENS_COLLECTION = "githubTokens";

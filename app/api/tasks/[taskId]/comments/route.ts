@@ -1,36 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/firebaseAdmin";
-import {
-  DocumentData,
-  QueryDocumentSnapshot,
-  Timestamp,
-} from "firebase-admin/firestore";
-
-// Define interfaces for type checking
-interface CommentData {
-  id: string;
-  content: string;
-  taskId: string;
-  authorId: string;
-  authorName: string;
-  createdAt: any; // Using 'any' for flexibility with date types
-  updatedAt: any;
-}
-
-// Helper function to safely get date values
-function getDateValue(timestamp: any): number {
-  if (timestamp && typeof timestamp.toDate === "function") {
-    return timestamp.toDate().getTime();
-  }
-  if (timestamp instanceof Date) {
-    return timestamp.getTime();
-  }
-  try {
-    return new Date(timestamp).getTime();
-  } catch (e) {
-    return 0;
-  }
-}
+import { getAdminDb } from "@/services/admin/mongoAdmin";
+import { ObjectId } from "mongodb";
 
 export async function GET(
   request: NextRequest,
@@ -39,27 +9,31 @@ export async function GET(
   try {
     const taskId = params.taskId;
 
-    // Get comments without ordering to avoid index issues
-    const commentsSnapshot = await adminDb
+    const adminDb = await getAdminDb();
+    if (!adminDb) {
+      return NextResponse.json(
+        { error: "Database connection failed" },
+        { status: 500 },
+      );
+    }
+
+    const comments = await adminDb
       .collection("comments")
-      .where("taskId", "==", taskId)
-      .get();
+      .find({ taskId: new ObjectId(taskId) })
+      .sort({ createdAt: 1 })
+      .toArray();
 
-    const comments = commentsSnapshot.docs.map(
-      (doc: QueryDocumentSnapshot<DocumentData>) => ({
-        id: doc.id,
-        ...doc.data(),
-      }),
-    );
+    const transformedComments = comments.map(comment => ({
+      id: comment._id.toString(),
+      content: comment.content,
+      taskId: comment.taskId.toString(),
+      authorId: comment.authorId,
+      authorName: comment.authorName,
+      createdAt: comment.createdAt ? comment.createdAt.toISOString() : null,
+      updatedAt: comment.updatedAt ? comment.updatedAt.toISOString() : null,
+    }));
 
-    // Sort locally instead of using orderBy in Firestore
-    comments.sort((a: CommentData, b: CommentData) => {
-      if (!a.createdAt) return 1;
-      if (!b.createdAt) return -1;
-      return getDateValue(a.createdAt) - getDateValue(b.createdAt);
-    });
-
-    return NextResponse.json(comments);
+    return NextResponse.json(transformedComments);
   } catch (error) {
     console.error("Error fetching comments:", error);
     return NextResponse.json(
@@ -84,23 +58,33 @@ export async function POST(
       );
     }
 
-    const commentRef = adminDb.collection("comments").doc();
-    const now = new Date();
+    const adminDb = await getAdminDb();
+    if (!adminDb) {
+      return NextResponse.json(
+        { error: "Database connection failed" },
+        { status: 500 },
+      );
+    }
 
     const commentData = {
-      taskId,
+      taskId: new ObjectId(taskId),
       content: data.content,
       authorId: data.authorId,
       authorName: data.authorName || "User",
-      createdAt: now,
-      updatedAt: now,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
-    await commentRef.set(commentData);
+    const result = await adminDb.collection("comments").insertOne(commentData);
 
     return NextResponse.json({
-      id: commentRef.id,
-      ...commentData,
+      id: result.insertedId.toString(),
+      content: commentData.content,
+      taskId: taskId,
+      authorId: commentData.authorId,
+      authorName: commentData.authorName,
+      createdAt: commentData.createdAt.toISOString(),
+      updatedAt: commentData.updatedAt.toISOString(),
     });
   } catch (error) {
     console.error("Error adding comment:", error);

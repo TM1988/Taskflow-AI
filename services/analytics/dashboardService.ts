@@ -1,41 +1,27 @@
-import { adminDb } from "@/services/admin/firebaseAdmin";
+import { adminDb } from "@/services/admin/mongoAdmin";
 import { Task } from "@/types/task";
-import { FirestoreQueryDocumentSnapshot } from "@/types/firestore-types";
+import { ObjectId } from "mongodb";
 
 export const dashboardService = {
   // Get comprehensive project stats for dashboard
   async getProjectStats(userId: string) {
     try {
-      // Get user projects
-      const projectsSnapshot = await adminDb
-        .collection("projects")
-        .where("members", "array-contains", userId)
-        .get();
+      if (!adminDb) {
+        throw new Error("MongoDB not initialized");
+      }
 
-      const projects = projectsSnapshot.docs.map(
-        (doc: FirestoreQueryDocumentSnapshot) => ({
-          id: doc.id,
-          ...doc.data(),
-        }),
-      );
+      // Get user projects
+      const projects = await adminDb
+        .collection("projects")
+        .find({ members: { $in: [userId] } })
+        .toArray();
 
       // Get tasks for all projects
-      const tasksPromises = projects.map(async (project: { id: string }) => {
-        const tasksSnapshot = await adminDb
-          .collection("tasks")
-          .where("projectId", "==", project.id)
-          .get();
-
-        return tasksSnapshot.docs.map(
-          (doc: FirestoreQueryDocumentSnapshot) => ({
-            id: doc.id,
-            ...doc.data(),
-          }),
-        );
-      });
-
-      const projectTasks = await Promise.all(tasksPromises);
-      const allTasks = projectTasks.flat() as Task[];
+      const projectIds = projects.map((project) => project._id.toString());
+      const allTasks = await adminDb
+        .collection("tasks")
+        .find({ projectId: { $in: projectIds } })
+        .toArray();
 
       // Calculate statistics
       const tasksByStatus = {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/firebaseAdmin";
-import { FirestoreQueryDocumentSnapshot } from "@/types/firestore-types";
+import { getMongoDb } from "@/services/singleton";
+import { ObjectId } from "mongodb";
 
 export async function GET(
   request: NextRequest,
@@ -16,32 +16,68 @@ export async function GET(
       );
     }
 
+    const { mongoDb } = getMongoDb();
+
+    if (!mongoDb) {
+      throw new Error("MongoDB not initialized");
+    }
+
+    // Get all columns for the project
+    const columns = await mongoDb
+      .collection("columns")
+      .find({ projectId })
+      .sort({ order: 1 })
+      .toArray();
+
+    // Transform columns to the required format
+    const transformedColumns = columns.map(col => ({
+      id: col._id.toString(),
+      ...col,
+      _id: undefined,
+    }));
+
     // Get all tasks for the project
-    const tasksSnapshot = await adminDb
+    const tasks = await mongoDb
       .collection("tasks")
-      .where("projectId", "==", projectId)
-      .get();
+      .find({ projectId })
+      .toArray();
 
     // Transform tasks to the required format
-    const tasks = tasksSnapshot.docs.map(
-      (doc: FirestoreQueryDocumentSnapshot) => {
-        const data = doc.data();
+    const transformedTasks = tasks.map(task => ({
+      id: task._id.toString(),
+      ...task,
+      _id: undefined,
+      // Convert MongoDB dates to Firestore timestamp format for compatibility
+      createdAt: task.createdAt ? {
+        _seconds: Math.floor(task.createdAt.getTime() / 1000),
+        _nanoseconds: (task.createdAt.getTime() % 1000) * 1000000
+      } : undefined,
+      updatedAt: task.updatedAt ? {
+        _seconds: Math.floor(task.updatedAt.getTime() / 1000),
+        _nanoseconds: (task.updatedAt.getTime() % 1000) * 1000000
+      } : undefined,
+    }));
 
-        // Return the task with its ID
-        return {
-          id: doc.id,
-          ...data,
-          // We keep the createdAt and updatedAt format as they are
-          // which matches the Firebase Timestamp format with _seconds and _nanoseconds
-        };
+    // Get project details
+    const project = await mongoDb.collection("projects").findOne({ _id: new ObjectId(projectId) });
+    
+    // Create the export object with metadata
+    const exportData = {
+      metadata: {
+        exportedAt: new Date(),
+        projectId: projectId,
+        projectName: project?.name || "Unknown Project",
+        version: "1.0"
       },
-    );
+      columns: transformedColumns,
+      tasks: transformedTasks
+    };
 
-    return NextResponse.json(tasks);
+    return NextResponse.json(exportData);
   } catch (error) {
-    console.error("Error exporting tasks:", error);
+    console.error("Error exporting board data:", error);
     return NextResponse.json(
-      { error: "Failed to export tasks" },
+      { error: "Failed to export board data" },
       { status: 500 },
     );
   }

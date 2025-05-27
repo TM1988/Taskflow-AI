@@ -1,7 +1,8 @@
 // app/api/ai/task-suggestions/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleAiService } from "@/services/ai/googleAiService";
-import { adminDb } from "@/services/admin/firebaseAdmin";
+import { getMongoDb } from "@/services/singleton";
+import { ObjectId } from "mongodb";
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,16 +22,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user's API key from Firestore
-    const userDoc = await adminDb.collection("users").doc(userId).get();
+    // Get user's API key from MongoDB
+    const { mongoDb } = getMongoDb();
 
-    if (!userDoc.exists) {
+    if (!mongoDb) {
+      throw new Error("MongoDB not initialized");
+    }
+
+    const userDoc = await mongoDb.collection("users").findOne({ _id: new ObjectId(userId) });
+
+    if (!userDoc) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const userData = userDoc.data();
-
-    if (!userData?.aiConfig?.apiKey || !userData?.aiConfig?.isEnabled) {
+    if (!userDoc?.aiConfig?.apiKey || !userDoc?.aiConfig?.isEnabled) {
       return NextResponse.json(
         { error: "AI features are not enabled or configured for this user" },
         { status: 403 },
@@ -38,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Initialize Google AI service with user's API key
-    const aiService = new GoogleAiService(userData.aiConfig.apiKey);
+    const aiService = new GoogleAiService(userDoc.aiConfig.apiKey);
 
     // Generate suggestions
     const suggestions = await aiService.generateTaskSuggestions(

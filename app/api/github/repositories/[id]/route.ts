@@ -1,7 +1,7 @@
 // app/api/github/repositories/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/firebaseAdmin";
-import { githubServiceServer } from "@/services/github/githubServiceServer";
+import { getAdminDb } from "@/services/admin/mongoAdmin";
+import { ObjectId } from "mongodb";
 
 export async function GET(
   request: NextRequest,
@@ -9,12 +9,17 @@ export async function GET(
 ) {
   try {
     const repoId = params.id;
+    const adminDb = await getAdminDb();
+
+    if (!adminDb) {
+      throw new Error("MongoDB connection failed");
+    }
+
     const repository = await adminDb
       .collection("repositories")
-      .doc(repoId)
-      .get();
+      .findOne({ _id: new ObjectId(repoId) });
 
-    if (!repository.exists) {
+    if (!repository) {
       return NextResponse.json(
         { error: "Repository not found" },
         { status: 404 },
@@ -22,8 +27,9 @@ export async function GET(
     }
 
     return NextResponse.json({
-      id: repository.id,
-      ...repository.data(),
+      id: repository._id.toString(),
+      ...repository,
+      _id: undefined,
     });
   } catch (error) {
     console.error("Error fetching repository:", error);
@@ -41,15 +47,24 @@ export async function PUT(
   try {
     const repoId = params.id;
     const data = await request.json();
+    const adminDb = await getAdminDb();
+
+    if (!adminDb) {
+      throw new Error("MongoDB connection failed");
+    }
 
     // Update repository
     await adminDb
       .collection("repositories")
-      .doc(repoId)
-      .update({
-        ...data,
-        updatedAt: new Date(),
-      });
+      .updateOne(
+        { _id: new ObjectId(repoId) },
+        {
+          $set: {
+            ...data,
+            updatedAt: new Date(),
+          }
+        }
+      );
 
     return NextResponse.json({ success: true, id: repoId });
   } catch (error) {
@@ -76,10 +91,16 @@ export async function DELETE(
       );
     }
 
-    // Get repository to ensure it exists
-    const repoDoc = await adminDb.collection("repositories").doc(repoId).get();
+    const adminDb = await getAdminDb();
 
-    if (!repoDoc.exists) {
+    if (!adminDb) {
+      throw new Error("MongoDB connection failed");
+    }
+
+    // Get repository to ensure it exists
+    const repoDoc = await adminDb.collection("repositories").findOne({ _id: new ObjectId(repoId) });
+
+    if (!repoDoc) {
       return NextResponse.json(
         { error: "Repository not found" },
         { status: 404 },
@@ -87,7 +108,7 @@ export async function DELETE(
     }
 
     // Delete the repository
-    await adminDb.collection("repositories").doc(repoId).delete();
+    await adminDb.collection("repositories").deleteOne({ _id: new ObjectId(repoId) });
 
     return NextResponse.json({ success: true });
   } catch (error) {
