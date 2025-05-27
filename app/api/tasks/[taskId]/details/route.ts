@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/firebaseAdmin";
+import { getAdminDb } from "@/services/admin/mongoAdmin";
+import { ObjectId } from "mongodb";
 
 export async function GET(
   request: NextRequest,
@@ -14,54 +15,43 @@ export async function GET(
   }
 
   try {
-    // Get the task document
-    const taskRef = adminDb.collection("tasks").doc(taskId);
-    const taskDoc = await taskRef.get();
+    const adminDb = await getAdminDb();
+    if (!adminDb) {
+      return NextResponse.json(
+        { error: "Database connection failed" },
+        { status: 500 },
+      );
+    }
 
-    if (!taskDoc.exists) {
+    // Get the task document
+    const task = await adminDb
+      .collection("tasks")
+      .findOne({ _id: new ObjectId(taskId) });
+
+    if (!task) {
       console.log(`[API] Task ${taskId} not found`);
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    // Get task data
-    const taskData = taskDoc.data();
     console.log(`[API] Successfully fetched task ${taskId}`);
 
-    // Process dates to ensure they're serializable
-    let processedData = { ...taskData };
+    // Transform MongoDB document to expected format
+    const processedData = {
+      id: task._id.toString(),
+      title: task.title,
+      description: task.description || "",
+      projectId: task.projectId.toString(),
+      columnId: task.columnId.toString(),
+      status: task.status,
+      priority: task.priority,
+      order: task.order,
+      isBlocked: task.isBlocked,
+      dueDate: task.dueDate ? task.dueDate.toISOString() : null,
+      createdAt: task.createdAt ? task.createdAt.toISOString() : null,
+      updatedAt: task.updatedAt ? task.updatedAt.toISOString() : null,
+    };
 
-    // Handle due date
-    if (taskData?.dueDate) {
-      if (typeof taskData.dueDate.toDate === "function") {
-        processedData.dueDate = taskData.dueDate.toDate().toISOString();
-      } else if (taskData.dueDate instanceof Date) {
-        processedData.dueDate = taskData.dueDate.toISOString();
-      }
-    }
-
-    // Handle createdAt
-    if (taskData?.createdAt) {
-      if (typeof taskData.createdAt.toDate === "function") {
-        processedData.createdAt = taskData.createdAt.toDate().toISOString();
-      } else if (taskData.createdAt instanceof Date) {
-        processedData.createdAt = taskData.createdAt.toISOString();
-      }
-    }
-
-    // Handle updatedAt
-    if (taskData?.updatedAt) {
-      if (typeof taskData.updatedAt.toDate === "function") {
-        processedData.updatedAt = taskData.updatedAt.toDate().toISOString();
-      } else if (taskData.updatedAt instanceof Date) {
-        processedData.updatedAt = taskData.updatedAt.toISOString();
-      }
-    }
-
-    // Return the task data with its ID
-    return NextResponse.json({
-      id: taskDoc.id,
-      ...processedData,
-    });
+    return NextResponse.json(processedData);
   } catch (error) {
     console.error("[API] Error fetching task details:", error);
     return NextResponse.json(

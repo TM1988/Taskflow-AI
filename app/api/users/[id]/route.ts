@@ -1,6 +1,7 @@
 // app/api/users/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/firebaseAdmin";
+import { adminDb } from "@/services/admin/mongoAdmin";
+import { ObjectId } from "mongodb";
 
 export async function GET(
   request: NextRequest,
@@ -8,20 +9,26 @@ export async function GET(
 ) {
   try {
     const userId = params.id;
-    const userDoc = await adminDb.collection("users").doc(userId).get();
 
-    if (!userDoc.exists) {
+    if (!adminDb) {
+      throw new Error("MongoDB not initialized");
+    }
+
+    const userDoc = await adminDb
+      .collection("users")
+      .findOne({ _id: new ObjectId(userId) });
+
+    if (!userDoc) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // Filter out sensitive information
-    const userData = userDoc.data();
     const safeUserData = {
-      id: userDoc.id,
-      displayName: userData?.displayName,
-      email: userData?.email,
-      photoURL: userData?.photoURL,
-      createdAt: userData?.createdAt,
+      id: userDoc._id.toString(),
+      displayName: userDoc.displayName,
+      email: userDoc.email,
+      photoURL: userDoc.photoURL,
+      createdAt: userDoc.createdAt,
     };
 
     return NextResponse.json(safeUserData);

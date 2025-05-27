@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/firebaseAdmin";
+import { getAdminDb } from "@/services/admin/mongoAdmin";
+import { ObjectId } from "mongodb";
 
 export async function GET(
   request: NextRequest,
@@ -13,29 +14,37 @@ export async function GET(
   }
 
   try {
-    const taskRef = adminDb.collection("tasks").doc(taskId);
-    const taskDoc = await taskRef.get();
+    const adminDb = await getAdminDb();
+    if (!adminDb) {
+      return NextResponse.json(
+        { error: "Database connection failed" },
+        { status: 500 },
+      );
+    }
 
-    if (!taskDoc.exists) {
+    const task = await adminDb
+      .collection("tasks")
+      .findOne({ _id: new ObjectId(taskId) });
+
+    if (!task) {
       console.log(`[DIRECT API] Task ${taskId} not found`);
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    // Get task data
-    const taskData = taskDoc.data();
-
-    // Format the data to be serializable
     const result = {
-      id: taskDoc.id,
-      ...taskData,
+      id: task._id.toString(),
+      title: task.title,
+      description: task.description || "",
+      projectId: task.projectId.toString(),
+      columnId: task.columnId.toString(),
+      status: task.status,
+      priority: task.priority,
+      order: task.order,
+      isBlocked: task.isBlocked,
+      dueDate: task.dueDate ? task.dueDate.toISOString() : null,
+      createdAt: task.createdAt ? task.createdAt.toISOString() : null,
+      updatedAt: task.updatedAt ? task.updatedAt.toISOString() : null,
     };
-
-    // Handle date formatting
-    ["createdAt", "updatedAt", "dueDate", "completedAt"].forEach((field) => {
-      if (result[field] && typeof result[field].toDate === "function") {
-        result[field] = result[field].toDate().toISOString();
-      }
-    });
 
     // Add a small artificial delay in development to make loading state more visible
     if (process.env.NODE_ENV === "development") {

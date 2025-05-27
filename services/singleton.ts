@@ -1,47 +1,43 @@
-import { initializeApp, getApps, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
-import { getAuth } from "firebase-admin/auth";
+import { MongoClient, Db } from 'mongodb';
 
-// Check if we're running on the server side
-const isServer = typeof window === "undefined";
+let mongoClient: MongoClient | null = null;
+let mongoDb: Db | null = null;
 
-// Global variables to store singleton instances
-let adminApp: any = null;
-let adminDb: any = null;
-let adminAuth: any = null;
-let initialized = false;
+export function getMongoDb() {
+  if (!mongoClient || !mongoDb) {
+    throw new Error('MongoDB not initialized. Call initializeMongoDB first.');
+  }
+  
+  return { mongoClient, mongoDb };
+}
 
-export function getAdminSdk() {
-  if (isServer && !initialized) {
-    console.log("Initializing Firebase Admin SDK (singleton)");
-
-    if (
-      !process.env.FIREBASE_ADMIN_PROJECT_ID ||
-      !process.env.FIREBASE_ADMIN_CLIENT_EMAIL ||
-      !process.env.FIREBASE_ADMIN_PRIVATE_KEY
-    ) {
-      throw new Error("Firebase Admin environment variables are missing");
-    }
-
-    if (getApps().length === 0) {
-      adminApp = initializeApp({
-        credential: cert({
-          projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY.replace(
-            /\\n/g,
-            "\n",
-          ),
-        }),
-      });
-    } else {
-      adminApp = getApps()[0];
-    }
-
-    adminDb = getFirestore(adminApp);
-    adminAuth = getAuth(adminApp);
-    initialized = true;
+export async function initializeMongoDB() {
+  if (mongoClient && mongoDb) {
+    return { mongoClient, mongoDb };
   }
 
-  return { adminApp, adminDb, adminAuth };
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    throw new Error('MONGODB_URI environment variable is not set');
+  }
+
+  try {
+    mongoClient = new MongoClient(uri);
+    await mongoClient.connect();
+    mongoDb = mongoClient.db();
+    
+    console.log('MongoDB connected successfully');
+    return { mongoClient, mongoDb };
+  } catch (error) {
+    console.error('Failed to connect to MongoDB:', error);
+    throw error;
+  }
+}
+
+export async function closeMongoDB() {
+  if (mongoClient) {
+    await mongoClient.close();
+    mongoClient = null;
+    mongoDb = null;
+  }
 }

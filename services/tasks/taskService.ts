@@ -1,98 +1,53 @@
 import {
+  getDocument,
   getDocuments,
   addDocument,
   updateDocument,
   deleteDocument,
-  getDocument,
-} from "@/services/db/firestore";
-
-// Collection name constants
-const TASKS_COLLECTION = "tasks";
+} from "@/services/db/mongodb";
+import { Task } from "@/types/mongodb-types";
 
 export interface CreateTaskDTO {
   title: string;
   description?: string;
-  priority?: "low" | "medium" | "high";
   projectId: string;
   columnId: string;
-  assigneeId?: string;
-  dueDate?: Date;
-  tags?: string[];
-  sprintId?: string;
+  status: 'todo' | 'in-progress' | 'review' | 'done';
+  priority: 'low' | 'medium' | 'high';
+  isBlocked?: boolean;
+  order?: number;
+  dueDate?: Date | null;
 }
 
 export interface UpdateTaskDTO {
   title?: string;
   description?: string;
-  priority?: "low" | "medium" | "high";
   columnId?: string;
-  assigneeId?: string | null;
-  dueDate?: Date | null;
-  tags?: string[];
+  status?: 'todo' | 'in-progress' | 'review' | 'done';
+  priority?: 'low' | 'medium' | 'high';
   isBlocked?: boolean;
-  blockReason?: string | null;
   order?: number;
-  sprintId?: string | null;
+  dueDate?: Date | null;
 }
 
 export const taskService = {
-  // Get all tasks for a project
-  async getProjectTasks(projectId: string) {
-    return await getDocuments(
-      TASKS_COLLECTION,
-      [["projectId", "==", projectId]],
-      "order",
-    );
+  async getTask(id: string) {
+    return await getDocument("tasks", id);
   },
 
-  // Get tasks for a specific column
-  async getColumnTasks(columnId: string) {
-    return await getDocuments(
-      TASKS_COLLECTION,
-      [["columnId", "==", columnId]],
-      "order",
-    );
+  async getTasks(whereConditions: [string, any, any][] = []) {
+    return await getDocuments("tasks", whereConditions, "order", "asc");
   },
 
-  // Get a task by ID
-  async getTask(taskId: string) {
-    return await getDocument(TASKS_COLLECTION, taskId);
+  async createTask(taskData: any) {
+    return await addDocument("tasks", taskData);
   },
 
-  // Create a new task
-  async createTask(data: CreateTaskDTO) {
-    // Get the max order value for the column to place this task at the end
-    const columnTasks = await this.getColumnTasks(data.columnId);
-    const maxOrder =
-      columnTasks.length > 0
-        ? Math.max(...columnTasks.map((task) => task.order || 0))
-        : 0;
-
-    // Create task with calculated order
-    return await addDocument(TASKS_COLLECTION, {
-      ...data,
-      status: "todo",
-      isBlocked: false,
-      order: maxOrder + 1,
-      priority: data.priority || "medium",
-    });
+  async updateTask(id: string, updates: any) {
+    return await updateDocument("tasks", id, updates);
   },
 
-  // Update a task
-  async updateTask(id: string, data: UpdateTaskDTO) {
-    // Handle clearing fields
-    const updateData: any = { ...data };
-
-    if (data.assigneeId === null) updateData.assigneeId = null;
-    if (data.dueDate === null) updateData.dueDate = null;
-    if (data.sprintId === null) updateData.sprintId = null;
-    if (data.blockReason === null) updateData.blockReason = null;
-
-    return await updateDocument(TASKS_COLLECTION, id, updateData);
-  },
-
-  // Delete a task
   async deleteTask(id: string) {
-    return await deleteDocument(TASKS_COLLECTION, id);
+    return await deleteDocument("tasks", id);
   },
 };

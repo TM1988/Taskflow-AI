@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/firebaseAdmin";
-import { FirestoreQueryDocumentSnapshot } from "@/types/firestore-types";
+import { adminDb } from "@/services/admin/mongoAdmin";
+import { ObjectId } from "mongodb";
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,16 +14,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    if (!adminDb) {
+      throw new Error("MongoDB not initialized");
+    }
+
     // Get user's projects
-    const projectsSnapshot = await adminDb
+    const projects = await adminDb
       .collection("projects")
-      .where("members", "array-contains", userId)
-      .get();
+      .find({ members: { $in: [userId] } })
+      .toArray();
 
     // Get all unique members from all projects
     const memberIds = new Set<string>();
-    projectsSnapshot.docs.forEach((doc: FirestoreQueryDocumentSnapshot) => {
-      const project = doc.data();
+    projects.forEach((project) => {
       if (project.ownerId) memberIds.add(project.ownerId);
       if (project.members) {
         project.members.forEach((id: string) => memberIds.add(id));
@@ -34,11 +37,11 @@ export async function GET(request: NextRequest) {
     const membersData = [];
     for (const id of Array.from(memberIds)) {
       try {
-        const userDoc = await adminDb.collection("users").doc(id).get();
-        if (userDoc.exists) {
-          const userData = userDoc.data();
+        const userDoc = await adminDb.collection("users").findOne({ _id: new ObjectId(id) });
+        if (userDoc) {
+          const userData = userDoc;
           membersData.push({
-            id: userDoc.id,
+            id: userDoc._id.toString(),
             name: userData?.displayName || "Unknown User",
             role: id === userId ? "Project Manager" : "Team Member",
             email: userData?.email || "",
@@ -50,7 +53,6 @@ export async function GET(request: NextRequest) {
               .toUpperCase()
               .substring(0, 2),
             status: "active",
-            // Include skills from the team route
             skills: userData?.skills || ["JavaScript", "React", "Next.js"],
           });
         }

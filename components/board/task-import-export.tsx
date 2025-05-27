@@ -41,22 +41,22 @@ export default function TaskImportExport({
 
     setIsExporting(true);
     try {
-      // Fetch all tasks for the project
+      // Fetch all board data for the project (tasks and columns)
       const response = await fetch(`/api/projects/${projectId}/export-tasks`);
 
       if (!response.ok) {
-        throw new Error(`Failed to export tasks: ${response.statusText}`);
+        throw new Error(`Failed to export board data: ${response.statusText}`);
       }
 
-      const tasks = await response.json();
-      const blob = new Blob([JSON.stringify(tasks, null, 2)], {
+      const boardData = await response.json();
+      const blob = new Blob([JSON.stringify(boardData, null, 2)], {
         type: "application/json",
       });
       const url = URL.createObjectURL(blob);
 
       const downloadLink = document.createElement("a");
       downloadLink.href = url;
-      downloadLink.download = `taskflow-tasks-${projectId}-${new Date().toISOString().slice(0, 10)}.json`;
+      downloadLink.download = `taskflow-board-${projectId}-${new Date().toISOString().slice(0, 10)}.json`;
       document.body.appendChild(downloadLink);
       downloadLink.click();
       document.body.removeChild(downloadLink);
@@ -65,13 +65,13 @@ export default function TaskImportExport({
 
       toast({
         title: "Export successful",
-        description: "Your tasks have been exported successfully",
+        description: "Your board data (columns and tasks) has been exported successfully",
       });
     } catch (error) {
-      console.error("Error exporting tasks:", error);
+      console.error("Error exporting board data:", error);
       toast({
         title: "Export failed",
-        description: "There was an error exporting your tasks",
+        description: "There was an error exporting your board data",
         variant: "destructive",
       });
     } finally {
@@ -93,13 +93,15 @@ export default function TaskImportExport({
     setIsImporting(true);
     try {
       const fileContent = await importFile.text();
-      let tasksToImport: any[];
+      let dataToImport: any;
 
       try {
-        tasksToImport = JSON.parse(fileContent);
-        if (!Array.isArray(tasksToImport)) {
+        dataToImport = JSON.parse(fileContent);
+        
+        // Check if it's the new format (with metadata and columns) or old format (just tasks array)
+        if (!Array.isArray(dataToImport) && !dataToImport.tasks) {
           throw new Error(
-            "The imported file does not contain a valid tasks array",
+            "The imported file does not contain valid board data",
           );
         }
       } catch (parseError) {
@@ -111,19 +113,19 @@ export default function TaskImportExport({
       const response = await fetch(`/api/projects/${projectId}/import-tasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tasks: tasksToImport }),
+        body: JSON.stringify(dataToImport),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || "Failed to import tasks");
+        throw new Error(error.message || "Failed to import board data");
       }
 
       const result = await response.json();
 
       toast({
         title: "Import successful",
-        description: `Successfully imported ${result.importedCount} tasks`,
+        description: `Successfully imported ${result.importedTaskCount} tasks${result.importedColumnCount ? ` and ${result.importedColumnCount} columns` : ''}`,
       });
 
       setImportDialogOpen(false);
@@ -133,13 +135,13 @@ export default function TaskImportExport({
         onTasksImported();
       }
     } catch (error) {
-      console.error("Error importing tasks:", error);
+      console.error("Error importing board data:", error);
       toast({
         title: "Import failed",
         description:
           error instanceof Error
             ? error.message
-            : "There was an error importing your tasks",
+            : "There was an error importing your board data",
         variant: "destructive",
       });
     } finally {
@@ -188,10 +190,10 @@ export default function TaskImportExport({
       <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Import Tasks</DialogTitle>
+            <DialogTitle>Import Board Data</DialogTitle>
             <DialogDescription>
-              Import tasks from a JSON file. This will add the tasks to your
-              current board and will not overwrite existing tasks.
+              Import board data (columns and tasks) from a JSON file. This will add the columns and tasks to your
+              current board and will not overwrite existing items. Columns with the same name will be merged.
             </DialogDescription>
           </DialogHeader>
 

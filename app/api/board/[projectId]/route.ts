@@ -1,12 +1,7 @@
 // app/api/board/[projectId]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/firebaseAdmin";
-import {
-  FirestoreDataConverter,
-  DocumentData,
-  QueryDocumentSnapshot,
-} from "firebase-admin/firestore";
-import { FirestoreQueryDocumentSnapshot } from "@/types/firestore-types";
+import { getAdminDb } from "@/services/admin/mongoAdmin";
+import { ObjectId } from "mongodb";
 
 // Define interfaces for our data models
 interface Column {
@@ -42,27 +37,6 @@ interface BoardData {
   [columnId: string]: BoardColumn;
 }
 
-async function safeFirestoreQuery<T>(
-  queryFn: () => Promise<T>,
-  fallbackFn?: () => Promise<T>,
-): Promise<T> {
-  try {
-    return await queryFn();
-  } catch (error) {
-    console.error("Firestore query error:", error);
-
-    // Check if it's an index error
-    const isIndexError =
-      error && typeof error === "object" && "code" in error && error.code === 9;
-
-    if (isIndexError && fallbackFn) {
-      console.log("Using fallback query approach due to missing index");
-      return await fallbackFn();
-    }
-    throw error;
-  }
-}
-
 export async function GET(
   request: NextRequest,
   { params }: { params: { projectId: string } },
@@ -71,147 +45,111 @@ export async function GET(
     const projectId = params.projectId;
     console.log(`Loading board data for project ${projectId}`);
 
-    // First check if project exists
-    const projectDoc = await adminDb
-      .collection("projects")
-      .doc(projectId)
-      .get();
+    const adminDb = await getAdminDb();
+    if (!adminDb) {
+      return NextResponse.json(
+        { error: "Database connection failed" },
+        { status: 500 },
+      );
+    }
 
-    if (!projectDoc.exists) {
+    // Convert string ID to ObjectId for MongoDB query
+    const project = await adminDb
+      .collection("projects")
+      .findOne({ _id: new ObjectId(projectId) });
+
+    if (!project) {
       console.log(`Project ${projectId} not found, returning 404`);
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    const projectData = projectDoc.data();
-    console.log(`Project ${projectId} found:`, projectData?.name);
+    console.log(`Project ${projectId} found:`, project.name);
 
-    // Fetch columns
-    let columnsSnapshot = await adminDb
+    // Fetch columns by string projectId
+    const columns = await adminDb
       .collection("columns")
-      .where("projectId", "==", projectId)
-      .orderBy("order", "asc")
-      .get();
-
-    // If no columns exist yet, create default columns
-    if (columnsSnapshot.empty) {
-      console.log(
-        `No columns found for project ${projectId}, creating defaults`,
-      );
-      const defaultColumns = ["To Do", "In Progress", "Review", "Done"];
-
-      // Use batch write for efficiency
-      const batch = adminDb.batch();
-      const columnRefs = [];
-
-      // Create default columns
-      for (let i = 0; i < defaultColumns.length; i++) {
-        const columnRef = adminDb.collection("columns").doc();
-        columnRefs.push(columnRef);
-
-        batch.set(columnRef, {
-          name: defaultColumns[i],
-          projectId: projectId,
-          order: i,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
-      }
-
-      await batch.commit();
-      console.log(
-        `Created ${defaultColumns.length} default columns for project ${projectId}`,
-      );
-
-      // Get the newly created columns
-      columnsSnapshot = await adminDb
-        .collection("columns")
-        .where("projectId", "==", projectId)
-        .orderBy("order", "asc")
-        .get();
-    }
-
-    const columns = columnsSnapshot.docs.map(
-      (doc: FirestoreQueryDocumentSnapshot) => ({
-        id: doc.id,
-        ...(doc.data() as Omit<Column, "id">),
-      }),
-    ) as Column[];
+      .find({ projectId: projectId })
+      .sort({ order: 1 })
+      .toArray();
 
     console.log(`Found ${columns.length} columns for project ${projectId}`);
 
-    // Fetch tasks for all columns
-    const tasksSnapshot = await adminDb
+    // Fetch tasks by string projectId
+    const tasks = await adminDb
       .collection("tasks")
-      .where("projectId", "==", projectId)
-      .orderBy("order", "asc")
-      .get();
-
-    const tasks = tasksSnapshot.docs.map(
-      (doc: FirestoreQueryDocumentSnapshot) => ({
-        id: doc.id,
-        ...(doc.data() as Omit<Task, "id">),
-      }),
-    ) as Task[];
+      .find({ projectId: projectId })
+      .sort({ order: 1 })
+      .toArray();
 
     console.log(`Found ${tasks.length} tasks for project ${projectId}`);
+
+    // Transform to expected format with proper ObjectId to string conversion
+    const transformedColumns = columns.map(col => ({
+      id: col._id.toString(), // Convert ObjectId to string
+      name: col.name,
+      projectId: col.projectId,
+      order: col.order,
+      createdAt: col.createdAt,
+      updatedAt: col.updatedAt,
+    }));
+
+    const transformedTasks: Task[] = tasks.map(task => ({
+      id: task._id.toString(), // Convert ObjectId to string
+      title: task.title,
+      description: task.description || "",
+      projectId: task.projectId,
+      columnId: task.columnId, // Make sure this is a string
+      status: task.status,
+      priority: task.priority,
+      order: task.order,
+      isBlocked: task.isBlocked,
+      createdAt: task.createdAt,
+      updatedAt: task.updatedAt,
+      dueDate: task.dueDate,
+    }));
 
     // Build the board structure
     const board: BoardData = {};
 
-    columns.forEach((column) => {
-      // Get tasks for this column
-      const columnTasks = tasks.filter((task) => task.columnId === column.id);
+    transformedColumns.forEach((column) => {
+      const columnTasks = transformedTasks.filter((task) => task.columnId === column.id);
 
-      // Add to board
       board[column.id] = {
         id: column.id,
         title: column.name,
         tasks: columnTasks,
       };
 
-      console.log(
-        `Column ${column.name} (${column.id}) has ${columnTasks.length} tasks`,
-      );
+      console.log(`Column ${column.name} (${column.id}) has ${columnTasks.length} tasks`);
     });
 
     return NextResponse.json({
-      columns,
+      columns: transformedColumns,
       board,
     });
   } catch (error) {
     console.error("Error loading board data:", error);
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error occurred";
-    const errorStack = error instanceof Error ? error.stack : undefined;
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
 
     return NextResponse.json(
       {
         error: "Failed to load board data",
         details: errorMessage,
-        stack: errorStack,
       },
       { status: 500 },
     );
   }
 }
 
-// Helper method to create a basic task
 export async function POST(
   request: NextRequest,
   { params }: { params: { projectId: string } },
 ) {
   try {
     const projectId = params.projectId;
-    const { title, description, columnId, priority, dueDate } =
-      await request.json();
+    const { title, description, columnId, priority, dueDate } = await request.json();
 
-    console.log("Creating task:", {
-      title,
-      description,
-      columnId,
-      priority,
-      dueDate,
-    });
+    console.log("Creating task:", { title, description, columnId, priority, dueDate });
 
     // Validate required fields
     if (!title || !columnId) {
@@ -221,21 +159,46 @@ export async function POST(
       );
     }
 
+    const adminDb = await getAdminDb();
+    if (!adminDb) {
+      return NextResponse.json(
+        { error: "Database connection failed" },
+        { status: 500 },
+      );
+    }
+
     // Get the max order value for the column to place this task at the end
     const columnTasks = await adminDb
       .collection("tasks")
-      .where("columnId", "==", columnId)
-      .orderBy("order", "desc")
+      .find({ columnId: new ObjectId(columnId) })
+      .sort({ order: -1 })
       .limit(1)
-      .get();
+      .toArray();
 
-    const maxOrder = columnTasks.empty
-      ? 0
-      : (columnTasks.docs[0].data().order || 0) + 1;
+    const maxOrder = columnTasks.length > 0 ? (columnTasks[0].order || 0) + 1 : 0;
 
     // Create the task
-    const taskRef = adminDb.collection("tasks").doc();
     const taskData = {
+      title,
+      description: description || "",
+      projectId: new ObjectId(projectId),
+      columnId: new ObjectId(columnId),
+      status: "todo",
+      priority: priority || "medium",
+      order: maxOrder,
+      isBlocked: false,
+      dueDate: dueDate ? new Date(dueDate) : null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const result = await adminDb.collection("tasks").insertOne(taskData);
+
+    console.log(`Task created: ${result.insertedId}`);
+
+    // Return with ID so the board knows the new task
+    return NextResponse.json({
+      id: result.insertedId.toString(),
       title,
       description: description || "",
       projectId,
@@ -244,29 +207,13 @@ export async function POST(
       priority: priority || "medium",
       order: maxOrder,
       isBlocked: false,
-      // Properly parse the date if provided
-      dueDate: dueDate ? new Date(dueDate) : null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    await taskRef.set(taskData);
-
-    console.log(`Task created: ${taskRef.id}`);
-
-    // Return with ID so the board knows the new task
-    return NextResponse.json({
-      id: taskRef.id,
-      ...taskData,
-      // Format dates for JSON
-      dueDate: taskData.dueDate ? taskData.dueDate.toISOString() : null,
+      dueDate: dueDate || null,
       createdAt: taskData.createdAt.toISOString(),
       updatedAt: taskData.updatedAt.toISOString(),
     });
   } catch (error) {
     console.error("Error creating task:", error);
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error occurred";
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
 
     return NextResponse.json(
       { error: "Failed to create task", details: errorMessage },
