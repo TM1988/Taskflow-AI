@@ -21,7 +21,7 @@ export default function KanbanColumn({
   onTaskClick,
 }: KanbanColumnProps) {
   return (
-    <div className="flex flex-col h-[calc(100vh-220px)] min-w-[280px]">
+    <div className="flex flex-col h-full bg-muted/50 rounded-lg shadow">
       <Card className="flex flex-col h-full">
         <CardHeader
           className={cn(
@@ -41,22 +41,31 @@ export default function KanbanColumn({
         </CardHeader>
         <CardContent className="p-2 overflow-hidden flex-1">
           <Droppable droppableId={id}>
-            {(provided) => (
+            {(provided, snapshot) => (
               <div
-                className="h-full overflow-y-auto space-y-2 p-1"
                 ref={provided.innerRef}
                 {...provided.droppableProps}
+                className={cn(
+                  "p-2 space-y-2 transition-all ease-in-out duration-200 rounded-md",
+                  // Empty state - very small
+                  tasks.length === 0 && !snapshot.isDraggingOver && "min-h-[2rem]",
+                  // Has tasks but not dragging - comfortable size
+                  tasks.length > 0 && !snapshot.isDraggingOver && "min-h-[6rem]",
+                  // Dragging over - expanded to welcome the task
+                  snapshot.isDraggingOver && "bg-primary/10 min-h-[8rem] border-2 border-primary/20 border-dashed"
+                )}
               >
                 {tasks.map((task, index) => (
                   <Draggable key={task.id} draggableId={task.id} index={index}>
-                    {(provided) => (
+                    {(providedDrag, snapshotDrag) => (
                       <div
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        {...provided.dragHandleProps}
+                        ref={providedDrag.innerRef}
+                        {...providedDrag.draggableProps}
+                        {...providedDrag.dragHandleProps}
                       >
                         <TaskCard
                           task={task}
+                          isDragging={snapshotDrag.isDragging}
                           onClick={() => onTaskClick && onTaskClick(task.id)}
                         />
                       </div>
@@ -64,6 +73,12 @@ export default function KanbanColumn({
                   </Draggable>
                 ))}
                 {provided.placeholder}
+                {/* Show a helpful message when empty and not dragging */}
+                {tasks.length === 0 && !snapshot.isDraggingOver && (
+                  <div className="text-xs text-muted-foreground text-center py-1">
+                    Drop tasks here
+                  </div>
+                )}
               </div>
             )}
           </Droppable>

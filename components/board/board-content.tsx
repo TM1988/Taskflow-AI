@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
-import { Button } from "@/components/ui/button";
-import { Plus, Loader2 } from "lucide-react";
+import { DragDropContext, DropResult, Droppable } from "@hello-pangea/dnd";
+import { Loader2 } from "lucide-react";
 import KanbanColumn from "@/components/board/kanban-column";
 import TaskDialog from "@/components/board/task-dialog";
 import { useAuth } from "@/services/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import BoardHeader from "@/components/board/board-header";
+import { Badge } from "@/components/ui/badge";
 
 interface BoardContentProps {
   onTaskSelect?: (taskId: string) => void;
@@ -20,6 +21,8 @@ declare global {
     boardContentRef:
       | {
           removeTaskLocally: (taskId: string) => void;
+          updateTaskLocally: (updatedTask: any) => void;
+          refreshTasks: () => void;
         }
       | undefined;
   }
@@ -30,125 +33,167 @@ export default function BoardContent({
   refreshTrigger = 0,
   onProjectUpdate,
 }: BoardContentProps) {
-  const [boardData, setBoardData] = useState<Record<string, any>>({});
-  const [columns, setColumns] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
+  const [filteredTasks, setFilteredTasks] = useState<any[]>([]);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentProject, setCurrentProject] = useState<any>(null);
+  const [columns, setColumns] = useState<any[]>([]);
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Expose the removeTaskLocally method to window for access
-  useEffect(() => {
-    window.boardContentRef = {
-      removeTaskLocally: (taskId: string) => {
-        setBoardData((prevData) => {
-          const newData = { ...prevData };
+  // Mock users and tags for the header
+  const mockUsers = [
+    { id: "1", name: "Alice Chen" },
+    { id: "2", name: "Bob Smith" },
+    { id: "3", name: "Charlie Kim" },
+  ];
 
-          // Go through each column and remove the task
-          Object.keys(newData).forEach((columnId) => {
-            if (newData[columnId]?.tasks) {
-              newData[columnId].tasks = newData[columnId].tasks.filter(
-                (task: any) => task.id !== taskId,
-              );
-            }
+  const mockTags = ["frontend", "backend", "bug", "feature", "urgent"];
+
+  // Default columns
+  const defaultColumns = [
+    { id: "todo", title: "To Do", name: "To Do", color: "bg-slate-100" },
+    { id: "in-progress", title: "In Progress", name: "In Progress", color: "bg-blue-100" },
+    { id: "review", title: "Review", name: "Review", color: "bg-yellow-100" },
+    { id: "done", title: "Done", name: "Done", color: "bg-green-100" },
+  ];
+
+  // Helper function to get tasks for a column
+  const getTasksForColumn = (columnId: string) => {
+    return filteredTasks.filter((task) => task.columnId === columnId);
+  };
+
+  // Fetch projects once with better error handling
+  const fetchProjects = useCallback(async () => {
+    if (!user || currentProject) return;
+
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    while (retryCount < maxRetries) {
+      try {
+        console.log(`Fetching projects (attempt ${retryCount + 1})`);
+        
+        const projectsResponse = await fetch(`/api/projects?userId=${user.uid}`);
+
+        if (!projectsResponse.ok) {
+          throw new Error(`HTTP ${projectsResponse.status}: ${projectsResponse.statusText}`);
+        }
+
+        const projects = await projectsResponse.json();
+        console.log("Projects fetched successfully:", projects.length);
+
+        if (projects.length === 0) {
+          // Create default project
+          const defaultName = 
+            typeof window !== "undefined" && localStorage.getItem("defaultProjectName")
+              ? localStorage.getItem("defaultProjectName")!
+              : "My First Project";
+
+          const newProjectResponse = await fetch("/api/projects", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: defaultName,
+              description: "TaskFlow AI default project",
+              ownerId: user.uid,
+            }),
           });
 
-          return newData;
-        });
+          if (!newProjectResponse.ok) {
+            throw new Error("Failed to create default project");
+          }
 
-        // Also update tasks array
-        setTasks((prevTasks) => prevTasks.filter((t) => t.id !== taskId));
-      },
-    };
+          const newProject = await newProjectResponse.json();
+          setCurrentProject(newProject);
 
-    return () => {
-      delete window.boardContentRef;
-    };
-  }, []);
+          if (onProjectUpdate) {
+            onProjectUpdate(newProject);
+          }
+        } else {
+          setCurrentProject(projects[0]);
 
-  // Fetch projects once
-  const fetchProjects = useCallback(async () => {
-    if (!user || currentProject) return; // Prevent refetching if we already have a project
-
-    try {
-      const projectsResponse = await fetch(`/api/projects?userId=${user.uid}`);
-
-      if (!projectsResponse.ok) {
-        throw new Error("Failed to fetch projects");
-      }
-
-      const projects = await projectsResponse.json();
-
-      if (projects.length === 0) {
-        // Create a default project
-        console.log("No projects found, creating default project");
-        const newProjectResponse = await fetch("/api/projects", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: "My First Project",
-            description: "TaskFlow AI default project",
-            ownerId: user.uid,
-          }),
-        });
-
-        if (!newProjectResponse.ok) {
-          throw new Error("Failed to create default project");
+          if (onProjectUpdate) {
+            onProjectUpdate(projects[0]);
+          }
         }
 
-        const newProject = await newProjectResponse.json();
-        setCurrentProject(newProject);
+        // Success - break out of retry loop
+        break;
 
-        // Notify parent component
-        if (onProjectUpdate) {
-          onProjectUpdate(newProject);
-        }
-      } else {
-        // Use first project
-        setCurrentProject(projects[0]);
-
-        // Notify parent component
-        if (onProjectUpdate) {
-          onProjectUpdate(projects[0]);
+      } catch (error) {
+        retryCount++;
+        console.error(`Error fetching projects (attempt ${retryCount}):`, error);
+        
+        if (retryCount === maxRetries) {
+          toast({
+            title: "Connection Error",
+            description: "Failed to load projects after multiple attempts. Please refresh the page.",
+            variant: "destructive",
+          });
+        } else {
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
         }
       }
-    } catch (error) {
-      console.error("Error fetching projects:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load projects",
-        variant: "destructive",
-      });
     }
   }, [user, toast, onProjectUpdate, currentProject]);
 
-  // Fetch board data
+  // Fetch board data and columns
   const fetchBoardData = useCallback(async () => {
     if (!currentProject?.id) return;
 
+    setLoading(true);
+
     try {
-      setLoading(true);
+      console.log("=== FETCHING BOARD DATA ===");
+      console.log("Project ID:", currentProject.id);
+      
+      const boardResponse = await fetch(`/api/board/${currentProject.id}`);
 
-      const response = await fetch(`/api/board/${currentProject.id}`);
+      if (boardResponse.ok) {
+        const boardData = await boardResponse.json();
+        console.log("Raw board data:", boardData);
 
-      if (!response.ok) {
-        throw new Error("Failed to load board data");
+        const allTasks = Object.values(boardData.board || {}).flatMap(
+          (column: any) => column.tasks || [],
+        ).map((task: any) => ({
+          ...task,
+          projectId: typeof task.projectId === 'object' ? task.projectId.toString() : task.projectId,
+          order: task.order ?? 0,
+          id: task.id || task._id,
+        }));
+
+        console.log("BoardContent: All tasks fetched and normalized:", allTasks);
+        console.log("Task count:", allTasks.length);
+        console.log("Sample task:", allTasks[0]);
+        
+        setTasks(allTasks);
+        setFilteredTasks(allTasks);
+      } else {
+        console.error("Board response not ok:", boardResponse.status);
       }
 
-      const data = await response.json();
+      // Always fetch columns to get latest updates
+      console.log("=== FETCHING COLUMNS ===");
+      const columnsResponse = await fetch(`/api/columns?projectId=${currentProject.id}`);
+      console.log("Columns response status:", columnsResponse.status);
 
-      // Set columns and board data
-      setColumns(data.columns || []);
-      setBoardData(data.board || {});
-
-      // Collect all tasks
-      const allTasks = Object.values(data.board || {}).flatMap(
-        (column: any) => column.tasks || [],
-      );
-
-      setTasks(allTasks);
+      if (columnsResponse.ok) {
+        const columnsData = await columnsResponse.json();
+        console.log("Columns data:", columnsData);
+        
+        if (columnsData.length > 0) {
+          setColumns(columnsData.sort((a: any, b: any) => a.order - b.order));
+        } else {
+          console.log("No columns found, using defaults");
+          setColumns(defaultColumns);
+        }
+      } else {
+        console.warn("Failed to fetch columns, using defaults");
+        setColumns(defaultColumns);
+      }
     } catch (error) {
       console.error("Error loading board data:", error);
       toast({
@@ -156,12 +201,50 @@ export default function BoardContent({
         description: "Failed to load board data",
         variant: "destructive",
       });
+
+      if (columns.length === 0) {
+        setColumns(defaultColumns);
+      }
     } finally {
       setLoading(false);
     }
   }, [currentProject?.id, toast]);
 
-  // Initial project fetch - do only once
+  // Expose methods to window for access
+  useEffect(() => {
+    window.boardContentRef = {
+      removeTaskLocally: (taskId: string) => {
+        console.log("BoardContent: removeTaskLocally called with:", taskId);
+        setTasks((prev) => prev.filter((t) => t.id !== taskId));
+        setFilteredTasks((prev) => prev.filter((t) => t.id !== taskId));
+      },
+      updateTaskLocally: (updatedTask: any) => {
+        console.log("BoardContent: updateTaskLocally called with:", updatedTask);
+        
+        const normalizedTask = {
+          ...updatedTask,
+          projectId: typeof updatedTask.projectId === 'object' ? updatedTask.projectId.toString() : updatedTask.projectId,
+          order: updatedTask.order ?? 0,
+          id: updatedTask.id || updatedTask._id,
+        };
+        
+        setTasks((prev) => prev.map(t => t.id === normalizedTask.id ? normalizedTask : t));
+        setFilteredTasks((prev) => prev.map(t => t.id === normalizedTask.id ? normalizedTask : t));
+      },
+      refreshTasks: () => {
+        console.log("BoardContent: refreshTasks called - forcing full refresh");
+        setTasks([]);
+        setFilteredTasks([]);
+        fetchBoardData();
+      }
+    };
+
+    return () => {
+      delete window.boardContentRef;
+    };
+  }, [fetchBoardData]);
+
+  // Initial project fetch
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
@@ -173,151 +256,104 @@ export default function BoardContent({
     }
   }, [currentProject, fetchBoardData, refreshTrigger]);
 
-  // Notify parent about project - only when it changes
-  useEffect(() => {
-    if (currentProject && onProjectUpdate) {
-      onProjectUpdate(currentProject);
-    }
-  }, [currentProject, onProjectUpdate]);
-
   // Handle new task creation
   const handleTaskCreated = (newTask: any) => {
-    // Make a copy of the board data
-    const updatedBoardData = { ...boardData };
+    setTasks((prev) => [...prev, newTask]);
+    setFilteredTasks((prev) => [...prev, newTask]);
+  };
 
-    // Make sure the column exists in boardData
-    if (!updatedBoardData[newTask.columnId]) {
-      updatedBoardData[newTask.columnId] = {
-        id: newTask.columnId,
-        title:
-          columns.find((c) => c.id === newTask.columnId)?.name || "Unknown",
-        tasks: [],
-      };
-    }
-
-    // Make sure tasks array exists
-    if (!updatedBoardData[newTask.columnId].tasks) {
-      updatedBoardData[newTask.columnId].tasks = [];
-    }
-
-    // Add the new task to the appropriate column
-    updatedBoardData[newTask.columnId].tasks = [
-      ...updatedBoardData[newTask.columnId].tasks,
-      newTask,
-    ];
-
-    // Update the state
-    setBoardData(updatedBoardData);
-    setTasks([...tasks, newTask]);
+  // Handle task updates
+  const handleTaskUpdated = (updatedTask: any) => {
+    console.log("BoardContent: handleTaskUpdated called with:", updatedTask);
+    
+    const normalizedTask = {
+      ...updatedTask,
+      projectId: typeof updatedTask.projectId === 'object' ? updatedTask.projectId.toString() : updatedTask.projectId,
+      order: updatedTask.order ?? 0,
+      id: updatedTask.id || updatedTask._id,
+    };
+    
+    setTasks((prev) => prev.map(t => t.id === normalizedTask.id ? normalizedTask : t));
+    setFilteredTasks((prev) => prev.map(t => t.id === normalizedTask.id ? normalizedTask : t));
   };
 
   // Handle drag and drop
   const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
-
-    console.log("Drag end result:", { destination, source, draggableId });
-
-    // If dropped outside a droppable area
     if (!destination) return;
-
-    // If dropped in the same position
-    if (
-      destination.droppableId === source.droppableId &&
-      destination.index === source.index
-    ) {
+    if (destination.droppableId === source.droppableId && destination.index === source.index) {
       return;
     }
 
-    // Find the task being dragged
-    const task = tasks.find((t) => t.id === draggableId);
-    if (!task) {
-      console.error("Task not found:", draggableId);
-      return;
-    }
+    const draggedTaskIndex = tasks.findIndex((t) => t.id === draggableId);
+    if (draggedTaskIndex === -1) return;
+    const updatedTasks = [...tasks];
+    const [movedTask] = updatedTasks.splice(draggedTaskIndex, 1);
+    movedTask.columnId = destination.droppableId;
+    updatedTasks.splice(destination.index, 0, movedTask);
 
-    console.log("Moving task:", {
-      taskId: task.id,
-      taskTitle: task.title,
-      fromColumn: source.droppableId,
-      toColumn: destination.droppableId,
-      currentColumnId: task.columnId,
-    });
+    setTasks(updatedTasks);
+    setFilteredTasks(updatedTasks);
 
     try {
-      // Make an optimistic update to the UI first
-      const updatedBoardData = { ...boardData };
-
-      // Remove from source
-      updatedBoardData[source.droppableId].tasks = updatedBoardData[
-        source.droppableId
-      ].tasks.filter((t: any) => t.id !== draggableId);
-
-      // Add to destination
-      const updatedTask = { ...task, columnId: destination.droppableId };
-
-      // If destination array doesn't exist, create it
-      if (!updatedBoardData[destination.droppableId].tasks) {
-        updatedBoardData[destination.droppableId].tasks = [];
-      }
-
-      // Insert at the right position
-      updatedBoardData[destination.droppableId].tasks.splice(
-        destination.index,
-        0,
-        updatedTask,
-      );
-
-      // Update the state immediately for better UX
-      setBoardData(updatedBoardData);
-
-      console.log("Making API call to update task column:", {
-        taskId: task.id,
-        newColumnId: destination.droppableId,
-        order: destination.index,
-      });
-
-      // Then make the API call
-      const response = await fetch(`/api/tasks/${task.id}`, {
+      const response = await fetch(`/api/tasks/${movedTask.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          columnId: destination.droppableId,
+          columnId: movedTask.columnId,
           order: destination.index,
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("API response error:", errorData);
-        throw new Error(`API Error: ${errorData.error || response.statusText}`);
-      }
-
-      const updateResult = await response.json();
-      console.log("Task update successful:", updateResult);
-
-      // Update the tasks array
-      const updatedTasks = tasks.map((t) =>
-        t.id === draggableId ? { ...t, columnId: destination.droppableId } : t,
-      );
-      setTasks(updatedTasks);
-
-      toast({
-        title: "Task moved",
-        description: `Task "${task.title}" moved successfully`,
-      });
+      if (!response.ok) throw new Error("Failed to move task");
     } catch (error) {
       console.error("Error updating task:", error);
       toast({
         title: "Error",
-        description: `Failed to move task: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
-
-      // Revert to previous state
-      await fetchBoardData();
+      fetchBoardData();
     }
+  };
+
+  // Search and filter handlers
+  const handleSearch = (query: string) => {
+    if (!query.trim()) {
+      setFilteredTasks(tasks);
+      return;
+    }
+
+    const filtered = tasks.filter((task) => {
+      const q = query.toLowerCase();
+      return (
+        task.title?.toLowerCase().includes(q) ||
+        task.description?.toLowerCase().includes(q) ||
+        (task.assignee && task.assignee.toLowerCase().includes(q))
+      );
+    });
+
+    setFilteredTasks(filtered);
+  };
+
+  const handleFilter = (filters: any) => {
+    let filtered = [...tasks];
+
+    if (filters.priority.length > 0) {
+      filtered = filtered.filter((task) => filters.priority.includes(task.priority));
+    }
+
+    if (filters.assignee.length > 0) {
+      filtered = filtered.filter((task) => filters.assignee.includes(task.assignee));
+    }
+
+    if (filters.tags.length > 0) {
+      filtered = filtered.filter((task) =>
+        task.tags?.some((tag: string) => filters.tags.includes(tag))
+      );
+    }
+
+    setFilteredTasks(filtered);
   };
 
   if (loading && !currentProject) {
@@ -328,45 +364,58 @@ export default function BoardContent({
     );
   }
 
+  // Helper function to assign colors based on order
+  const getColumnColor = (order: number) => {
+    const colors = ["bg-slate-100", "bg-blue-100", "bg-yellow-100", "bg-green-100", "bg-purple-100", "bg-pink-100", "bg-indigo-100", "bg-orange-100"];
+    return colors[order % colors.length];
+  };
+
+  // Use dynamic columns or fallback to defaults
+  const displayColumns = columns.length > 0 ? columns.map(col => ({
+    id: col.id,
+    title: col.name || col.title,
+    color: getColumnColor(col.order || 0)
+  })) : defaultColumns;
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Task Board</h1>
-          <p className="text-muted-foreground">
-            {currentProject ? currentProject.name : "Loading project..."}
-          </p>
-        </div>
-        <Button onClick={() => setIsTaskDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Task
-        </Button>
-      </div>
+    <div className="h-full flex flex-col min-w-0">
+      <BoardHeader
+        users={mockUsers}
+        tags={mockTags}
+        onSearch={handleSearch}
+        onFilter={handleFilter}
+        onAddTask={() => setIsTaskDialogOpen(true)}
+        projectId={currentProject?.id}
+        onTasksImported={fetchBoardData}
+      />
 
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 overflow-x-auto pb-4">
-          {columns.map((column) => (
-            <KanbanColumn
-              key={column.id}
-              id={column.id}
-              title={column.name}
-              tasks={boardData[column.id]?.tasks || []}
-              onTaskClick={(taskId) => {
-                if (onTaskSelect) {
-                  onTaskSelect(taskId);
-                }
-              }}
-            />
-          ))}
+        <div className="flex-1 overflow-x-auto min-h-0">
+          <div className="flex gap-4 p-4 h-full items-start">
+            {displayColumns.map((column) => (
+              <div
+                key={column.id}
+                className="flex-1 min-w-[145px]"
+              >
+                <KanbanColumn
+                  id={column.id}
+                  title={column.title}
+                  tasks={getTasksForColumn(column.id)}
+                  onTaskClick={onTaskSelect}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </DragDropContext>
 
       <TaskDialog
         open={isTaskDialogOpen}
         onOpenChange={setIsTaskDialogOpen}
+        columns={displayColumns}
         projectId={currentProject?.id}
-        columns={columns}
         onTaskCreated={handleTaskCreated}
+        onTaskUpdated={handleTaskUpdated}
       />
     </div>
   );

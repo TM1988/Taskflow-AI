@@ -1,22 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DateSelector } from "@/components/ui/date-selector";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
-  SelectContent,
-  SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectContent,
+  SelectItem,
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -33,8 +34,9 @@ interface TaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: string | undefined;
-  columns: any[];
+  columns: { id: string; title?: string; name?: string }[];
   onTaskCreated?: (task: any) => void;
+  onTaskUpdated?: (task: any) => void;
 }
 
 export default function TaskDialog({
@@ -43,25 +45,41 @@ export default function TaskDialog({
   projectId,
   columns,
   onTaskCreated,
+  onTaskUpdated,
 }: TaskDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [columnId, setColumnId] = useState<string | undefined>(
-    columns?.length > 0 ? columns[0]?.id : undefined,
-  );
+  const [columnId, setColumnId] = useState("");
   const [priority, setPriority] = useState("medium");
-  const [date, setDate] = useState<Date | undefined>(undefined);
+  const [dueDate, setDueDate] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Reset when dialog opens
+  useEffect(() => {
+    if (open) {
+      setTitle("");
+      setDescription("");
+      // default to first column
+      setColumnId(columns[0]?.id || "");
+      setPriority("medium");
+      setDueDate(null);
+    }
+  }, [open, columns]);
 
-    if (!title.trim() || !projectId || !columnId) {
+  const handleSubmit = async () => {
+    console.log("Submitting task:", {
+      title,
+      description,
+      columnId,
+      priority,
+      dueDate,
+    });
+    if (!title.trim() || !columnId || !projectId) {
       toast({
-        title: "Missing fields",
-        description: "Please provide all required information",
+        title: "Error",
+        description: "Please fill in all fields",
         variant: "destructive",
       });
       return;
@@ -76,7 +94,7 @@ export default function TaskDialog({
         description,
         columnId,
         priority,
-        dueDate: date ? date.toISOString() : null,
+        dueDate,
       };
 
       console.log("Creating task:", taskData);
@@ -98,7 +116,7 @@ export default function TaskDialog({
       // Clear form
       setTitle("");
       setDescription("");
-      setDate(undefined);
+      setDueDate(null);
       setPriority("medium");
 
       // Use the callback to update the board
@@ -126,11 +144,17 @@ export default function TaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Create New Task</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit();
+          }}
+          className="space-y-4 py-2"
+        >
           <div className="space-y-2">
             <label htmlFor="title" className="text-sm font-medium">
               Title
@@ -157,28 +181,25 @@ export default function TaskDialog({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label htmlFor="column" className="text-sm font-medium">
-                Column
-              </label>
+              <label className="block text-sm font-medium">Column</label>
               <Select value={columnId} onValueChange={setColumnId}>
-                <SelectTrigger id="column">
+                <SelectTrigger className="h-10">
                   <SelectValue placeholder="Select column" />
                 </SelectTrigger>
                 <SelectContent>
-                  {columns?.map((column) => (
-                    <SelectItem key={column.id} value={column.id}>
-                      {column.name}
+                  {columns.map((col) => (
+                    <SelectItem key={col.id} value={col.id}>
+                      {col.title || col.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-2">
-              <label htmlFor="priority" className="text-sm font-medium">
-                Priority
-              </label>
+              <label className="block text-sm font-medium">Priority</label>
               <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger id="priority">
+                <SelectTrigger className="h-10">
                   <SelectValue placeholder="Select priority" />
                 </SelectTrigger>
                 <SelectContent>
@@ -190,16 +211,16 @@ export default function TaskDialog({
             </div>
           </div>
 
-          {/* Date picker with explicit open/close state */}
-          <DateSelector
-            value={date}
-            onChange={setDate}
-            label="Due Date"
-            placeholder="Select a due date"
-            position="center" // Position it in the center of the screen
-          />
-
-          <div className="flex justify-end gap-2">
+          <div className="space-y-1">
+            <label className="block text-sm font-medium">Due Date</label>
+            <Input
+              type="date"
+              value={dueDate || ""}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full"
+            />
+          </div>
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"
@@ -213,7 +234,7 @@ export default function TaskDialog({
             >
               {isSubmitting ? "Creating..." : "Create Task"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

@@ -1,17 +1,17 @@
-import "./globals.css";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import "./globals.css";
+import { AuthProvider } from "@/services/auth/AuthContext";
+import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
-import ClientLayout from "@/components/layout/client-layout";
-import { AuthProvider } from "@/services/auth/AuthContext";
+import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "700"] });
 
 export const metadata: Metadata = {
   title: "TaskFlow-AI | Intelligent Project Management",
-  description:
-    "AI-powered project management dashboard for enhancing developer productivity",
+  description: "AI-powered project management dashboard for enhancing developer productivity",
 };
 
 export default function RootLayout({
@@ -29,9 +29,11 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            <ClientLayout>{children}</ClientLayout>
-            <Toaster />
+            <WorkspaceProvider>
+              <LayoutWrapper>{children}</LayoutWrapper>
+            </WorkspaceProvider>
           </AuthProvider>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

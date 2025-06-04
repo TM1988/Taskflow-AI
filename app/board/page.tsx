@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import BoardContent from "@/components/board/board-content";
 import TaskDetail from "@/components/board/task-detail";
-import TaskImportExport from "@/components/board/task-import-export";
 import { useSearchParams } from "next/navigation";
 import { taskService } from "@/services/tasks/taskService";
 import { useToast } from "@/hooks/use-toast";
@@ -129,7 +128,6 @@ export default function BoardPage() {
     );
   }
 
-  // Show error state if there was a problem
   if (loadError) {
     return (
       <div className="flex flex-col items-center justify-center h-64 space-y-4">
@@ -139,17 +137,9 @@ export default function BoardPage() {
     );
   }
 
+  // Just render the content directly - no extra wrapping elements
   return (
     <>
-      <div className="flex justify-end mb-4">
-        {currentProject && (
-          <TaskImportExport
-            projectId={currentProject.id}
-            onTasksImported={handleTasksImported}
-          />
-        )}
-      </div>
-
       <BoardContent
         onTaskSelect={handleTaskSelect}
         refreshTrigger={boardRefreshTrigger}

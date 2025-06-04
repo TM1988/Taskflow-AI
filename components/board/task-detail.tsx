@@ -325,19 +325,44 @@ export default function TaskDetail({
       });
 
       if (response.ok) {
+        const updatedTask = await response.json();
+        console.log("Task updated successfully:", updatedTask);
+
         // Update the task state with the edited values
         setTask({
           ...task,
-          ...updateData,
+          ...updatedTask,
         });
 
         setIsEditing(false);
 
+        // Debug: Check if window.boardContentRef exists and log its methods
+        console.log("=== BOARD UPDATE DEBUG ===");
+        console.log("window.boardContentRef exists:", !!window.boardContentRef);
+        console.log("window.boardContentRef:", window.boardContentRef);
+        
+        if (window.boardContentRef) {
+          console.log("Available methods:", Object.keys(window.boardContentRef));
+          console.log("updateTaskLocally exists:", !!window.boardContentRef.updateTaskLocally);
+          console.log("refreshTasks exists:", !!window.boardContentRef.refreshTasks);
+        }
+
+        // Update the board's local state
+        if (window.boardContentRef?.updateTaskLocally) {
+          console.log("Calling updateTaskLocally with:", updatedTask);
+          window.boardContentRef.updateTaskLocally(updatedTask);
+          console.log("updateTaskLocally called successfully");
+        } else if (window.boardContentRef?.refreshTasks) {
+          console.log("updateTaskLocally not available, calling refreshTasks");
+          window.boardContentRef.refreshTasks();
+          console.log("refreshTasks called successfully");
+        } else {
+          console.error("No board update methods available!");
+          console.log("window object keys:", Object.keys(window));
+        }
+
         // Notify parent component
-        onTaskUpdate({
-          ...task,
-          ...updateData,
-        });
+        onTaskUpdate(updatedTask);
 
         toast({
           title: "Success",
@@ -516,15 +541,17 @@ export default function TaskDetail({
                         </Select>
                       </div>
 
-                      <DateSelector
-                        value={editedTask?.dueDate}
-                        onChange={(date) =>
-                          setEditedTask({ ...editedTask, dueDate: date })
-                        }
-                        label="Due Date"
-                        position="above" // Explicitly position above
-                        className="mt-1"
-                      />
+                      <div>
+                        <label className="text-sm font-medium">Due Date</label>
+                        <Input
+                          type="date"
+                          value={editedTask?.dueDate ? (typeof editedTask.dueDate === 'string' ? editedTask.dueDate.split('T')[0] : editedTask.dueDate.toISOString().split('T')[0]) : ""}
+                          onChange={(e) =>
+                            setEditedTask({ ...editedTask, dueDate: e.target.value ? new Date(e.target.value) : null })
+                          }
+                          className="mt-1"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

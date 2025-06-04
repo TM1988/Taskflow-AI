@@ -33,3 +33,8 @@ next-env.d.ts
 
 # other
 1.txt
+
+#env
+.env
+.env.local
+.env.example

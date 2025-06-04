@@ -1,131 +1,127 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminDb } from "@/services/admin/mongoAdmin";
+import { initializeMongoDB, getMongoDb } from "@/services/singleton";
 import { ObjectId } from "mongodb";
 
+function generateRequestId(): string {
+  return Math.random().toString(36).substring(2, 11);
+}
+
 export async function GET(request: NextRequest) {
-  const requestId = Math.random().toString(36).substr(2, 9);
-  console.log(`🔄 [${requestId}] Projects API GET called`);
+  const requestId = generateRequestId();
   
   try {
-    const { searchParams } = request.nextUrl;
+    const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
 
-    console.log(`🔍 [${requestId}] Request details:`);
-    console.log(`  - URL: ${request.url}`);
-    console.log(`  - User ID: ${userId}`);
-    console.log(`  - All search params: ${searchParams.toString()}`);
-    console.log(`  - Environment check:`);
-    console.log(`    - NODE_ENV: ${process.env.NODE_ENV}`);
-    console.log(`    - MONGODB_URI exists: ${!!process.env.MONGODB_URI}`);
-    console.log(`    - MONGODB_URI length: ${process.env.MONGODB_URI?.length || 0}`);
+    console.log(`🔄 [${requestId}] Projects API GET called`);
+    console.log(`🔍 [${requestId}] Request details:`, {
+      url: request.url,
+      userId,
+      searchParams: Object.fromEntries(searchParams.entries())
+    });
 
     if (!userId) {
-      console.error(`❌ [${requestId}] Missing userId parameter`);
-      return NextResponse.json(
-        { error: "User ID is required" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "User ID is required" }, { status: 400 });
     }
 
-    console.log(`🔄 [${requestId}] Calling getAdminDb()...`);
-    const adminDb = await getAdminDb();
+    // Initialize MongoDB with retry logic
+    let retryCount = 0;
+    const maxRetries = 3;
+    let mongoDb;
 
-    if (!adminDb) {
-      console.error(`❌ [${requestId}] getAdminDb() returned null/undefined`);
-      return NextResponse.json(
-        { error: "Database connection failed" },
-        { status: 500 },
-      );
+    while (retryCount < maxRetries) {
+      try {
+        await initializeMongoDB();
+        const dbResult = await getMongoDb();
+        mongoDb = dbResult.mongoDb;
+        break;
+      } catch (error) {
+        retryCount++;
+        console.log(`⚠️ [${requestId}] MongoDB connection attempt ${retryCount} failed:`, error);
+        
+        if (retryCount === maxRetries) {
+          throw error;
+        }
+        
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+      }
     }
 
-    console.log(`✅ [${requestId}] Database connected successfully`);
-    console.log(`  - Database name: ${adminDb.databaseName}`);
-    
-    console.log(`🔍 [${requestId}] Building MongoDB query...`);
     const query = {
       $or: [
         { ownerId: userId },
         { members: { $in: [userId] } }
       ]
     };
-    console.log(`  - Query: ${JSON.stringify(query, null, 2)}`);
 
-    console.log(`🔄 [${requestId}] Executing MongoDB query...`);
+    console.log(`🔍 [${requestId}] Executing MongoDB query:`, JSON.stringify(query, null, 2));
+
+    const projects = await mongoDb!.collection("projects").find(query).toArray();
     
-    // Get projects where user is owner or member
-    const projects = await adminDb
-      .collection("projects")
-      .find(query)
-      .toArray();
+    console.log(`✅ [${requestId}] Found ${projects.length} projects`);
 
-    console.log(`✅ [${requestId}] Query executed successfully`);
-    console.log(`  - Projects found: ${projects.length}`);
-    console.log(`  - Project IDs: ${projects.map(p => p._id.toString()).join(', ')}`);
-
-    const transformedProjects = projects.map(project => ({
-      id: project._id.toString(),
+    // Format projects for response
+    const formattedProjects = projects.map((project: any) => ({
       ...project,
-      _id: undefined,
+      id: project._id.toString(),
+      _id: undefined
     }));
 
-    console.log(`✅ [${requestId}] Returning ${transformedProjects.length} projects`);
-    return NextResponse.json(transformedProjects);
-  } catch (error: unknown) {
-    // Cast error to a type that has the properties we need
-    const err = error as Error;
-    
-    console.error(`❌ [${requestId}] Error in projects API:`);
-    console.error(`  - Error type: ${err?.constructor?.name}`);
-    console.error(`  - Error message: ${err?.message}`);
-    console.error(`  - Error code: ${(err as any)?.code}`);
-    console.error(`  - Error stack: ${err?.stack}`);
-    console.error(`  - MongoDB connection details:`);
-    console.error(`    - MONGODB_URI exists: ${!!process.env.MONGODB_URI}`);
-    console.error(`    - MONGODB_URI starts with: ${process.env.MONGODB_URI?.substring(0, 20)}...`);
-    
+    return NextResponse.json(formattedProjects);
+
+  } catch (error) {
+    console.error(`❌ [${requestId}] Error in projects API:`, {
+      type: (error as Error).constructor.name,
+      message: (error as Error).message,
+      stack: (error as Error).stack
+    });
+
     return NextResponse.json(
-      { 
-        error: "Failed to fetch projects",
-        details: err?.message || 'Unknown error',
-        requestId 
-      },
-      { status: 500 },
+      { error: "Failed to fetch projects" },
+      { status: 500 }
     );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json();
+    const body = await request.json();
+    const { name, description, ownerId } = body;
 
-    const adminDb = await getAdminDb();
-
-    if (!adminDb) {
+    if (!name || !ownerId) {
       return NextResponse.json(
-        { error: "Database connection failed" },
-        { status: 500 },
+        { error: "Name and owner ID are required" },
+        { status: 400 }
       );
     }
 
-    const projectData = {
-      ...data,
-      members: data.members || [data.ownerId],
+    await initializeMongoDB();
+    const { mongoDb } = await getMongoDb();
+
+    const newProject = {
+      name,
+      description: description || "",
+      ownerId,
+      members: [ownerId],
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
-    const result = await adminDb.collection("projects").insertOne(projectData);
+    const result = await mongoDb.collection("projects").insertOne(newProject);
 
-    return NextResponse.json({
+    const project = {
+      ...newProject,
       id: result.insertedId.toString(),
-      ...projectData,
-    });
-  } catch (error: unknown) {
-    const err = error as Error;
-    console.error("Error creating project:", err);
+      _id: undefined,
+    };
+
+    return NextResponse.json(project, { status: 201 });
+  } catch (error) {
+    console.error("Error creating project:", error);
     return NextResponse.json(
-      { error: "Failed to create project", details: err?.message || 'Unknown error' },
-      { status: 500 },
+      { error: "Failed to create project" },
+      { status: 500 }
     );
   }
 }

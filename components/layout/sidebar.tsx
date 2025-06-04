@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { LogoIcon } from "@/components/icons";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 interface NavItemProps {
   href: string;
@@ -46,40 +47,47 @@ function NavItem({ href, icon, label, active, collapsed }: NavItemProps) {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { isPersonalWorkspace, getWorkspaceDisplayName } = useWorkspace();
   const [collapsed, setCollapsed] = useState(false);
   const [open, setOpen] = useState(false);
 
-  // Navigation items
-  const navItems = [
+  // Context‐aware navigation items
+  const navigationItems = [
     {
+      name: "Dashboard",
       href: "/",
       icon: <LayoutDashboardIcon className="h-4 w-4" />,
-      label: "Dashboard",
+      description: isPersonalWorkspace ? "Personal overview" : "Project overview",
     },
     {
+      name: "Board",
       href: "/board",
       icon: <ActivityIcon className="h-4 w-4" />,
-      label: "Board",
+      description: isPersonalWorkspace ? "Personal task board" : "Project task board",
     },
     {
+      name: "Analytics",
       href: "/analytics",
       icon: <BarChart3Icon className="h-4 w-4" />,
-      label: "Analytics",
+      description: isPersonalWorkspace ? "Personal analytics" : "Project analytics",
     },
     {
+      name: isPersonalWorkspace ? "Personal Repos" : "Repositories",
       href: "/repositories",
       icon: <CodeIcon className="h-4 w-4" />,
-      label: "Repositories",
+      description: isPersonalWorkspace ? "Your repositories" : "Project repositories",
     },
     {
+      name: isPersonalWorkspace ? "Contacts" : "Team",
       href: "/team",
       icon: <UsersIcon className="h-4 w-4" />,
-      label: "Team",
+      description: isPersonalWorkspace ? "Personal contacts" : "Project team",
     },
     {
+      name: "Settings",
       href: "/settings",
       icon: <Settings2Icon className="h-4 w-4" />,
-      label: "Settings",
+      description: isPersonalWorkspace ? "Personal settings" : "Project settings",
     },
   ];
 
@@ -96,12 +104,12 @@ export default function Sidebar() {
       </div>
       <div className="flex-1 px-3 py-2">
         <nav className="flex flex-col gap-1">
-          {navItems.map((item) => (
+          {navigationItems.map((item) => (
             <NavItem
-              key={item.href}
+              key={item.name}
               href={item.href}
               icon={item.icon}
-              label={item.label}
+              label={item.name}
               active={pathname === item.href}
               collapsed={collapsed}
             />
@@ -139,8 +147,8 @@ export default function Sidebar() {
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          "border-r bg-card hidden md:block transition-all duration-300",
-          collapsed ? "w-[70px]" : "w-[240px]"
+          "bg-background border-r flex flex-col h-full transition-all duration-300",
+          collapsed ? "w-16" : "w-64"
         )}
       >
         {sidebarContent}

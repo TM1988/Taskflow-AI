@@ -32,6 +32,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/services/auth/AuthContext";
 import { cn } from "@/lib/utils";
+import ColumnManager from "@/components/board/column-manager";
 
 export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -54,15 +55,47 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
 
+  const [defaultProjectName, setDefaultProjectName] = useState("");
+  const [currentProject, setCurrentProject] = useState<any>(null);
+
   const { user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+
+  // Load saved default project name
+  useEffect(() => {
+    const saved = localStorage.getItem("defaultProjectName");
+    if (saved) setDefaultProjectName(saved);
+  }, []);
+
+  // Fetch current project
+  useEffect(() => {
+    const fetchCurrentProject = async () => {
+      if (!user) return;
+
+      try {
+        const response = await fetch(`/api/projects?userId=${user.uid}`);
+        if (response.ok) {
+          const projects = await response.json();
+          if (projects.length > 0) {
+            setCurrentProject(projects[0]);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching current project:", error);
+      }
+    };
+
+    fetchCurrentProject();
+  }, [user]);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1000));
+    // persist default project name
+    localStorage.setItem("defaultProjectName", defaultProjectName);
     setIsLoading(false);
     toast({
       title: "Success",
@@ -247,6 +280,16 @@ export default function SettingsPage() {
                     type="email"
                     defaultValue={user?.email || ""}
                     readOnly
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="defaultProjectName">Default Project Name</Label>
+                  <Input
+                    id="defaultProjectName"
+                    placeholder="My First Project"
+                    value={defaultProjectName}
+                    onChange={(e) => setDefaultProjectName(e.target.value)}
                   />
                 </div>
               </div>
@@ -521,80 +564,14 @@ export default function SettingsPage() {
 
         {/* Kanban Settings Tab */}
         <TabsContent value="kanban">
-          <Card className="p-6">
-            <h2 className="text-2xl font-semibold mb-6">
-              Kanban Board Settings
-            </h2>
-
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <Label>Default Column Names</Label>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Set up the default column structure for new projects.
-                </p>
-
-                <div className="space-y-2">
-                  {["To Do", "In Progress", "Review", "Done"].map(
-                    (column, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <Input defaultValue={column} className="max-w-xs" />
-                        <Button variant="ghost" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ),
-                  )}
-
-                  <Button variant="outline" size="sm" className="mt-2">
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Column
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Task Templates</Label>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Define task templates for common types of work.
-                </p>
-
-                <div className="grid gap-4">
-                  <div className="flex items-center justify-between p-4 border rounded-md">
-                    <div>
-                      <h4 className="font-medium">Bug Report</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Template for bug fixes with severity levels
-                      </p>
-                    </div>
-                    <Button variant="outline" size="sm">
-                      Edit
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 border rounded-md">
-                    <div>
-                      <h4 className="font-medium">Feature Request</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Template for new features with acceptance criteria
-                      </p>
-                    </div>
-                    <Button variant="outline" size="sm">
-                      Edit
-                    </Button>
-                  </div>
-
-                  <Button variant="outline">
-                    <Plus className="h-4 w-4 mr-1" />
-                    Create New Template
-                  </Button>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t">
-                <Button>Save Kanban Settings</Button>
-              </div>
-            </div>
-          </Card>
+          <div className="space-y-4">
+            <Card className="p-6">
+              <h2 className="text-2xl font-semibold mb-6">
+                Kanban Board Configuration
+              </h2>
+              <ColumnManager projectId={currentProject?.id} />
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="security">
