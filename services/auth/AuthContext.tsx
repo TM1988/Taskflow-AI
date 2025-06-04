@@ -113,11 +113,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const logout = async () => {
     try {
+      setLoading(true);
+      
+      // Clear user state BEFORE Firebase signOut
+      setUser(null);
+      
+      // Sign out from Firebase
       await signOut();
-      router.push("/auth/login");
+      
+      // Clear any cached data
+      localStorage.removeItem('user');
+      sessionStorage.clear();
+      
+      // Small delay to ensure state is cleared
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Force redirect to login
+      window.location.href = '/auth/login';
+      
     } catch (error) {
-      console.error("Error signing out:", error);
-      throw error;
+      console.error('Logout error:', error);
+      // Even if logout fails, clear local state
+      setUser(null);
+      window.location.href = '/auth/login';
+    } finally {
+      setLoading(false);
     }
   };
 
