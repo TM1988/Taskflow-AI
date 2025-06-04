@@ -153,6 +153,7 @@ export default function ColumnManager({ projectId }: ColumnManagerProps) {
       }
 
       // Create new columns with roles
+      const createdColumns = [];
       for (let i = 0; i < columns.length; i++) {
         const col = columns[i];
         const columnData = {
@@ -162,11 +163,16 @@ export default function ColumnManager({ projectId }: ColumnManagerProps) {
           role: col.id === todoColumnId ? 'todo' : col.id === doneColumnId ? 'done' : null
         };
 
-        await fetch('/api/columns', {
+        const response = await fetch('/api/columns', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(columnData)
         });
+
+        if (response.ok) {
+          const newColumn = await response.json();
+          createdColumns.push(newColumn);
+        }
       }
 
       toast({
@@ -174,7 +180,17 @@ export default function ColumnManager({ projectId }: ColumnManagerProps) {
         description: "Column configuration saved successfully",
       });
       
-      // Notify board to refresh
+      // Update local state with the newly created columns to prevent reset
+      const sortedCreatedColumns = createdColumns.sort((a, b) => a.order - b.order);
+      setColumns(sortedCreatedColumns);
+      
+      // Update role assignments with new IDs
+      const newTodoCol = sortedCreatedColumns.find(c => c.role === 'todo');
+      const newDoneCol = sortedCreatedColumns.find(c => c.role === 'done');
+      if (newTodoCol) setTodoColumnId(newTodoCol.id);
+      if (newDoneCol) setDoneColumnId(newDoneCol.id);
+      
+      // Notify board content to refresh
       if (window.boardContentRef?.refreshTasks) {
         window.boardContentRef.refreshTasks();
       }

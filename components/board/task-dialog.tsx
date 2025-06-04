@@ -47,11 +47,13 @@ export default function TaskDialog({
   onTaskCreated,
   onTaskUpdated,
 }: TaskDialogProps) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [columnId, setColumnId] = useState("");
-  const [priority, setPriority] = useState("medium");
-  const [dueDate, setDueDate] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    columnId: "",
+    priority: "medium",
+    dueDate: null as string | null,
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const { toast } = useToast();
@@ -59,16 +61,36 @@ export default function TaskDialog({
   // Reset when dialog opens
   useEffect(() => {
     if (open) {
-      setTitle("");
-      setDescription("");
-      // default to first column
-      setColumnId(columns[0]?.id || "");
-      setPriority("medium");
-      setDueDate(null);
+      setFormData({
+        title: "",
+        description: "",
+        columnId: columns[0]?.id || "",
+        priority: "medium",
+        dueDate: null,
+      });
     }
   }, [open, columns]);
 
+  // Update local columns when prop changes
+  useEffect(() => {
+    if (columns && columns.length > 0) {
+      console.log("TaskDialog: Updating columns from props:", columns);
+      setFormData((prev) => {
+        // If current columnId doesn't exist in new columns, reset to first column
+        const currentColumnExists = columns.find(
+          (col) => col.id === prev.columnId
+        );
+
+        return {
+          ...prev,
+          columnId: currentColumnExists ? prev.columnId : columns[0]?.id || "",
+        };
+      });
+    }
+  }, [columns]);
+
   const handleSubmit = async () => {
+    const { title, description, columnId, priority, dueDate } = formData;
     console.log("Submitting task:", {
       title,
       description,
@@ -114,10 +136,13 @@ export default function TaskDialog({
       console.log("Task created:", newTask);
 
       // Clear form
-      setTitle("");
-      setDescription("");
-      setDueDate(null);
-      setPriority("medium");
+      setFormData({
+        title: "",
+        description: "",
+        columnId: columns[0]?.id || "",
+        priority: "medium",
+        dueDate: null,
+      });
 
       // Use the callback to update the board
       if (onTaskCreated) {
@@ -162,8 +187,10 @@ export default function TaskDialog({
             <Input
               id="title"
               placeholder="Task title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              value={formData.title}
+              onChange={(e) =>
+                setFormData({ ...formData, title: e.target.value })
+              }
               required
             />
           </div>
@@ -174,22 +201,29 @@ export default function TaskDialog({
             <Textarea
               id="description"
               placeholder="Describe the task..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
               rows={3}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="block text-sm font-medium">Column</label>
-              <Select value={columnId} onValueChange={setColumnId}>
-                <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Select column" />
+              <Select
+                value={formData.columnId}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, columnId: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a column" />
                 </SelectTrigger>
                 <SelectContent>
-                  {columns.map((col) => (
-                    <SelectItem key={col.id} value={col.id}>
-                      {col.title || col.name}
+                  {columns.map((column) => (
+                    <SelectItem key={column.id} value={column.id}>
+                      {column.title || column.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -198,8 +232,13 @@ export default function TaskDialog({
 
             <div className="space-y-2">
               <label className="block text-sm font-medium">Priority</label>
-              <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger className="h-10">
+              <Select
+                value={formData.priority}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, priority: value })
+                }
+              >
+                <SelectTrigger>
                   <SelectValue placeholder="Select priority" />
                 </SelectTrigger>
                 <SelectContent>
@@ -215,8 +254,10 @@ export default function TaskDialog({
             <label className="block text-sm font-medium">Due Date</label>
             <Input
               type="date"
-              value={dueDate || ""}
-              onChange={(e) => setDueDate(e.target.value)}
+              value={formData.dueDate || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, dueDate: e.target.value })
+              }
               className="w-full"
             />
           </div>
@@ -230,7 +271,7 @@ export default function TaskDialog({
             </Button>
             <Button
               type="submit"
-              disabled={isSubmitting || !title.trim() || !columnId}
+              disabled={isSubmitting || !formData.title.trim() || !formData.columnId}
             >
               {isSubmitting ? "Creating..." : "Create Task"}
             </Button>

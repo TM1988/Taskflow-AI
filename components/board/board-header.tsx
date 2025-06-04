@@ -24,13 +24,14 @@ interface FilterState {
 }
 
 interface BoardHeaderProps {
-  onAddTask: () => void;
-  onSearch: (query: string) => void;
-  onFilter: (filters: FilterState) => void;
-  users: { id: string; name: string }[];
+  users: any[];
   tags: string[];
+  onSearch: (query: string) => void;
+  onFilter: (filters: any) => void;
+  onAddTask: () => void;
   projectId?: string;
   onTasksImported?: () => void;
+  onColumnUpdate?: (columns: any[]) => void; // Add this prop
 }
 
 export default function BoardHeader({
@@ -41,6 +42,7 @@ export default function BoardHeader({
   onAddTask,
   projectId,
   onTasksImported,
+  onColumnUpdate, // Add this prop
 }: BoardHeaderProps) {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");

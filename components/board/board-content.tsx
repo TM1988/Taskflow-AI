@@ -83,6 +83,72 @@ export default function BoardContent({
       console.log("=== FETCHING BOARD DATA ===");
       console.log("Project ID:", currentProject.id);
       
+      // Always fetch fresh columns from database
+      console.log("=== FETCHING COLUMNS FIRST ===");
+      const columnsResponse = await fetch(`/api/columns?projectId=${currentProject.id}`);
+      let currentColumns = [];
+      
+      if (columnsResponse.ok) {
+        const columnsData = await columnsResponse.json();
+        console.log("Columns data:", columnsData);
+        
+        if (columnsData.length > 0) {
+          currentColumns = columnsData.sort((a: any, b: any) => a.order - b.order);
+          // Always update columns with fresh data from database
+          setColumns(currentColumns);
+        } else {
+          console.log("No columns found, creating defaults");
+          // Create default columns in database if none exist
+          const defaultColumnsToCreate = [
+            { name: "To Do", order: 0 },
+            { name: "In Progress", order: 1 },
+            { name: "Review", order: 2 },
+            { name: "Done", order: 3 },
+          ];
+
+          for (const col of defaultColumnsToCreate) {
+            const response = await fetch('/api/columns', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                projectId: currentProject.id,
+                name: col.name,
+                order: col.order
+              })
+            });
+            
+            if (response.ok) {
+              const newColumn = await response.json();
+              currentColumns.push(newColumn);
+            }
+          }
+          
+          currentColumns.sort((a: any, b: any) => a.order - b.order);
+          setColumns(currentColumns);
+        }
+      } else {
+        console.warn("Failed to fetch columns, using existing state");
+        currentColumns = columns.length > 0 ? columns : defaultColumns;
+      }
+
+      // Create column ID mapping for tasks
+      const columnIdMap: Record<string, string> = {};
+      
+      // Map old string-based IDs to current column IDs
+      const nameToIdMapping = {
+        'To Do': currentColumns.find((col: any) => col.name === 'To Do')?.id,
+        'In Progress': currentColumns.find((col: any) => col.name === 'In Progress')?.id,
+        'Review': currentColumns.find((col: any) => col.name === 'Review')?.id,
+        'Done': currentColumns.find((col: any) => col.name === 'Done')?.id
+      };
+
+      // Legacy ID mapping
+      columnIdMap['todo'] = nameToIdMapping['To Do'] || currentColumns[0]?.id || 'todo';
+      columnIdMap['in-progress'] = nameToIdMapping['In Progress'] || currentColumns[1]?.id || 'in-progress';
+      columnIdMap['review'] = nameToIdMapping['Review'] || currentColumns[2]?.id || 'review';
+      columnIdMap['done'] = nameToIdMapping['Done'] || currentColumns[currentColumns.length - 1]?.id || 'done';
+
+      // Now fetch board data
       const boardResponse = await fetch(`/api/board/${currentProject.id}`);
 
       if (boardResponse.ok) {
@@ -91,16 +157,26 @@ export default function BoardContent({
 
         const allTasks = Object.values(boardData.board || {}).flatMap(
           (column: any) => column.tasks || [],
-        ).map((task: any) => ({
-          ...task,
-          projectId: typeof task.projectId === 'object' ? task.projectId.toString() : task.projectId,
-          order: task.order ?? 0,
-          id: task.id || task._id,
-        }));
+        ).map((task: any) => {
+          // Map old column IDs to current ones
+          const mappedColumnId = columnIdMap[task.columnId] || task.columnId;
+          
+          // Verify the mapped column ID exists in current columns
+          const columnExists = currentColumns.find((col: any) => col.id === mappedColumnId);
+          const finalColumnId = columnExists ? mappedColumnId : currentColumns[0]?.id || task.columnId;
+          
+          return {
+            ...task,
+            projectId: typeof task.projectId === 'object' ? task.projectId.toString() : task.projectId,
+            columnId: finalColumnId,
+            order: task.order ?? 0,
+            id: task.id || task._id,
+          };
+        });
 
         console.log("BoardContent: All tasks fetched and normalized:", allTasks);
         console.log("Task count:", allTasks.length);
-        console.log("Sample task:", allTasks[0]);
+        console.log("Active columns used:", currentColumns);
         
         setTasks(allTasks);
         setFilteredTasks(allTasks);
@@ -108,25 +184,6 @@ export default function BoardContent({
         console.error("Board response not ok:", boardResponse.status);
       }
 
-      // Always fetch columns to get latest updates
-      console.log("=== FETCHING COLUMNS ===");
-      const columnsResponse = await fetch(`/api/columns?projectId=${currentProject.id}`);
-      console.log("Columns response status:", columnsResponse.status);
-
-      if (columnsResponse.ok) {
-        const columnsData = await columnsResponse.json();
-        console.log("Columns data:", columnsData);
-        
-        if (columnsData.length > 0) {
-          setColumns(columnsData.sort((a: any, b: any) => a.order - b.order));
-        } else {
-          console.log("No columns found, using defaults");
-          setColumns(defaultColumns);
-        }
-      } else {
-        console.warn("Failed to fetch columns, using defaults");
-        setColumns(defaultColumns);
-      }
     } catch (error) {
       console.error("Error loading board data:", error);
       toast({
@@ -134,14 +191,10 @@ export default function BoardContent({
         description: "Failed to load board data",
         variant: "destructive",
       });
-
-      if (columns.length === 0) {
-        setColumns(defaultColumns);
-      }
     } finally {
       setLoading(false);
     }
-  }, [currentProject?.id, toast, defaultColumns, columns.length]);
+  }, [currentProject?.id, toast, defaultColumns]);
 
   const refreshTasks = useCallback(() => {
     console.log("Refreshing tasks for project:", projectId);
@@ -385,11 +438,40 @@ export default function BoardContent({
     return colors[order % colors.length];
   };
 
+  // Single displayColumns definition
   const displayColumns = getInitialColumns().map(col => ({
     id: col.id,
     title: col.name || col.title,
     color: getColumnColor(col.order || 0)
   }));
+
+  // Handle column updates from board header
+  const handleColumnUpdate = (updatedColumns: any[]) => {
+    console.log("BoardContent: Column update received:", updatedColumns);
+    setColumns(updatedColumns.sort((a: any, b: any) => a.order - b.order));
+    
+    // Only update tasks' column IDs if needed, don't refetch everything
+    setTasks(prevTasks => 
+      prevTasks.map(task => {
+        // Check if task's column still exists in updated columns
+        const columnExists = updatedColumns.find(col => col.id === task.columnId);
+        return columnExists ? task : {
+          ...task,
+          columnId: updatedColumns[0]?.id || task.columnId // Fallback to first column
+        };
+      })
+    );
+    
+    setFilteredTasks(prevTasks => 
+      prevTasks.map(task => {
+        const columnExists = updatedColumns.find(col => col.id === task.columnId);
+        return columnExists ? task : {
+          ...task,
+          columnId: updatedColumns[0]?.id || task.columnId
+        };
+      })
+    );
+  };
 
   return (
     <div className="h-full flex flex-col min-w-0">
@@ -401,6 +483,7 @@ export default function BoardContent({
         onAddTask={() => setIsTaskDialogOpen(true)}
         projectId={currentProject?.id}
         onTasksImported={fetchBoardData}
+        onColumnUpdate={handleColumnUpdate} // Add this prop
       />
 
       <DragDropContext onDragEnd={handleDragEnd}>
@@ -426,7 +509,7 @@ export default function BoardContent({
       <TaskDialog
         open={isTaskDialogOpen}
         onOpenChange={setIsTaskDialogOpen}
-        columns={displayColumns}
+        columns={displayColumns} // Pass the current display columns
         projectId={currentProject?.id}
         onTaskCreated={handleTaskCreated}
         onTaskUpdated={handleTaskUpdated}

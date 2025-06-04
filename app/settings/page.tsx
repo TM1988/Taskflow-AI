@@ -57,6 +57,7 @@ export default function SettingsPage() {
 
   const [defaultProjectName, setDefaultProjectName] = useState("");
   const [currentProject, setCurrentProject] = useState<any>(null);
+  const [columns, setColumns] = useState<any[]>([]);
 
   const { user } = useAuth();
   const { toast } = useToast();
@@ -87,6 +88,27 @@ export default function SettingsPage() {
     };
 
     fetchCurrentProject();
+  }, [user]);
+
+  // Fetch AI config when component mounts
+  useEffect(() => {
+    const fetchConfig = async () => {
+      if (!user) return;
+
+      try {
+        const response = await fetch(`/api/user-ai-config/${user.uid}`);
+        if (response.ok) {
+          const data = await response.json();
+          console.log("Loaded AI config:", data);
+          setIsEnabled(data.isEnabled || false);
+          setCurrentKey(data.hasApiKey ? "••••••••••••••••" : null);
+        }
+      } catch (error) {
+        console.error("Error fetching AI config:", error);
+      }
+    };
+
+    fetchConfig();
   }, [user]);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -185,28 +207,6 @@ export default function SettingsPage() {
       setIsSaving(false);
     }
   };
-
-  // Fetch AI config when component mounts
-  useEffect(() => {
-    const fetchConfig = async () => {
-      if (!user) return;
-
-      try {
-        const response = await fetch(`/api/user-ai-config/${user.uid}`);
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Loaded AI config:", data);
-          setIsEnabled(data.isEnabled || false);
-          setCurrentKey(data.hasApiKey ? "••••••••••••••••" : null);
-        }
-      } catch (error) {
-        console.error("Error fetching AI config:", error);
-      }
-    };
-
-    fetchConfig();
-  }, [user]);
 
   return (
     <div className="container mx-auto py-8">
@@ -397,7 +397,6 @@ export default function SettingsPage() {
             <h2 className="text-2xl font-semibold mb-6">
               AI Integration Settings
             </h2>
-
             <div className="space-y-6">
               <Alert className="bg-amber-50 border-amber-200">
                 <AlertTriangle className="h-4 w-4 text-amber-600" />
@@ -485,7 +484,6 @@ export default function SettingsPage() {
                 <Button onClick={saveAIConfig} disabled={isSaving}>
                   {isSaving ? "Saving..." : "Save AI Configuration"}
                 </Button>
-
                 {configSaved && (
                   <span className="text-green-500 flex items-center gap-1 animate-in fade-in slide-in-from-right-5">
                     <CheckCircle className="h-4 w-4" />
