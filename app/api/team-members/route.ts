@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/mongoAdmin";
+import { getMongoDb } from "@/services/singleton";
 import { ObjectId } from "mongodb";
 
 export async function GET(request: NextRequest) {
@@ -14,12 +14,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!adminDb) {
-      throw new Error("MongoDB not initialized");
-    }
+    const { mongoDb } = await getMongoDb();
 
     // Get user's projects
-    const projects = await adminDb
+    const projects = await mongoDb
       .collection("projects")
       .find({ members: { $in: [userId] } })
       .toArray();
@@ -37,7 +35,7 @@ export async function GET(request: NextRequest) {
     const membersData = [];
     for (const id of Array.from(memberIds)) {
       try {
-        const userDoc = await adminDb.collection("users").findOne({ _id: new ObjectId(id) });
+        const userDoc = await mongoDb.collection("users").findOne({ _id: new ObjectId(id) });
         if (userDoc) {
           const userData = userDoc;
           membersData.push({

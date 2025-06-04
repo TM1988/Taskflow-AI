@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { DragDropContext, DropResult, Droppable } from "@hello-pangea/dnd";
 import { Loader2 } from "lucide-react";
 import KanbanColumn from "@/components/board/kanban-column";
@@ -11,6 +11,7 @@ import BoardHeader from "@/components/board/board-header";
 import { Badge } from "@/components/ui/badge";
 
 interface BoardContentProps {
+  projectId: string;
   onTaskSelect?: (taskId: string) => void;
   refreshTrigger?: number;
   onProjectUpdate?: (project: any) => void;
@@ -29,6 +30,7 @@ declare global {
 }
 
 export default function BoardContent({
+  projectId,
   onTaskSelect,
   refreshTrigger = 0,
   onProjectUpdate,
@@ -42,6 +44,131 @@ export default function BoardContent({
   const { user } = useAuth();
   const { toast } = useToast();
 
+  // Default columns - moved to useMemo to prevent recreation
+  const defaultColumns = useMemo(() => [
+    { id: "todo", name: "To Do", order: 0 },
+    { id: "in-progress", name: "In Progress", order: 1 },
+    { id: "review", name: "Review", order: 2 },
+    { id: "done", name: "Done", order: 3 },
+  ], []);
+
+  // Move all useCallback hooks to top level - BEFORE any conditional logic
+  const updateTaskLocally = useCallback((updatedTask: any) => {
+    console.log("updateTaskLocally called with:", updatedTask);
+    setTasks(prevTasks => 
+      prevTasks.map(task => 
+        task.id === updatedTask.id ? { ...task, ...updatedTask } : task
+      )
+    );
+    setFilteredTasks(prevTasks => 
+      prevTasks.map(task => 
+        task.id === updatedTask.id ? { ...task, ...updatedTask } : task
+      )
+    );
+  }, []);
+
+  const removeTaskLocally = useCallback((taskId: string) => {
+    console.log("removeTaskLocally called with:", taskId);
+    setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
+    setFilteredTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
+  }, []);
+
+  // Fetch board data and columns
+  const fetchBoardData = useCallback(async () => {
+    if (!currentProject?.id) return;
+
+    setLoading(true);
+
+    try {
+      console.log("=== FETCHING BOARD DATA ===");
+      console.log("Project ID:", currentProject.id);
+      
+      const boardResponse = await fetch(`/api/board/${currentProject.id}`);
+
+      if (boardResponse.ok) {
+        const boardData = await boardResponse.json();
+        console.log("Raw board data:", boardData);
+
+        const allTasks = Object.values(boardData.board || {}).flatMap(
+          (column: any) => column.tasks || [],
+        ).map((task: any) => ({
+          ...task,
+          projectId: typeof task.projectId === 'object' ? task.projectId.toString() : task.projectId,
+          order: task.order ?? 0,
+          id: task.id || task._id,
+        }));
+
+        console.log("BoardContent: All tasks fetched and normalized:", allTasks);
+        console.log("Task count:", allTasks.length);
+        console.log("Sample task:", allTasks[0]);
+        
+        setTasks(allTasks);
+        setFilteredTasks(allTasks);
+      } else {
+        console.error("Board response not ok:", boardResponse.status);
+      }
+
+      // Always fetch columns to get latest updates
+      console.log("=== FETCHING COLUMNS ===");
+      const columnsResponse = await fetch(`/api/columns?projectId=${currentProject.id}`);
+      console.log("Columns response status:", columnsResponse.status);
+
+      if (columnsResponse.ok) {
+        const columnsData = await columnsResponse.json();
+        console.log("Columns data:", columnsData);
+        
+        if (columnsData.length > 0) {
+          setColumns(columnsData.sort((a: any, b: any) => a.order - b.order));
+        } else {
+          console.log("No columns found, using defaults");
+          setColumns(defaultColumns);
+        }
+      } else {
+        console.warn("Failed to fetch columns, using defaults");
+        setColumns(defaultColumns);
+      }
+    } catch (error) {
+      console.error("Error loading board data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load board data",
+        variant: "destructive",
+      });
+
+      if (columns.length === 0) {
+        setColumns(defaultColumns);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [currentProject?.id, toast, defaultColumns, columns.length]);
+
+  const refreshTasks = useCallback(() => {
+    console.log("Refreshing tasks for project:", projectId);
+    fetchBoardData();
+  }, [projectId, fetchBoardData]); // Added projectId dependency
+
+  // Set up window reference
+  useEffect(() => {
+    window.boardContentRef = {
+      updateTaskLocally,
+      removeTaskLocally,
+      refreshTasks,
+    };
+
+    return () => {
+      delete window.boardContentRef;
+    };
+  }, [updateTaskLocally, removeTaskLocally, refreshTasks]);
+
+  // Helper function to get initial columns - moved to useCallback with proper dependencies
+  const getInitialColumns = useCallback(() => {
+    if (columns && columns.length > 0) {
+      return columns;
+    }
+    return defaultColumns;
+  }, [columns, defaultColumns]);
+
   // Mock users and tags for the header
   const mockUsers = [
     { id: "1", name: "Alice Chen" },
@@ -50,14 +177,6 @@ export default function BoardContent({
   ];
 
   const mockTags = ["frontend", "backend", "bug", "feature", "urgent"];
-
-  // Default columns
-  const defaultColumns = [
-    { id: "todo", title: "To Do", name: "To Do", color: "bg-slate-100" },
-    { id: "in-progress", title: "In Progress", name: "In Progress", color: "bg-blue-100" },
-    { id: "review", title: "Review", name: "Review", color: "bg-yellow-100" },
-    { id: "done", title: "Done", name: "Done", color: "bg-green-100" },
-  ];
 
   // Helper function to get tasks for a column
   const getTasksForColumn = (columnId: string) => {
@@ -139,110 +258,6 @@ export default function BoardContent({
       }
     }
   }, [user, toast, onProjectUpdate, currentProject]);
-
-  // Fetch board data and columns
-  const fetchBoardData = useCallback(async () => {
-    if (!currentProject?.id) return;
-
-    setLoading(true);
-
-    try {
-      console.log("=== FETCHING BOARD DATA ===");
-      console.log("Project ID:", currentProject.id);
-      
-      const boardResponse = await fetch(`/api/board/${currentProject.id}`);
-
-      if (boardResponse.ok) {
-        const boardData = await boardResponse.json();
-        console.log("Raw board data:", boardData);
-
-        const allTasks = Object.values(boardData.board || {}).flatMap(
-          (column: any) => column.tasks || [],
-        ).map((task: any) => ({
-          ...task,
-          projectId: typeof task.projectId === 'object' ? task.projectId.toString() : task.projectId,
-          order: task.order ?? 0,
-          id: task.id || task._id,
-        }));
-
-        console.log("BoardContent: All tasks fetched and normalized:", allTasks);
-        console.log("Task count:", allTasks.length);
-        console.log("Sample task:", allTasks[0]);
-        
-        setTasks(allTasks);
-        setFilteredTasks(allTasks);
-      } else {
-        console.error("Board response not ok:", boardResponse.status);
-      }
-
-      // Always fetch columns to get latest updates
-      console.log("=== FETCHING COLUMNS ===");
-      const columnsResponse = await fetch(`/api/columns?projectId=${currentProject.id}`);
-      console.log("Columns response status:", columnsResponse.status);
-
-      if (columnsResponse.ok) {
-        const columnsData = await columnsResponse.json();
-        console.log("Columns data:", columnsData);
-        
-        if (columnsData.length > 0) {
-          setColumns(columnsData.sort((a: any, b: any) => a.order - b.order));
-        } else {
-          console.log("No columns found, using defaults");
-          setColumns(defaultColumns);
-        }
-      } else {
-        console.warn("Failed to fetch columns, using defaults");
-        setColumns(defaultColumns);
-      }
-    } catch (error) {
-      console.error("Error loading board data:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load board data",
-        variant: "destructive",
-      });
-
-      if (columns.length === 0) {
-        setColumns(defaultColumns);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [currentProject?.id, toast]);
-
-  // Expose methods to window for access
-  useEffect(() => {
-    window.boardContentRef = {
-      removeTaskLocally: (taskId: string) => {
-        console.log("BoardContent: removeTaskLocally called with:", taskId);
-        setTasks((prev) => prev.filter((t) => t.id !== taskId));
-        setFilteredTasks((prev) => prev.filter((t) => t.id !== taskId));
-      },
-      updateTaskLocally: (updatedTask: any) => {
-        console.log("BoardContent: updateTaskLocally called with:", updatedTask);
-        
-        const normalizedTask = {
-          ...updatedTask,
-          projectId: typeof updatedTask.projectId === 'object' ? updatedTask.projectId.toString() : updatedTask.projectId,
-          order: updatedTask.order ?? 0,
-          id: updatedTask.id || updatedTask._id,
-        };
-        
-        setTasks((prev) => prev.map(t => t.id === normalizedTask.id ? normalizedTask : t));
-        setFilteredTasks((prev) => prev.map(t => t.id === normalizedTask.id ? normalizedTask : t));
-      },
-      refreshTasks: () => {
-        console.log("BoardContent: refreshTasks called - forcing full refresh");
-        setTasks([]);
-        setFilteredTasks([]);
-        fetchBoardData();
-      }
-    };
-
-    return () => {
-      delete window.boardContentRef;
-    };
-  }, [fetchBoardData]);
 
   // Initial project fetch
   useEffect(() => {
@@ -370,12 +385,11 @@ export default function BoardContent({
     return colors[order % colors.length];
   };
 
-  // Use dynamic columns or fallback to defaults
-  const displayColumns = columns.length > 0 ? columns.map(col => ({
+  const displayColumns = getInitialColumns().map(col => ({
     id: col.id,
     title: col.name || col.title,
     color: getColumnColor(col.order || 0)
-  })) : defaultColumns;
+  }));
 
   return (
     <div className="h-full flex flex-col min-w-0">

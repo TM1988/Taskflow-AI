@@ -1,4 +1,4 @@
-import { adminDb } from "@/services/admin/mongoAdmin";
+import { getMongoDb } from "@/services/singleton";
 import { Task } from "@/types/task";
 import { ObjectId } from "mongodb";
 
@@ -6,19 +6,17 @@ export const dashboardService = {
   // Get comprehensive project stats for dashboard
   async getProjectStats(userId: string) {
     try {
-      if (!adminDb) {
-        throw new Error("MongoDB not initialized");
-      }
+      const { mongoDb } = await getMongoDb();
 
       // Get user projects
-      const projects = await adminDb
+      const projects = await mongoDb
         .collection("projects")
         .find({ members: { $in: [userId] } })
         .toArray();
 
       // Get tasks for all projects
       const projectIds = projects.map((project) => project._id.toString());
-      const allTasks = await adminDb
+      const allTasks = await mongoDb
         .collection("tasks")
         .find({ projectId: { $in: projectIds } })
         .toArray();

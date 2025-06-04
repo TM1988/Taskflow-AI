@@ -1,7 +1,7 @@
 import { MongoClient, Db } from "mongodb";
 
 const uri = process.env.MONGODB_URI!;
-const dbName = process.env.MONGODB_DB || "Taskflow";
+const dbName = process.env.MONGODB_DB || "myVercelAppDB";
 
 let cachedClient: MongoClient | null = null;
 let cachedDb: Db | null = null;
@@ -21,3 +21,6 @@ export async function getAdminDb(): Promise<Db> {
   cachedDb = cachedClient.db(dbName);
   return cachedDb;
 }
+
+// Export adminDb for backward compatibility
+export const adminDb = getAdminDb;

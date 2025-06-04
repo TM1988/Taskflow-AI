@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/firebaseAdmin";
-import { FirestoreQueryDocumentSnapshot } from "@/types/firestore-types";
+import { getMongoDb } from "@/services/singleton";
+import { ObjectId } from "mongodb";
 
 export async function POST(
   request: NextRequest,
@@ -10,35 +10,33 @@ export async function POST(
     const projectId = params.projectId;
     const tasks = await request.json();
 
-    // Verify the project exists
-    const projectDoc = await adminDb
-      .collection("projects")
-      .doc(projectId)
-      .get();
+    const { mongoDb } = await getMongoDb();
 
-    if (!projectDoc.exists) {
+    // Verify the project exists
+    const projectDoc = await mongoDb
+      .collection("projects")
+      .findOne({ _id: new ObjectId(projectId) });
+
+    if (!projectDoc) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
     // Verify columns exist
-    const columnsSnapshot = await adminDb
+    const columns = await mongoDb
       .collection("columns")
-      .where("projectId", "==", projectId)
-      .get();
+      .find({ projectId })
+      .toArray();
 
-    if (columnsSnapshot.empty) {
+    if (columns.length === 0) {
       return NextResponse.json(
         { error: "No columns found for this project" },
         { status: 400 },
       );
     }
 
-    const columnIds = columnsSnapshot.docs.map(
-      (doc: FirestoreQueryDocumentSnapshot) => doc.id,
-    );
+    const columnIds = columns.map(col => col.id || col._id.toString());
 
     // Process and validate tasks
-    const batch = adminDb.batch();
     const importedTasks = [];
 
     for (const task of tasks) {
@@ -51,19 +49,16 @@ export async function POST(
       task.projectId = projectId;
 
       // Get the max order for the column
-      const columnTasksSnapshot = await adminDb
+      const columnTasks = await mongoDb
         .collection("tasks")
-        .where("columnId", "==", task.columnId)
-        .orderBy("order", "desc")
+        .find({ columnId: task.columnId })
+        .sort({ order: -1 })
         .limit(1)
-        .get();
+        .toArray();
 
-      const maxOrder = columnTasksSnapshot.empty
-        ? 0
-        : (columnTasksSnapshot.docs[0].data().order || 0) + 1;
+      const maxOrder = columnTasks.length > 0 ? (columnTasks[0].order || 0) + 1 : 0;
 
-      // Create a new task document
-      const taskRef = adminDb.collection("tasks").doc();
+      // Create task data
       const taskData = {
         title: task.title,
         description: task.description || "",
@@ -78,15 +73,12 @@ export async function POST(
         updatedAt: new Date(),
       };
 
-      batch.set(taskRef, taskData);
+      const result = await mongoDb.collection("tasks").insertOne(taskData);
       importedTasks.push({
-        id: taskRef.id,
+        id: result.insertedId.toString(),
         ...taskData,
       });
     }
-
-    // Commit the batch
-    await batch.commit();
 
     return NextResponse.json({
       success: true,

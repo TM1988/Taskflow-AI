@@ -1,6 +1,6 @@
 // app/api/users/[id]/ai-config/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/mongoAdmin";
+import { getMongoDb } from "@/services/singleton";
 import { ObjectId } from "mongodb";
 
 export async function GET(
@@ -11,11 +11,9 @@ export async function GET(
     const userId = params.id;
     console.log("GET AI config for user:", userId);
 
-    if (!adminDb) {
-      throw new Error("MongoDB not initialized");
-    }
+    const { mongoDb } = await getMongoDb();
 
-    const userDoc = await adminDb.collection("users").findOne({ _id: new ObjectId(userId) });
+    const userDoc = await mongoDb.collection("users").findOne({ _id: new ObjectId(userId) });
     
     if (!userDoc) {
       return NextResponse.json({
@@ -44,11 +42,9 @@ export async function POST(
     const userId = params.id;
     const body = await request.json();
     
-    if (!adminDb) {
-      throw new Error("MongoDB not initialized");
-    }
+    const { mongoDb } = await getMongoDb();
 
-    await adminDb.collection("users").updateOne(
+    await mongoDb.collection("users").updateOne(
       { _id: new ObjectId(userId) },
       { 
         $set: {

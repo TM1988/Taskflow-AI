@@ -1,6 +1,6 @@
 // app/api/users/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/mongoAdmin";
+import { getMongoDb } from "@/services/singleton";
 import { ObjectId } from "mongodb";
 
 export async function GET(
@@ -10,11 +10,9 @@ export async function GET(
   try {
     const userId = params.id;
 
-    if (!adminDb) {
-      throw new Error("MongoDB not initialized");
-    }
+    const { mongoDb } = await getMongoDb();
 
-    const userDoc = await adminDb
+    const userDoc = await mongoDb
       .collection("users")
       .findOne({ _id: new ObjectId(userId) });
 

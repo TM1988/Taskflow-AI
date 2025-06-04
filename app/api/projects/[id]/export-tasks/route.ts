@@ -3,20 +3,18 @@ import { getMongoDb } from "@/services/singleton";
 import { ObjectId } from "mongodb";
 
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } },
 ) {
   try {
-    const projectId = params.id;
-
-    if (!projectId) {
+    if (!params.id) {
       return NextResponse.json(
         { error: "Project ID is required" },
         { status: 400 },
       );
     }
 
-    const { mongoDb } = getMongoDb();
+    const { mongoDb } = await getMongoDb(); // Added await here
 
     if (!mongoDb) {
       throw new Error("MongoDB not initialized");
@@ -25,7 +23,7 @@ export async function GET(
     // Get all columns for the project
     const columns = await mongoDb
       .collection("columns")
-      .find({ projectId })
+      .find({ projectId: params.id })
       .sort({ order: 1 })
       .toArray();
 
@@ -39,7 +37,7 @@ export async function GET(
     // Get all tasks for the project
     const tasks = await mongoDb
       .collection("tasks")
-      .find({ projectId })
+      .find({ projectId: params.id })
       .toArray();
 
     // Transform tasks to the required format
@@ -59,13 +57,13 @@ export async function GET(
     }));
 
     // Get project details
-    const project = await mongoDb.collection("projects").findOne({ _id: new ObjectId(projectId) });
+    const project = await mongoDb.collection("projects").findOne({ _id: new ObjectId(params.id) });
     
     // Create the export object with metadata
     const exportData = {
       metadata: {
         exportedAt: new Date(),
-        projectId: projectId,
+        projectId: params.id,
         projectName: project?.name || "Unknown Project",
         version: "1.0"
       },

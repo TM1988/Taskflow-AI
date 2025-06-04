@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,56 +14,57 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { Bell, Search, ChevronDown, Plus, FolderPlus, UserPlus, FileText, Settings, Building, User, Users, Briefcase } from "lucide-react";
-import { Input } from "@/components/ui/input";
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { 
+  Search, 
+  Settings, 
+  LogOut, 
+  User, 
+  Building, 
+  ChevronDown, 
+  Plus, 
+  Users, 
+  Briefcase, 
+  FolderPlus, 
+  UserPlus, 
+  FileText, 
+  Bell 
+} from "lucide-react";
 import { useAuth } from "@/services/auth/AuthContext";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
+
+// Simple workspace context placeholder since the actual one doesn't exist
+const useWorkspace = () => ({
+  getWorkspaceDisplayName: () => "Personal Workspace",
+  isPersonalWorkspace: true,
+  organizations: [] as any[],
+  currentOrganization: null as any,
+  currentProject: null as any,
+  setWorkspace: (...args: any[]) => {},
+});
 
 export default function Header() {
-  const [searchOpen, setSearchOpen] = useState(false);
-  const router = useRouter();
   const { user, logout } = useAuth();
-  
-  // Add fallback to prevent context errors
-  let workspaceData;
-  try {
-    workspaceData = useWorkspace();
-  } catch (error) {
-    // Fallback when context is not available
-    workspaceData = {
-      currentWorkspace: 'personal' as const,
-      organizations: [],
-      setWorkspace: () => {},
-      getWorkspaceDisplayName: () => 'Personal',
-      isPersonalWorkspace: true,
-      currentOrganization: null,
-      currentProject: null
-    };
-  }
-
-  const {
-    currentWorkspace,
-    organizations,
-    setWorkspace,
-    getWorkspaceDisplayName,
-    isPersonalWorkspace,
-    currentOrganization,
-    currentProject
-  } = workspaceData;
+  const router = useRouter();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const workspaceContext = useWorkspace();
 
   const handleLogout = async () => {
     try {
       await logout();
     } catch (error) {
-      console.error("Error logging out:", error);
+      console.error("Logout error:", error);
     }
   };
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
@@ -76,9 +78,9 @@ export default function Header() {
               <Button variant="ghost" size="sm" className="flex items-center gap-2 text-left">
                 <Building className="h-4 w-4" />
                 <div className="flex flex-col">
-                  <span className="text-sm font-medium">{getWorkspaceDisplayName()}</span>
+                  <span className="text-sm font-medium">{workspaceContext.getWorkspaceDisplayName()}</span>
                   <span className="text-xs text-muted-foreground hidden sm:block">
-                    {isPersonalWorkspace ? "Workspace" : "Organization"}
+                    {workspaceContext.isPersonalWorkspace ? "Workspace" : "Organization"}
                   </span>
                 </div>
                 <ChevronDown className="h-3 w-3" />
@@ -92,15 +94,15 @@ export default function Header() {
               <div className="px-2 py-1">
                 <p className="text-xs font-medium text-muted-foreground mb-1">PERSONAL</p>
                 <DropdownMenuItem 
-                  onClick={() => setWorkspace('personal')}
-                  className={isPersonalWorkspace ? "bg-accent" : ""}
+                  onClick={() => workspaceContext.setWorkspace('personal')}
+                  className={workspaceContext.isPersonalWorkspace ? "bg-accent" : ""}
                 >
                   <User className="mr-2 h-4 w-4" />
                   <div className="flex flex-col">
                     <span className="text-sm">Personal Board</span>
                     <span className="text-xs text-muted-foreground">Your private workspace</span>
                   </div>
-                  {isPersonalWorkspace && (
+                  {workspaceContext.isPersonalWorkspace && (
                     <div className="ml-auto h-2 w-2 rounded-full bg-primary" />
                   )}
                 </DropdownMenuItem>
@@ -111,15 +113,15 @@ export default function Header() {
               {/* Organizations Section */}
               <div className="px-2 py-1">
                 <p className="text-xs font-medium text-muted-foreground mb-1">ORGANIZATIONS</p>
-                {organizations && organizations.length > 0 ? (
-                  organizations.map((org) => (
+                {workspaceContext.organizations && workspaceContext.organizations.length > 0 ? (
+                  workspaceContext.organizations.map((org: any) => (
                     <div key={org.id}>
-                      {org.projects && org.projects.map((project) => (
+                      {org.projects && org.projects.map((project: any) => (
                         <DropdownMenuItem 
                           key={`${org.id}-${project.id}`}
-                          onClick={() => setWorkspace('organization', org.id, project.id)}
+                          onClick={() => workspaceContext.setWorkspace('organization', org.id, project.id)}
                           className={
-                            currentOrganization?.id === org.id && currentProject?.id === project.id 
+                            workspaceContext.currentOrganization?.id === org.id && workspaceContext.currentProject?.id === project.id 
                               ? "bg-accent" : ""
                           }
                         >
@@ -128,7 +130,7 @@ export default function Header() {
                             <span className="text-sm">{org.name} / {project.name}</span>
                             <span className="text-xs text-muted-foreground">{org.role}</span>
                           </div>
-                          {currentOrganization?.id === org.id && currentProject?.id === project.id && (
+                          {workspaceContext.currentOrganization?.id === org.id && workspaceContext.currentProject?.id === project.id && (
                             <div className="ml-auto h-2 w-2 rounded-full bg-primary" />
                           )}
                         </DropdownMenuItem>
@@ -221,39 +223,15 @@ export default function Header() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
-                <span className="sr-only">Notifications</span>
-                <span className="absolute top-1 right-1 flex h-2 w-2 rounded-full bg-destructive"></span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent>
-              <SheetHeader>
-                <SheetTitle>Notifications</SheetTitle>
-              </SheetHeader>
-              <div className="mt-4 space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="flex items-start gap-4 p-4 rounded-lg hover:bg-accent"
-                  >
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={`https://i.pravatar.cc/150?img=${i}`} />
-                      <AvatarFallback>U{i}</AvatarFallback>
-                    </Avatar>
-                    <div className="space-y-1">
-                      <p className="text-sm">New comment on your task</p>
-                      <p className="text-xs text-muted-foreground">
-                        2 hours ago
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </SheetContent>
-          </Sheet>
+          <Button
+            variant="outline"
+            className="relative h-8 w-8 p-0"
+            onClick={() => router.push("/notifications")}
+          >
+            <Bell className="h-5 w-5" />
+            <span className="sr-only">Notifications</span>
+            <span className="absolute top-1 right-1 flex h-2 w-2 rounded-full bg-destructive"></span>
+          </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -294,6 +272,43 @@ export default function Header() {
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Command Menu for Search and Navigation */}
+      <CommandDialog open={searchOpen} onOpenChange={setSearchOpen}>
+        <CommandInput
+          placeholder="Search tasks, projects, boards..."
+          className="border-0 bg-muted/50 focus:ring-0"
+        />
+        <CommandEmpty>No results found.</CommandEmpty>
+        <CommandList>
+          <CommandGroup heading="Tasks">
+            {workspaceContext.currentProject?.tasks?.map((task: any) => (
+              <CommandItem
+                key={task.id}
+                onSelect={() => {
+                  router.push(`/task/${task.id}`);
+                  setSearchOpen(false);
+                }}
+              >
+                {task.title}
+              </CommandItem>
+            )) || []}
+          </CommandGroup>
+          <CommandGroup heading="Projects">
+            {workspaceContext.currentOrganization?.projects?.map((project: any) => (
+              <CommandItem
+                key={project.id}
+                onSelect={() => {
+                  router.push(`/board?projectId=${project.id}`);
+                  setSearchOpen(false);
+                }}
+              >
+                {project.name}
+              </CommandItem>
+            )) || []}
+          </CommandGroup>
+        </CommandList>
+      </CommandDialog>
     </header>
   );
 }

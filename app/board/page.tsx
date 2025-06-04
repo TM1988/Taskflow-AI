@@ -141,6 +141,7 @@ export default function BoardPage() {
   return (
     <>
       <BoardContent
+        projectId={currentProject?.id || ""}
         onTaskSelect={handleTaskSelect}
         refreshTrigger={boardRefreshTrigger}
         onProjectUpdate={updateCurrentProject}

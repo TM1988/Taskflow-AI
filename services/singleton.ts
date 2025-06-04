@@ -5,8 +5,8 @@ let mongoDb: Db | null = null;
 let isInitialized = false;
 let isConnecting = false;
 
-const MONGODB_URI = process.env.MONGODB_URI;
-const DB_NAME = "myVercelAppDB"; // Changed from "Taskflow" to match your new URI
+const MONGODB_URI = process.env.MONGODB_URI!;
+const DB_NAME = "myVercelAppDB";
 
 if (!MONGODB_URI) {
   throw new Error("Please define the MONGODB_URI environment variable");

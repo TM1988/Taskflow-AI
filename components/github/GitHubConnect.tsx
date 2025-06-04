@@ -1,7 +1,7 @@
 // components/github/GitHubConnect.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -78,30 +78,28 @@ export const GitHubConnect: React.FC<GitHubConnectProps> = ({ projectId }) => {
     }
   };
 
-  const loadRepositories = async () => {
-    if (!user) return;
-
+  const loadRepositories = useCallback(async () => {
+    if (!user?.uid) return;
+    
     setLoading(true);
     try {
       const response = await fetch(`/api/github/repositories?userId=${user.uid}`);
       if (response.ok) {
-        const repos = await response.json();
-        setRepositories(repos);
+        const data = await response.json();
+        setRepositories(data.repositories || []);
       } else {
-        throw new Error('Failed to load repositories');
+        console.error('Failed to load repositories');
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load repositories");
+    } catch (error) {
+      console.error('Error loading repositories:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.uid]); // Added dependency
 
   useEffect(() => {
-    if (user) {
-      loadRepositories();
-    }
-  }, [user]);
+    loadRepositories();
+  }, [loadRepositories]);
 
   const handleConnectGitHub = () => {
     const GITHUB_CLIENT_ID = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;

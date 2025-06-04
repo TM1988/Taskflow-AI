@@ -1,20 +1,18 @@
 // app/api/projects/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/mongoAdmin";
 import { ObjectId } from "mongodb";
+import { getMongoDb } from "@/services/singleton";
 
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } },
 ) {
   try {
     const projectId = params.id;
-    
-    if (!adminDb) {
-      throw new Error("Database not initialized");
-    }
 
-    const projectDoc = await adminDb
+    const { mongoDb } = await getMongoDb();
+
+    const projectDoc = await mongoDb
       .collection("projects")
       .findOne({ _id: new ObjectId(projectId) });
 
@@ -38,33 +36,25 @@ export async function GET(
 }
 
 export async function PUT(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } },
 ) {
   try {
     const projectId = params.id;
-    const data = await request.json();
-    
-    if (!adminDb) {
-      throw new Error("Database not initialized");
-    }
+    const updateData = await request.json();
 
-    // Update the project
-    await adminDb
+    const { mongoDb } = await getMongoDb();
+
+    const result = await mongoDb
       .collection("projects")
       .updateOne(
         { _id: new ObjectId(projectId) },
-        {
-          $set: {
-            ...data,
-            updatedAt: new Date(),
-          },
-        },
+        { $set: updateData },
       );
 
     return NextResponse.json({
       id: projectId,
-      ...data,
+      ...updateData,
     });
   } catch (error: unknown) {
     const err = error as Error;
@@ -77,46 +67,17 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } },
 ) {
   try {
     const projectId = params.id;
-    
-    if (!adminDb) {
-      throw new Error("Database not initialized");
-    }
 
-    // Check if project exists
-    const projectDoc = await adminDb
+    const { mongoDb } = await getMongoDb();
+
+    const result = await mongoDb
       .collection("projects")
-      .findOne({ _id: new ObjectId(projectId) });
-    if (!projectDoc) {
-      return NextResponse.json({ error: "Project not found" }, { status: 404 });
-    }
-
-    // Verify the user is the owner (from client auth)
-    const userId = request.nextUrl.searchParams.get("userId");
-    if (!userId) {
-      return NextResponse.json(
-        { error: "User ID is required" },
-        { status: 400 },
-      );
-    }
-
-    const projectData = projectDoc;
-    if (projectData?.ownerId !== userId) {
-      return NextResponse.json(
-        { error: "Only the project owner can delete a project" },
-        { status: 403 },
-      );
-    }
-
-    // Delete the project
-    await adminDb.collection("projects").deleteOne({ _id: new ObjectId(projectId) });
-
-    // TODO: In a production app, you'd also delete related resources
-    // like tasks, columns, etc. in a transaction or with Cloud Functions
+      .deleteOne({ _id: new ObjectId(projectId) });
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

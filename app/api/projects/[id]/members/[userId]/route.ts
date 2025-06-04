@@ -1,19 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/mongoAdmin";
+import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
+import { getMongoDb } from "@/services/singleton"; // Import the correct function
 
 export async function DELETE(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string; userId: string } },
 ) {
   try {
     const { id: projectId, userId } = params;
 
-    if (!adminDb) {
-      throw new Error("MongoDB not initialized");
-    }
+    const { mongoDb } = await getMongoDb(); // Use getMongoDb instead of getAdminDb
 
-    const projectDoc = await adminDb
+    const projectDoc = await mongoDb
       .collection("projects")
       .findOne({ _id: new ObjectId(projectId) });
 
@@ -24,14 +22,14 @@ export async function DELETE(
     const members = projectDoc.members || [];
     const updatedMembers = members.filter((id: string) => id !== userId);
 
-    await adminDb
+    await mongoDb
       .collection("projects")
       .updateOne(
         { _id: new ObjectId(projectId) },
         { $set: { members: updatedMembers, updatedAt: new Date() } },
       );
 
-    const updatedProject = await adminDb
+    const updatedProject = await mongoDb
       .collection("projects")
       .findOne({ _id: new ObjectId(projectId) });
 

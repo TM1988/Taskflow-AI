@@ -1,20 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/services/admin/mongoAdmin";
 import { ObjectId } from "mongodb";
+import { getMongoDb } from "@/services/singleton";
 
 export async function POST(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } },
 ) {
   try {
     const projectId = params.id;
-    const { userId } = await request.json();
+    const { userId, role = "member" } = await request.json();
 
-    if (!adminDb) {
-      throw new Error("MongoDB not initialized");
-    }
+    const { mongoDb } = await getMongoDb(); // Added await here
 
-    const projectDoc = await adminDb
+    const projectDoc = await mongoDb
       .collection("projects")
       .findOne({ _id: new ObjectId(projectId) });
 
@@ -22,31 +20,67 @@ export async function POST(
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    const members = projectDoc.members || [];
-    if (!members.includes(userId)) {
-      members.push(userId);
-      await adminDb
-        .collection("projects")
-        .updateOne(
-          { _id: new ObjectId(projectId) },
-          { $set: { members, updatedAt: new Date() } },
-        );
+    // Add member to project
+    const updateResult = await mongoDb
+      .collection("projects")
+      .updateOne(
+        { _id: new ObjectId(projectId) },
+        {
+          $addToSet: {
+            members: {
+              userId,
+              role,
+              addedAt: new Date()
+            }
+          }
+        }
+      );
+
+    if (updateResult.matchedCount === 0) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    const updatedProject = await adminDb
-      .collection("projects")
-      .findOne({ _id: new ObjectId(projectId) });
-
-    return NextResponse.json({
-      id: updatedProject?._id.toString(),
-      ...updatedProject,
-      _id: undefined,
+    return NextResponse.json({ 
+      message: "Member added successfully",
+      userId,
+      role 
     });
   } catch (error) {
     console.error("Error adding project member:", error);
     return NextResponse.json(
       { error: "Failed to add project member" },
       { status: 500 },
+    );
+  }
+}
+
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const projectId = params.id;
+
+    const { mongoDb } = await getMongoDb();
+
+    const projectDoc = await mongoDb
+      .collection("projects")
+      .findOne({ _id: new ObjectId(projectId) });
+
+    if (!projectDoc) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    // Return project members
+    return NextResponse.json({
+      members: projectDoc.members || [],
+      owner: projectDoc.ownerId
+    });
+  } catch (error) {
+    console.error("Error fetching project members:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch project members" },
+      { status: 500 }
     );
   }
 }

@@ -233,7 +233,7 @@ export default function ColumnManager({ projectId }: ColumnManagerProps) {
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              Specify which columns serve as "To Do" (new tasks) and "Done" (completed tasks) even if you rename them.
+              Specify which columns serve as &quot;To Do&quot; (new tasks) and &quot;Done&quot; (completed tasks) even if you rename them.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -318,6 +318,12 @@ export default function ColumnManager({ projectId }: ColumnManagerProps) {
               )}
             </Droppable>
           </DragDropContext>
+
+          {columns.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              No custom columns yet. Create your first custom column to organize tasks beyond the default &quot;To Do&quot;, &quot;In Progress&quot;, and &quot;Done&quot; columns.
+            </div>
+          )}
 
           <div className="text-sm text-muted-foreground">
             <p>• Drag columns to reorder them</p>
