@@ -86,7 +86,7 @@ export default function BoardContent({
       // Always fetch fresh columns from database
       console.log("=== FETCHING COLUMNS FIRST ===");
       const columnsResponse = await fetch(`/api/columns?projectId=${currentProject.id}`);
-      let currentColumns = [];
+      let currentColumns: any[] = [];
       
       if (columnsResponse.ok) {
         const columnsData = await columnsResponse.json();
@@ -194,7 +194,7 @@ export default function BoardContent({
     } finally {
       setLoading(false);
     }
-  }, [currentProject?.id, toast, defaultColumns]);
+  }, [currentProject?.id, toast, defaultColumns, columns]);
 
   const refreshTasks = useCallback(() => {
     console.log("Refreshing tasks for project:", projectId);
