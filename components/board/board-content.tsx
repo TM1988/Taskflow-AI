@@ -127,8 +127,9 @@ export default function BoardContent({
           setColumns(currentColumns);
         }
       } else {
-        console.warn("Failed to fetch columns, using existing state");
-        currentColumns = columns.length > 0 ? columns : defaultColumns;
+        console.warn("Failed to fetch columns, using defaults");
+        currentColumns = defaultColumns;
+        setColumns(defaultColumns);
       }
 
       // Create column ID mapping for tasks
@@ -194,7 +195,7 @@ export default function BoardContent({
     } finally {
       setLoading(false);
     }
-  }, [currentProject?.id, toast, defaultColumns, columns]);
+  }, [currentProject?.id, toast, defaultColumns]); // REMOVED 'columns' dependency
 
   const refreshTasks = useCallback(() => {
     console.log("Refreshing tasks for project:", projectId);

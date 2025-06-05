@@ -58,9 +58,9 @@ export default function TaskDialog({
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const { toast } = useToast();
 
-  // Reset when dialog opens
+  // Reset when dialog opens - ONLY reset when dialog first opens, not on every columns change
   useEffect(() => {
-    if (open) {
+    if (open && columns.length > 0) {
       setFormData({
         title: "",
         description: "",
@@ -69,25 +69,24 @@ export default function TaskDialog({
         dueDate: null,
       });
     }
-  }, [open, columns]);
+  }, [open]); // REMOVED columns dependency to prevent constant resets
 
-  // Update local columns when prop changes
+  // Handle column changes separately - only update columnId if current one doesn't exist
   useEffect(() => {
-    if (columns && columns.length > 0) {
-      console.log("TaskDialog: Updating columns from props:", columns);
-      setFormData((prev) => {
-        // If current columnId doesn't exist in new columns, reset to first column
-        const currentColumnExists = columns.find(
-          (col) => col.id === prev.columnId
-        );
+    if (columns && columns.length > 0 && formData.columnId) {
+      const currentColumnExists = columns.find(
+        (col) => col.id === formData.columnId
+      );
 
-        return {
+      // Only update if current column doesn't exist in new columns
+      if (!currentColumnExists) {
+        setFormData((prev) => ({
           ...prev,
-          columnId: currentColumnExists ? prev.columnId : columns[0]?.id || "",
-        };
-      });
+          columnId: columns[0]?.id || "",
+        }));
+      }
     }
-  }, [columns]);
+  }, [columns, formData.columnId]);
 
   const handleSubmit = async () => {
     const { title, description, columnId, priority, dueDate } = formData;
