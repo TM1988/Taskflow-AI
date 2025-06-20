@@ -123,7 +123,6 @@ class GitHubRepositoryService {
           repositories: repositories.map(r => r.fullName)
         }
       }));
-      console.log(`🔄 Dispatched repositoriesImported event for ${results.imported} repositories`);
     }
 
     return results;
@@ -219,13 +218,11 @@ class GitHubRepositoryService {
     };
     localStorage.setItem("github_oauth_context", JSON.stringify(contextData));
     
-    // Use appropriate client ID based on context
-    const clientId = context === "organization" 
-      ? process.env.NEXT_PUBLIC_GITHUB_ORG_CLIENT_ID 
-      : process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
+    // Use the same GitHub client ID for all contexts since we're using GitHub Apps now
+    const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
     
     if (!clientId) {
-      throw new Error(`GitHub Client ID is not configured for ${context} context`);
+      throw new Error(`GitHub Client ID is not configured`);
     }
 
     // Clear any previous processed codes

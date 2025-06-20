@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -66,7 +66,7 @@ export default function ProjectSettingsPage({ params }: ProjectSettingsPageProps
   const { refreshOrganizations } = useWorkspace();
   const router = useRouter();
 
-  const fetchProjectData = async () => {
+  const fetchProjectData = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -103,7 +103,7 @@ export default function ProjectSettingsPage({ params }: ProjectSettingsPageProps
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.projectId, toast]);
 
   // Fetch AI config when component mounts
   useEffect(() => {
@@ -170,7 +170,7 @@ export default function ProjectSettingsPage({ params }: ProjectSettingsPageProps
     if (user && params.projectId) {
       fetchProjectData();
     }
-  }, [params.projectId, user, fetchProjectData]);
+  }, [user, fetchProjectData]);
 
   const handleSave = async () => {
     try {

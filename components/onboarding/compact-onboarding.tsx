@@ -264,7 +264,7 @@ export default function CompactOnboarding({
     // Navigate to the appropriate page for the step
     switch (stepId) {
       case 'setup-profile':
-        router.push('/settings');
+        router.push('/settings?tab=profile');
         break;
       case 'configure-database':
         router.push('/settings?tab=database');
@@ -273,10 +273,10 @@ export default function CompactOnboarding({
         router.push('/organizations');
         break;
       case 'connect-github':
-        router.push('/settings');
+        router.push('/settings?tab=github');
         break;
       case 'enable-ai-suggestions':
-        router.push('/settings');
+        router.push('/settings/ai-config');
         break;
       default:
         break;

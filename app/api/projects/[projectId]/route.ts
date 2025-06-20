@@ -8,17 +8,14 @@ import { ObjectId } from "mongodb";
 async function findProject(projectId: string, retryCount = 0) {
   try {
     // First try Firebase
-    console.log(`Fetching project ${projectId} from Firestore (attempt ${retryCount + 1})`);
     const projectRef = doc(db, "projects", projectId);
     const projectSnap = await getDoc(projectRef);
 
     if (projectSnap.exists()) {
       const projectData = projectSnap.data();
-      console.log(`Project ${projectId} found in Firestore, organizationId: ${projectData.organizationId}`);
       
       // If project has organizationId, try to fetch from organization database
       if (projectData.organizationId) {
-        console.log(`Project ${projectId} belongs to organization ${projectData.organizationId}`);
         const orgDb = await getOrganizationDatabaseConnection(projectData.organizationId);
         
         if (orgDb) {
@@ -27,7 +24,6 @@ async function findProject(projectId: string, retryCount = 0) {
           let orgProject = null;
           
           if (projectData.customDbProjectId) {
-            console.log(`Looking for project with customDbProjectId: ${projectData.customDbProjectId}`);
             orgProject = await orgDb.collection("projects").findOne({ 
               _id: new ObjectId(projectData.customDbProjectId)
             });
@@ -35,7 +31,6 @@ async function findProject(projectId: string, retryCount = 0) {
           
           // Fallback: search by organizationId and name
           if (!orgProject) {
-            console.log(`Fallback: Looking for project by name and organizationId`);
             orgProject = await orgDb.collection("projects").findOne({ 
               organizationId: projectData.organizationId,
               name: projectData.name
@@ -43,7 +38,6 @@ async function findProject(projectId: string, retryCount = 0) {
           }
           
           if (orgProject) {
-            console.log(`Project data found in organization database`);
             return {
               project: {
                 id: orgProject._id.toString(),
@@ -68,8 +62,6 @@ async function findProject(projectId: string, retryCount = 0) {
       };
     }
 
-    console.log(`Project ${projectId} not found in Firestore`);
-    
     // If this is a retry attempt, don't retry again
     if (retryCount >= 2) {
       return null;
@@ -77,7 +69,6 @@ async function findProject(projectId: string, retryCount = 0) {
     
     // For newly created projects, there might be a small delay
     // Wait a bit and retry
-    console.log(`Retrying project lookup for ${projectId} in 500ms...`);
     await new Promise(resolve => setTimeout(resolve, 500));
     return findProject(projectId, retryCount + 1);
     
@@ -97,7 +88,6 @@ export async function GET(
     let result = await findProject(projectId);
     
     if (!result) {
-      console.log(`Project ${projectId} not found, this might be a newly created project`);
       return NextResponse.json(
         { error: "Project not found" },
         { status: 404 }

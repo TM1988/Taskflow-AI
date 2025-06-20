@@ -77,12 +77,13 @@ export default function Sidebar() {
       icon: <CodeIcon className="h-4 w-4" />,
       description: isOnProjectPage ? "Project repositories" : "Your repositories",
     },
-    {
-      name: isOnProjectPage ? "Team" : "Contacts",
-      href: isOnProjectPage ? `${getBasePath()}/team` : "/team",
+    // Only show Team for project pages, not for personal workspace
+    ...(isOnProjectPage ? [{
+      name: "Team",
+      href: `${getBasePath()}/team`,
       icon: <UsersIcon className="h-4 w-4" />,
-      description: isOnProjectPage ? "Project team" : "Personal contacts",
-    },
+      description: "Project team",
+    }] : []),
     {
       name: "Settings",
       href: isOnProjectPage ? `${getBasePath()}/settings` : "/settings",

@@ -24,28 +24,19 @@ export default function ProjectLayout({
       if (!user || !params.projectId) return;
 
       try {
-        console.log(`Fetching project ${params.projectId} for user ${user.uid}`);
-        console.log(`Current workspace context: workspace=${currentWorkspace}, org=${currentOrganization?.id}, project=${currentProject?.id}`);
-        
         const response = await fetch(`/api/projects/${params.projectId}`);
-        
-        console.log(`Project API response status: ${response.status}`);
         
         if (!response.ok) {
           const errorText = await response.text();
           console.error(`Failed to fetch project: ${response.status} - ${errorText}`);
-          console.error(`Project ID that failed: ${params.projectId}`);
           throw new Error(`Failed to fetch project: ${response.status}`);
         }
 
         const projectData = await response.json();
-        console.log(`Project data received:`, projectData);
         
         // Check if user has access to this project
         const isOwner = projectData.ownerId === user.uid;
         const isMember = projectData.members?.includes(user.uid);
-        
-        console.log(`Access check - isOwner: ${isOwner}, isMember: ${isMember}`);
         
         if (!isOwner && !isMember) {
           console.warn("User does not have access to this project");
@@ -70,16 +61,12 @@ export default function ProjectLayout({
            currentWorkspace === 'personal')
         );
         
-        console.log(`Workspace context check - currentlyCorrect: ${currentlyCorrect}, currentWorkspace: ${currentWorkspace}, projectOrgId: ${projectData.organizationId}`);
-        
         if (!currentlyCorrect) {
-          console.log(`ProjectLayout: Setting workspace context for project ${projectData.id} in org ${projectData.organizationId}`);
           if (projectData.organizationId) {
             await setWorkspace('organization', projectData.organizationId, projectData.id);
           } else {
             await setWorkspace('personal', undefined, projectData.id);
           }
-          console.log(`ProjectLayout: Workspace context set successfully`);
         }
 
       } catch (error) {

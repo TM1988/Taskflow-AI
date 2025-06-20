@@ -35,7 +35,8 @@ import {
   FolderPlus, 
   UserPlus, 
   FileText,
-  Bell 
+  Bell,
+  X 
 } from "lucide-react";
 import { useAuth } from "@/services/auth/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext"; // Import the real context
@@ -95,7 +96,12 @@ export default function Header() {
                 <div className="flex flex-col">
                   <span className="text-sm font-medium">{workspaceContext.getWorkspaceDisplayName()}</span>
                   <span className="text-xs text-muted-foreground hidden sm:block">
-                    {workspaceContext.isPersonalWorkspace ? "Workspace" : workspaceContext.currentProject ? "Project" : "Organization"}
+                    {workspaceContext.isPersonalWorkspace 
+                      ? "Workspace" 
+                      : (workspaceContext.currentWorkspace === 'organization' && window.location.pathname.startsWith('/projects/'))
+                        ? "Project"
+                        : "Organization"
+                    }
                   </span>
                 </div>
                 <ChevronDown className="h-3 w-3" />
@@ -236,8 +242,20 @@ export default function Header() {
                 placeholder="Search projects, tasks..."
                 className="w-full pl-9 bg-muted/50"
                 autoFocus
-                onBlur={() => setSearchOpen(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setSearchOpen(false);
+                  }
+                }}
               />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1 h-7 w-7"
+                onClick={() => setSearchOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           ) : (
             <Button
@@ -278,10 +296,13 @@ export default function Header() {
                 <FolderPlus className="mr-2 h-4 w-4" />
                 New Project
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/team?invite=true")}>
-                <UserPlus className="mr-2 h-4 w-4" />
-                Invite Member
-              </DropdownMenuItem>
+              {/* Only show Invite Member for project workspaces */}
+              {!workspaceContext.isPersonalWorkspace && workspaceContext.currentProject && (
+                <DropdownMenuItem onClick={() => router.push(`/projects/${workspaceContext.currentProject!.id}/team`)}>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Invite Member
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => router.push("/repositories")}>
                 <FileText className="mr-2 h-4 w-4" />

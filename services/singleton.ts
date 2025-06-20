@@ -71,10 +71,6 @@ export async function initializeMongoDB(): Promise<void> {
   isConnecting = true;
 
   try {
-    console.log("🔄 Initializing MongoDB connection...");
-    console.log("🔗 Connection URI:", MONGODB_URI.replace(/\/\/.*@/, "//***:***@"));
-    console.log("🗄️ Target Database:", DB_NAME);
-
     // Close existing connection if any
     if (mongoClient) {
       await mongoClient.close();
@@ -87,17 +83,11 @@ export async function initializeMongoDB(): Promise<void> {
 
     // Test the connection
     await mongoDb.admin().ping();
-    console.log("✅ Database ping successful");
-
-    // List collections to verify database access
-    const collections = await mongoDb.listCollections().toArray();
-    console.log("📋 Available collections:", collections.map((c) => c.name));
 
     // Create indexes for better performance (only if collections don't exist)
     await createInitialCollections();
 
     isInitialized = true;
-    console.log("✅ MongoDB connected successfully to database:", DB_NAME);
 
     // Handle connection events
     mongoClient.on("serverClosed", () => {
@@ -111,11 +101,6 @@ export async function initializeMongoDB(): Promise<void> {
     });
   } catch (error) {
     console.error("❌ Failed to initialize MongoDB:", error);
-    console.error("Error details:", {
-      name: (error as Error).name,
-      message: (error as Error).message,
-      stack: (error as Error).stack,
-    });
     isInitialized = false;
     mongoClient = null;
     mongoDb = null;
@@ -137,7 +122,6 @@ async function createInitialCollections(): Promise<void> {
       await mongoDb.createCollection("projects");
       await mongoDb.collection("projects").createIndex({ ownerId: 1 });
       await mongoDb.collection("projects").createIndex({ members: 1 });
-      console.log("✅ Created 'projects' collection with indexes");
     }
 
     // Create tasks collection with indexes

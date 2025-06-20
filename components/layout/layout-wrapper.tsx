@@ -43,9 +43,7 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
     const checkOnboarding = async () => {
       if (user && !isAuthPage) {
         try {
-          console.log(`🎯 LayoutWrapper: Checking onboarding for user ${user.uid}`);
           const needsOnboarding = await onboardingService.needsOnboarding(user.uid);
-          console.log(`🎯 LayoutWrapper: needsOnboarding result = ${needsOnboarding}`);
           setShowOnboarding(needsOnboarding);
         } catch (error) {
           console.error("Error checking onboarding status:", error);
@@ -75,7 +73,6 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
         <CompactOnboarding 
           userId={user.uid} 
           onComplete={() => {
-            console.log("🎉 LayoutWrapper: onComplete called, hiding onboarding");
             setShowOnboarding(false);
           }}
         />

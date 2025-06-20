@@ -1,7 +1,7 @@
 // components/github/PersonalRepositoryManager.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,35 +28,47 @@ export default function PersonalRepositoryManager({
   const [searchQuery, setSearchQuery] = useState("");
 
   // Load repositories from GitHub
-  const loadRepositories = async () => {
+  const loadRepositories = useCallback(async () => {
     if (!user?.uid) return;
     
     setLoading(true);
     try {
+      // First check if GitHub is connected
+      const isConnected = await githubRepositoryService.checkConnection(user.uid, context);
+      if (!isConnected) {
+        setRepositories([]); // Clear repositories if not connected
+        return; // Don't show error toast, just silently return
+      }
+
       const repos = await githubRepositoryService.fetchAvailableRepositories(user.uid, context);
       setRepositories(repos);
-      console.log(`📚 Loaded ${repos.length} personal repositories from GitHub`);
     } catch (error) {
       console.error("Error loading repositories:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load repositories from GitHub. Please check your connection.",
-        variant: "destructive",
-      });
+      // Only show error toast for real connection errors, not auth issues
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (!errorMessage.includes('not connected') && 
+          !errorMessage.includes('No GitHub token') &&
+          !errorMessage.includes('401') &&
+          !errorMessage.includes('403')) {
+        toast({
+          title: "Error",
+          description: "Failed to load repositories from GitHub. Please check your connection.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.uid, context, toast]);
 
   // Load repositories on mount
   useEffect(() => {
     loadRepositories();
-  }, [user]);
+  }, [loadRepositories]);
 
   // Listen for connection events
   useEffect(() => {
     const handleRepositoryUpdate = () => {
-      console.log("🔄 Repository update event received, refreshing...");
       loadRepositories();
     };
 
@@ -67,7 +79,7 @@ export default function PersonalRepositoryManager({
       window.removeEventListener('repositories-updated', handleRepositoryUpdate);
       window.removeEventListener('githubConnected', handleRepositoryUpdate);
     };
-  }, []);
+  }, [loadRepositories]);
 
   // Filter repositories based on search query
   const filteredRepositories = repositories.filter(repo => {
