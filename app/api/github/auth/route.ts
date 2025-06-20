@@ -7,7 +7,7 @@ export async function DELETE(request: NextRequest) {
     console.log("DELETE request to disconnect GitHub received");
 
     const data = await request.json();
-    const { userId } = data;
+    const { userId, context, projectId, organizationId } = data;
 
     if (!userId) {
       return NextResponse.json(
@@ -16,7 +16,15 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    console.log(`Deleting GitHub token for user ${userId}`);
+    // Create context-specific token identifier
+    let tokenId = userId; // Default for personal context
+    if (context === 'project' && projectId) {
+      tokenId = `${userId}_project_${projectId}`;
+    } else if (context === 'organization' && organizationId) {
+      tokenId = `${userId}_org_${organizationId}`;
+    }
+
+    console.log(`Deleting GitHub token for tokenId ${tokenId} (context: ${context || 'personal'})`);
 
     const adminDb = await getAdminDb();
 
@@ -25,7 +33,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Remove GitHub token
-    await adminDb.collection("githubTokens").deleteOne({ userId });
+    await adminDb.collection("githubTokens").deleteOne({ tokenId });
 
     console.log("GitHub token deleted successfully");
     return NextResponse.json({ success: true });

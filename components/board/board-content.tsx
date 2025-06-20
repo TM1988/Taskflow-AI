@@ -6,12 +6,13 @@ import { Loader2 } from "lucide-react";
 import KanbanColumn from "@/components/board/kanban-column";
 import TaskDialog from "@/components/board/task-dialog";
 import { useAuth } from "@/services/auth/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
 import BoardHeader from "@/components/board/board-header";
-import { Badge } from "@/components/ui/badge";
 
 interface BoardContentProps {
-  projectId: string;
+  projectId?: string;
+  organizationId?: string;
   onTaskSelect?: (taskId: string) => void;
   refreshTrigger?: number;
   onProjectUpdate?: (project: any) => void;
@@ -29,22 +30,39 @@ declare global {
   }
 }
 
-export default function BoardContent({
-  projectId,
-  onTaskSelect,
-  refreshTrigger = 0,
-  onProjectUpdate,
+export default function BoardContent({ 
+  projectId, 
+  organizationId, 
+  onTaskSelect, 
+  refreshTrigger, 
+  onProjectUpdate 
 }: BoardContentProps) {
   const [tasks, setTasks] = useState<any[]>([]);
-  const [filteredTasks, setFilteredTasks] = useState<any[]>([]);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentProject, setCurrentProject] = useState<any>(null);
   const [columns, setColumns] = useState<any[]>([]);
+  const [refreshCounter, setRefreshCounter] = useState<number>(0);
+  
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeFilters, setActiveFilters] = useState<{
+    assignees: string[];
+    tags: string[];
+    priority: string[];
+    status: string;
+  }>({
+    assignees: [],
+    tags: [],
+    priority: [],
+    status: "",
+  });
+
   const { user } = useAuth();
+  const { currentProject: workspaceProject, currentOrganization } = useWorkspace(); // Add currentOrganization
   const { toast } = useToast();
 
-  // Default columns - moved to useMemo to prevent recreation
+  // Default columns for personal board - memoized to prevent recreation on every render
   const defaultColumns = useMemo(() => [
     { id: "todo", name: "To Do", order: 0 },
     { id: "in-progress", name: "In Progress", order: 1 },
@@ -52,157 +70,458 @@ export default function BoardContent({
     { id: "done", name: "Done", order: 3 },
   ], []);
 
-  // Move all useCallback hooks to top level - BEFORE any conditional logic
   const updateTaskLocally = useCallback((updatedTask: any) => {
-    console.log("updateTaskLocally called with:", updatedTask);
-    setTasks(prevTasks => 
-      prevTasks.map(task => 
-        task.id === updatedTask.id ? { ...task, ...updatedTask } : task
-      )
-    );
-    setFilteredTasks(prevTasks => 
-      prevTasks.map(task => 
-        task.id === updatedTask.id ? { ...task, ...updatedTask } : task
-      )
-    );
-  }, []);
+    console.log("BoardContent: updateTaskLocally called with:", updatedTask);
+    console.log("BoardContent: Current tasks:", tasks.map(t => ({ id: t.id, _id: t._id, title: t.title })));
+    
+    setTasks(prevTasks => {
+      // More robust ID matching - check all possible ID combinations
+      const taskId = updatedTask.id || updatedTask._id;
+      const taskDbId = updatedTask._id || updatedTask.id;
+      
+      const taskFound = prevTasks.find(t => 
+        t.id === taskId || 
+        t._id === taskId || 
+        t.id === taskDbId || 
+        t._id === taskDbId
+      );
+      
+      console.log("BoardContent: Task found for update:", taskFound ? 'YES' : 'NO');
+      console.log("BoardContent: Looking for ID:", taskId, "or _id:", taskDbId);
+      
+      if (!taskFound) {
+        console.log("BoardContent: Task not found, available tasks:", prevTasks.map(t => ({ id: t.id, _id: t._id })));
+        return prevTasks; // Return unchanged if task not found
+      }
+      
+      const newTasks = prevTasks.map(task => {
+        const match = task.id === taskId || 
+                     task._id === taskId || 
+                     task.id === taskDbId || 
+                     task._id === taskDbId;
+        
+        if (match) {
+          // Preserve both ID formats when updating
+          return { 
+            ...task, 
+            ...updatedTask,
+            id: task.id || task._id,
+            _id: task._id || task.id
+          };
+        }
+        return task;
+      });
+      
+      console.log("BoardContent: Updated tasks array, count:", newTasks.length);
+      return newTasks;
+    });
+    
+    // Remove refresh counter increment - we don't want to trigger unnecessary re-renders
+    // The state update above is sufficient to update the UI
+    // setRefreshCounter(prev => prev + 1); // REMOVED
+  }, [tasks]); // Add tasks dependency back for proper functionality
 
   const removeTaskLocally = useCallback((taskId: string) => {
     console.log("removeTaskLocally called with:", taskId);
-    setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
-    setFilteredTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
+    setTasks(prevTasks => prevTasks.filter(task => 
+      task.id !== taskId && task._id !== taskId
+    ));
+    // Keep refresh counter for deletion as it might affect layout
+    setRefreshCounter(prev => prev + 1);
   }, []);
 
-  // Fetch board data and columns
   const fetchBoardData = useCallback(async () => {
-    if (!currentProject?.id) return;
-
+    if (!user?.uid) return;
+    
+    console.log("[BoardContent] fetchBoardData called - user:", user.uid, "projectId:", projectId, "workspaceProject:", workspaceProject?.id);
     setLoading(true);
 
     try {
-      console.log("=== FETCHING BOARD DATA ===");
-      console.log("Project ID:", currentProject.id);
-      
-      // Always fetch fresh columns from database
-      console.log("=== FETCHING COLUMNS FIRST ===");
-      const columnsResponse = await fetch(`/api/columns?projectId=${currentProject.id}`);
-      let currentColumns: any[] = [];
-      
-      if (columnsResponse.ok) {
-        const columnsData = await columnsResponse.json();
-        console.log("Columns data:", columnsData);
+      // Handle personal board
+      if (!projectId && !workspaceProject?.id) { // Use workspaceProject here
+        console.log("[BoardContent] Loading personal board data");
         
-        if (columnsData.length > 0) {
-          currentColumns = columnsData.sort((a: any, b: any) => a.order - b.order);
-          // Always update columns with fresh data from database
-          setColumns(currentColumns);
-        } else {
-          console.log("No columns found, creating defaults");
-          // Create default columns in database if none exist
-          const defaultColumnsToCreate = [
-            { name: "To Do", order: 0 },
-            { name: "In Progress", order: 1 },
-            { name: "Review", order: 2 },
-            { name: "Done", order: 3 },
-          ];
+        const personalColumns = defaultColumns;
+        setColumns(personalColumns);
 
-          for (const col of defaultColumnsToCreate) {
-            const response = await fetch('/api/columns', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                projectId: currentProject.id,
-                name: col.name,
-                order: col.order
-              })
-            });
-            
-            if (response.ok) {
-              const newColumn = await response.json();
-              currentColumns.push(newColumn);
-            }
-          }
-          
-          currentColumns.sort((a: any, b: any) => a.order - b.order);
-          setColumns(currentColumns);
+        console.log("[BoardContent] Fetching personal tasks from:", `/api/tasks?userId=${user.uid}&personal=true`);
+        const tasksResponse = await fetch(`/api/tasks?userId=${user.uid}&personal=true&t=${Date.now()}`, {
+          cache: 'no-cache'
+        });
+        
+        let personalTasks = [];
+        if (tasksResponse.ok) {
+          personalTasks = await tasksResponse.json();
+          console.log("[BoardContent] Personal tasks loaded:", personalTasks.length, "tasks");
+        } else {
+          console.log("[BoardContent] No personal tasks found or error:", tasksResponse.status);
         }
-      } else {
-        console.warn("Failed to fetch columns, using defaults");
-        currentColumns = defaultColumns;
-        setColumns(defaultColumns);
+
+        const normalizedTasks = personalTasks.map((task: any) => ({
+          ...task,
+          projectId: "personal", // Explicitly set for personal tasks
+          columnId: task.columnId || personalColumns[0]?.id || 'todo',
+          order: task.order ?? 0,
+          id: task.id || task._id, // Ensure id is present
+        }));
+
+        setTasks(normalizedTasks);
+        setLoading(false);
+        return;
+      }
+      
+      // Handle project board
+      if (!workspaceProject?.id) {
+        console.log("[BoardContent] No workspace project available for project board. workspaceProject:", workspaceProject);
+        setLoading(false);
+        return;
       }
 
-      // Create column ID mapping for tasks
-      const columnIdMap: Record<string, string> = {};
+      console.log(`[BoardContent] === FETCHING PROJECT BOARD DATA for project: ${workspaceProject.id}, org: ${currentOrganization?.id} ===`);
       
-      // Map old string-based IDs to current column IDs
-      const nameToIdMapping = {
-        'To Do': currentColumns.find((col: any) => col.name === 'To Do')?.id,
-        'In Progress': currentColumns.find((col: any) => col.name === 'In Progress')?.id,
-        'Review': currentColumns.find((col: any) => col.name === 'Review')?.id,
-        'Done': currentColumns.find((col: any) => col.name === 'Done')?.id
-      };
+      // Construct the API URL for board data, including organizationId if available
+      let boardApiUrl = `/api/board/${workspaceProject.id}?userId=${user.uid}&t=${Date.now()}`;
+      if (currentOrganization?.id) {
+        boardApiUrl += `&organizationId=${currentOrganization.id}`;
+        console.log(`[BoardContent] Using organizationId: ${currentOrganization.id} in board API call.`);
+      }
 
-      // Legacy ID mapping
-      columnIdMap['todo'] = nameToIdMapping['To Do'] || currentColumns[0]?.id || 'todo';
-      columnIdMap['in-progress'] = nameToIdMapping['In Progress'] || currentColumns[1]?.id || 'in-progress';
-      columnIdMap['review'] = nameToIdMapping['Review'] || currentColumns[2]?.id || 'review';
-      columnIdMap['done'] = nameToIdMapping['Done'] || currentColumns[currentColumns.length - 1]?.id || 'done';
+      // ALSO fetch tasks directly via /api/tasks for comparison and as fallback
+      let directTasksApiUrl = `/api/tasks?userId=${user.uid}&t=${Date.now()}`;
+      if (currentOrganization?.id && workspaceProject.id) {
+        directTasksApiUrl += `&organizationId=${currentOrganization.id}&projectId=${workspaceProject.id}`;
+        console.log(`[BoardContent] Also fetching tasks directly via /api/tasks with org context`);
+      }
 
-      // Now fetch board data
-      const boardResponse = await fetch(`/api/board/${currentProject.id}`);
+      // Fetch both board data and direct tasks in parallel
+      const [boardResponse, directTasksResponse] = await Promise.all([
+        fetch(boardApiUrl, { cache: 'no-cache' }),
+        fetch(directTasksApiUrl, { cache: 'no-cache' })
+      ]);
+
+      console.log(`[BoardContent] Board API response status: ${boardResponse.status}`);
+      console.log(`[BoardContent] Direct tasks API response status: ${directTasksResponse.status}`);
+
+      let allTasks: any[] = [];
+      let fetchedColumns = defaultColumns;
 
       if (boardResponse.ok) {
         const boardData = await boardResponse.json();
-        console.log("Raw board data:", boardData);
+        console.log("[BoardContent] Board data received:", boardData);
 
-        const allTasks = Object.values(boardData.board || {}).flatMap(
-          (column: any) => column.tasks || [],
-        ).map((task: any) => {
-          // Map old column IDs to current ones
-          const mappedColumnId = columnIdMap[task.columnId] || task.columnId;
-          
-          // Verify the mapped column ID exists in current columns
-          const columnExists = currentColumns.find((col: any) => col.id === mappedColumnId);
-          const finalColumnId = columnExists ? mappedColumnId : currentColumns[0]?.id || task.columnId;
-          
-          return {
-            ...task,
-            projectId: typeof task.projectId === 'object' ? task.projectId.toString() : task.projectId,
-            columnId: finalColumnId,
-            order: task.order ?? 0,
-            id: task.id || task._id,
-          };
-        });
-
-        console.log("BoardContent: All tasks fetched and normalized:", allTasks);
-        console.log("Task count:", allTasks.length);
-        console.log("Active columns used:", currentColumns);
+        // Set columns from board data or use defaults if none are returned
+        fetchedColumns = boardData.columns && boardData.columns.length > 0 
+          ? boardData.columns.sort((a: any, b: any) => a.order - b.order)
+          : defaultColumns;
         
-        setTasks(allTasks);
-        setFilteredTasks(allTasks);
-      } else {
-        console.error("Board response not ok:", boardResponse.status);
+        // Process tasks from board data
+        allTasks = Object.values(boardData.board || {}).flatMap(
+          (column: any) => column.tasks || [],
+        );
+        console.log(`[BoardContent] Tasks from board API: ${allTasks.length}`);
+      }
+
+      // If we have direct tasks response and either no board tasks or as a fallback
+      if (directTasksResponse.ok) {
+        const directTasks = await directTasksResponse.json();
+        console.log(`[BoardContent] Tasks from direct API: ${directTasks.length}`);
+        
+        if (allTasks.length === 0 && directTasks.length > 0) {
+          console.log("[BoardContent] Using direct tasks as primary source");
+          allTasks = directTasks;
+        } else if (directTasks.length > allTasks.length) {
+          console.log("[BoardContent] Direct API returned more tasks, using those");
+          allTasks = directTasks;
+        }
+      }
+
+      // If no columns were returned and it's an org project, try to create defaults
+      if (currentOrganization?.id && (!fetchedColumns || fetchedColumns.length === 0 || fetchedColumns === defaultColumns)) {
+        console.log("[BoardContent] No columns found for org project, attempting to create defaults...");
+        try {
+          const createColumnsResponse = await fetch('/api/columns', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              projectId: workspaceProject.id,
+              organizationId: currentOrganization.id,
+              userId: user.uid,
+              createDefaults: true
+            })
+          });
+          
+          if (createColumnsResponse.ok) {
+            const createResult = await createColumnsResponse.json();
+            if (createResult.columns && Array.isArray(createResult.columns)) {
+              fetchedColumns = createResult.columns.sort((a: any, b: any) => a.order - b.order);
+              console.log("[BoardContent] Successfully created and set default columns:", fetchedColumns.length);
+            }
+          } else {
+            console.error("[BoardContent] Failed to create default columns:", createColumnsResponse.status, await createColumnsResponse.text());
+          }
+        } catch (error) {
+          console.error("[BoardContent] Error creating default columns:", error);
+        }
+      }
+      
+      setColumns(fetchedColumns);
+      
+      console.log(`[BoardContent] Setting columns for project:`, {
+        projectId: workspaceProject.id,
+        columns: fetchedColumns.map(col => ({ id: col.id, name: col.name, order: col.order })),
+        columnsCount: fetchedColumns.length
+      });
+
+      // Format and set tasks
+      const formattedTasks = allTasks.map((task: any) => {
+        return {
+          ...task,
+          projectId: workspaceProject.id, // Ensure projectId is correctly set from workspace context
+          columnId: task.columnId || fetchedColumns[0]?.id || 'todo', // Fallback to first column or 'todo'
+          order: task.order ?? 0,
+          id: task.id || task._id, // Ensure id is present
+        };
+      });
+
+      console.log(`[BoardContent] Final formatted tasks for project ${workspaceProject.id}:`, {
+        totalTasks: formattedTasks.length,
+        taskTitles: formattedTasks.map(t => t.title),
+        tasksByColumn: formattedTasks.reduce((acc, task) => {
+          acc[task.columnId] = (acc[task.columnId] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>),
+        taskDetails: formattedTasks.map(t => ({ 
+          id: t.id, 
+          title: t.title, 
+          columnId: t.columnId,
+          projectId: t.projectId 
+        }))
+      });
+      setTasks(formattedTasks);
+
+      // If we still have no tasks, log additional debug info
+      if (formattedTasks.length === 0) {
+        console.log("[BoardContent] WARNING: No tasks found after all fetch attempts!");
+        console.log("[BoardContent] Debug info - workspaceProject:", workspaceProject);
+        console.log("[BoardContent] Debug info - currentOrganization:", currentOrganization);
+        console.log("[BoardContent] Debug info - board API URL:", boardApiUrl);
+        console.log("[BoardContent] Debug info - direct tasks API URL:", directTasksApiUrl);
       }
 
     } catch (error) {
-      console.error("Error loading board data:", error);
+      console.error("[BoardContent] Error loading board data:", error);
       toast({
         title: "Error",
-        description: "Failed to load board data",
+        description: "Failed to load board data. Please try refreshing.",
         variant: "destructive",
       });
+      // Fallback to default columns and clear tasks on error
+      setColumns(defaultColumns);
+      setTasks([]);
     } finally {
       setLoading(false);
     }
-  }, [currentProject?.id, toast, defaultColumns]); // REMOVED 'columns' dependency
+  }, [user?.uid, toast, defaultColumns, workspaceProject, projectId, currentOrganization]); // Added workspaceProject, projectId, currentOrganization
 
   const refreshTasks = useCallback(() => {
-    console.log("Refreshing tasks for project:", projectId);
+    console.log("Refreshing tasks for project:", currentProject?.id || "personal");
     fetchBoardData();
-  }, [projectId, fetchBoardData]); // Added projectId dependency
+  }, [fetchBoardData]);
 
-  // Set up window reference
+  const fetchProjects = useCallback(async () => {
+    // Handle specific project by ID
+    if (projectId) {
+      try {
+        const projectResponse = await fetch(`/api/projects/${projectId}`);
+        if (projectResponse.ok) {
+          const projectData = await projectResponse.json();
+          setCurrentProject(projectData);
+          if (onProjectUpdate) {
+            onProjectUpdate(projectData);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching specific project:", error);
+      }
+    }
+    
+    // For personal board (no projectId), we don't need to fetch projects
+  }, [projectId, onProjectUpdate, currentProject?.id]); // Add currentProject?.id back
+
+  const handleTaskCreated = useCallback((newTask: any) => {
+    setTasks(prevTasks => [...prevTasks, newTask]);
+    // Remove refresh counter to prevent visual glitches
+    // setRefreshCounter(prev => prev + 1);
+  }, []);
+
+  const handleTaskUpdated = useCallback((updatedTask: any) => {
+    console.log("BoardContent: handleTaskUpdated called with:", updatedTask);
+    
+    setTasks(prevTasks => 
+      prevTasks.map(t => t.id === updatedTask.id ? { ...t, ...updatedTask } : t)
+    );
+    
+    // Remove refresh counter to prevent visual glitches
+    // setRefreshCounter(prev => prev + 1);
+  }, []);
+
+  const handleDragEnd = useCallback(async (result: DropResult) => {
+    const { destination, source, draggableId } = result;
+    if (!destination) return;
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return;
+    }
+
+    const draggedTaskIndex = tasks.findIndex((t) => t.id === draggableId);
+    if (draggedTaskIndex === -1) return;
+    
+    const updatedTasks = [...tasks];
+    const [movedTask] = updatedTasks.splice(draggedTaskIndex, 1);
+    movedTask.columnId = destination.droppableId;
+    updatedTasks.splice(destination.index, 0, movedTask);
+
+    setTasks(updatedTasks);
+    // Keep refresh counter for drag-and-drop as it affects column layout
+    setRefreshCounter(prev => prev + 1);
+
+    try {
+      if (!user?.uid) {
+        console.error("User not authenticated for task update");
+        return;
+      }
+      
+      const updateData: any = {
+        columnId: movedTask.columnId,
+        order: destination.index,
+        userId: user.uid,
+      };
+
+      // Include organizationId and projectId for organization tasks
+      if (currentOrganization?.id && workspaceProject?.id) {
+        updateData.organizationId = currentOrganization.id;
+        updateData.projectId = workspaceProject.id;
+        console.log(`[handleDragEnd] Including org context: org=${currentOrganization.id}, project=${workspaceProject.id}`);
+      } else if (workspaceProject?.id) {
+        updateData.projectId = workspaceProject.id;
+        console.log(`[handleDragEnd] Including project context: project=${workspaceProject.id}`);
+      }
+      
+      const response = await fetch(`/api/tasks/${draggableId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(`Failed to move task: ${errorData.error || response.statusText}`);
+      }
+      
+      const result = await response.json();
+      console.log("[handleDragEnd] Task update successful:", result);
+      
+      toast({
+        title: "Task moved",
+        description: `Task moved successfully`,
+      });
+    } catch (error) {
+      console.error("Error updating task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to move task. Refreshing board...",
+        variant: "destructive",
+      });
+      fetchBoardData();
+    }
+  }, [tasks, toast, fetchBoardData, currentOrganization, workspaceProject, user?.uid]);
+
+  // Filter tasks based on search query and active filters
+  const filteredTasks = useMemo(() => {
+    let filtered = tasks;
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter((task) =>
+        task.title?.toLowerCase().includes(query) ||
+        task.description?.toLowerCase().includes(query) ||
+        task.tags?.some((tag: string) => tag.toLowerCase().includes(query)) ||
+        task.assignedTo?.some((user: any) => user.name?.toLowerCase().includes(query))
+      );
+    }
+
+    // Apply assignee filter
+    if (activeFilters.assignees.length > 0) {
+      filtered = filtered.filter((task) =>
+        task.assignedTo?.some((user: any) => 
+          activeFilters.assignees.includes(user.id || user.name)
+        )
+      );
+    }
+
+    // Apply tag filter
+    if (activeFilters.tags.length > 0) {
+      filtered = filtered.filter((task) =>
+        task.tags?.some((tag: string) => activeFilters.tags.includes(tag))
+      );
+    }
+
+    // Apply priority filter
+    if (activeFilters.priority.length > 0) {
+      filtered = filtered.filter((task) =>
+        activeFilters.priority.includes(task.priority)
+      );
+    }
+
+    // Apply status filter (based on column)
+    if (activeFilters.status) {
+      filtered = filtered.filter((task) => task.columnId === activeFilters.status);
+    }
+
+    return filtered;
+  }, [tasks, searchQuery, activeFilters]);
+
+  const getTasksForColumn = useCallback((columnId: string) => {
+    return filteredTasks.filter((task) => task.columnId === columnId);
+  }, [filteredTasks]);
+
+  const getColumnColor = useCallback((order: number) => {
+    const colors = ["bg-slate-100", "bg-blue-100", "bg-yellow-100", "bg-green-100"];
+    return colors[order % colors.length];
+  }, []);
+
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, []);
+
+  const handleFilter = useCallback((filters: any) => {
+    // Map BoardHeader filter structure to our expected structure
+    setActiveFilters({
+      assignees: filters.assignee || [],
+      tags: filters.tags || [],
+      priority: filters.priority || [],
+      status: "", // BoardHeader doesn't include status/column filter, could be added later
+    });
+  }, []);
+
+  const handleColumnUpdate = useCallback((updatedColumns: any[]) => {
+    setColumns(updatedColumns);
+    setRefreshCounter(prev => prev + 1);
+  }, []);
+
+  // Memoized values
+  const mockUsers = useMemo(() => [
+    { id: "1", name: "Alice Chen" },
+    { id: "2", name: "Bob Smith" },
+    { id: "3", name: "Charlie Kim" },
+  ], []);
+
+  const mockTags = useMemo(() => ["frontend", "backend", "bug", "feature", "urgent"], []);
+
+  // Effects
   useEffect(() => {
     window.boardContentRef = {
       updateTaskLocally,
@@ -215,264 +534,45 @@ export default function BoardContent({
     };
   }, [updateTaskLocally, removeTaskLocally, refreshTasks]);
 
-  // Helper function to get initial columns - moved to useCallback with proper dependencies
-  const getInitialColumns = useCallback(() => {
-    if (columns && columns.length > 0) {
-      return columns;
+  // Fetch projects only when projectId changes or on mount
+  useEffect(() => {
+    if (projectId) {
+      fetchProjects();
     }
-    return defaultColumns;
-  }, [columns, defaultColumns]);
+  }, [projectId, fetchProjects]);
 
-  // Mock users and tags for the header
-  const mockUsers = [
-    { id: "1", name: "Alice Chen" },
-    { id: "2", name: "Bob Smith" },
-    { id: "3", name: "Charlie Kim" },
-  ];
-
-  const mockTags = ["frontend", "backend", "bug", "feature", "urgent"];
-
-  // Helper function to get tasks for a column
-  const getTasksForColumn = (columnId: string) => {
-    return filteredTasks.filter((task) => task.columnId === columnId);
-  };
-
-  // Fetch projects once with better error handling
-  const fetchProjects = useCallback(async () => {
-    if (!user || currentProject) return;
-
-    let retryCount = 0;
-    const maxRetries = 3;
-
-    while (retryCount < maxRetries) {
-      try {
-        console.log(`Fetching projects (attempt ${retryCount + 1})`);
-        
-        const projectsResponse = await fetch(`/api/projects?userId=${user.uid}`);
-
-        if (!projectsResponse.ok) {
-          throw new Error(`HTTP ${projectsResponse.status}: ${projectsResponse.statusText}`);
-        }
-
-        const projects = await projectsResponse.json();
-        console.log("Projects fetched successfully:", projects.length);
-
-        if (projects.length === 0) {
-          // Create default project
-          const defaultName = 
-            typeof window !== "undefined" && localStorage.getItem("defaultProjectName")
-              ? localStorage.getItem("defaultProjectName")!
-              : "My First Project";
-
-          const newProjectResponse = await fetch("/api/projects", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              name: defaultName,
-              description: "TaskFlow AI default project",
-              ownerId: user.uid,
-            }),
-          });
-
-          if (!newProjectResponse.ok) {
-            throw new Error("Failed to create default project");
-          }
-
-          const newProject = await newProjectResponse.json();
-          setCurrentProject(newProject);
-
-          if (onProjectUpdate) {
-            onProjectUpdate(newProject);
-          }
-        } else {
-          setCurrentProject(projects[0]);
-
-          if (onProjectUpdate) {
-            onProjectUpdate(projects[0]);
-          }
-        }
-
-        // Success - break out of retry loop
-        break;
-
-      } catch (error) {
-        retryCount++;
-        console.error(`Error fetching projects (attempt ${retryCount}):`, error);
-        
-        if (retryCount === maxRetries) {
-          toast({
-            title: "Connection Error",
-            description: "Failed to load projects after multiple attempts. Please refresh the page.",
-            variant: "destructive",
-          });
-        } else {
-          // Wait before retry
-          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-        }
+  // Fetch board data when we have the necessary data and avoid cycles
+  useEffect(() => {
+    if (user?.uid) {
+      // For personal board (no projectId)
+      if (!projectId) {
+        fetchBoardData();
+      }
+      // For project board (with projectId and workspace project loaded)
+      else if (workspaceProject?.id === projectId) {
+        fetchBoardData();
+      }
+      else if (projectId && !workspaceProject) {
+        console.log("Waiting for workspace project to load for projectId:", projectId);
       }
     }
-  }, [user, toast, onProjectUpdate, currentProject]);
+  }, [user?.uid, projectId, workspaceProject?.id, refreshTrigger, fetchBoardData, workspaceProject]);
 
-  // Initial project fetch
+  // Additional effect to immediately fetch when workspace context changes
   useEffect(() => {
-    fetchProjects();
-  }, [fetchProjects]);
-
-  // Load board data when project changes or refresh trigger changes
-  useEffect(() => {
-    if (currentProject?.id) {
+    if (user?.uid && workspaceProject?.id && currentOrganization?.id) {
+      console.log("[BoardContent] Workspace context changed, fetching board data immediately");
       fetchBoardData();
     }
-  }, [currentProject, fetchBoardData, refreshTrigger]);
+  }, [currentOrganization?.id, workspaceProject?.id, user?.uid, fetchBoardData]);
 
-  // Handle new task creation
-  const handleTaskCreated = (newTask: any) => {
-    setTasks((prev) => [...prev, newTask]);
-    setFilteredTasks((prev) => [...prev, newTask]);
-  };
-
-  // Handle task updates
-  const handleTaskUpdated = (updatedTask: any) => {
-    console.log("BoardContent: handleTaskUpdated called with:", updatedTask);
-    
-    const normalizedTask = {
-      ...updatedTask,
-      projectId: typeof updatedTask.projectId === 'object' ? updatedTask.projectId.toString() : updatedTask.projectId,
-      order: updatedTask.order ?? 0,
-      id: updatedTask.id || updatedTask._id,
-    };
-    
-    setTasks((prev) => prev.map(t => t.id === normalizedTask.id ? normalizedTask : t));
-    setFilteredTasks((prev) => prev.map(t => t.id === normalizedTask.id ? normalizedTask : t));
-  };
-
-  // Handle drag and drop
-  const handleDragEnd = async (result: DropResult) => {
-    const { destination, source, draggableId } = result;
-    if (!destination) return;
-    if (destination.droppableId === source.droppableId && destination.index === source.index) {
-      return;
-    }
-
-    const draggedTaskIndex = tasks.findIndex((t) => t.id === draggableId);
-    if (draggedTaskIndex === -1) return;
-    const updatedTasks = [...tasks];
-    const [movedTask] = updatedTasks.splice(draggedTaskIndex, 1);
-    movedTask.columnId = destination.droppableId;
-    updatedTasks.splice(destination.index, 0, movedTask);
-
-    setTasks(updatedTasks);
-    setFilteredTasks(updatedTasks);
-
-    try {
-      const response = await fetch(`/api/tasks/${movedTask.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          columnId: movedTask.columnId,
-          order: destination.index,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Failed to move task");
-    } catch (error) {
-      console.error("Error updating task:", error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Unknown error",
-        variant: "destructive",
-      });
-      fetchBoardData();
-    }
-  };
-
-  // Search and filter handlers
-  const handleSearch = (query: string) => {
-    if (!query.trim()) {
-      setFilteredTasks(tasks);
-      return;
-    }
-
-    const filtered = tasks.filter((task) => {
-      const q = query.toLowerCase();
-      return (
-        task.title?.toLowerCase().includes(q) ||
-        task.description?.toLowerCase().includes(q) ||
-        (task.assignee && task.assignee.toLowerCase().includes(q))
-      );
-    });
-
-    setFilteredTasks(filtered);
-  };
-
-  const handleFilter = (filters: any) => {
-    let filtered = [...tasks];
-
-    if (filters.priority.length > 0) {
-      filtered = filtered.filter((task) => filters.priority.includes(task.priority));
-    }
-
-    if (filters.assignee.length > 0) {
-      filtered = filtered.filter((task) => filters.assignee.includes(task.assignee));
-    }
-
-    if (filters.tags.length > 0) {
-      filtered = filtered.filter((task) =>
-        task.tags?.some((tag: string) => filters.tags.includes(tag))
-      );
-    }
-
-    setFilteredTasks(filtered);
-  };
-
-  if (loading && !currentProject) {
+  if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
-
-  // Helper function to assign colors based on order
-  const getColumnColor = (order: number) => {
-    const colors = ["bg-slate-100", "bg-blue-100", "bg-yellow-100", "bg-green-100", "bg-purple-100", "bg-pink-100", "bg-indigo-100", "bg-orange-100"];
-    return colors[order % colors.length];
-  };
-
-  // Single displayColumns definition
-  const displayColumns = getInitialColumns().map(col => ({
-    id: col.id,
-    title: col.name || col.title,
-    color: getColumnColor(col.order || 0)
-  }));
-
-  // Handle column updates from board header
-  const handleColumnUpdate = (updatedColumns: any[]) => {
-    console.log("BoardContent: Column update received:", updatedColumns);
-    setColumns(updatedColumns.sort((a: any, b: any) => a.order - b.order));
-    
-    // Only update tasks' column IDs if needed, don't refetch everything
-    setTasks(prevTasks => 
-      prevTasks.map(task => {
-        // Check if task's column still exists in updated columns
-        const columnExists = updatedColumns.find(col => col.id === task.columnId);
-        return columnExists ? task : {
-          ...task,
-          columnId: updatedColumns[0]?.id || task.columnId // Fallback to first column
-        };
-      })
-    );
-    
-    setFilteredTasks(prevTasks => 
-      prevTasks.map(task => {
-        const columnExists = updatedColumns.find(col => col.id === task.columnId);
-        return columnExists ? task : {
-          ...task,
-          columnId: updatedColumns[0]?.id || task.columnId
-        };
-      })
-    );
-  };
 
   return (
     <div className="h-full flex flex-col min-w-0">
@@ -484,22 +584,22 @@ export default function BoardContent({
         onAddTask={() => setIsTaskDialogOpen(true)}
         projectId={currentProject?.id}
         onTasksImported={fetchBoardData}
-        onColumnUpdate={handleColumnUpdate} // Add this prop
+        onColumnUpdate={handleColumnUpdate}
       />
 
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex-1 overflow-x-auto min-h-0">
           <div className="flex gap-4 p-4 h-full items-start">
-            {displayColumns.map((column) => (
+            {columns.map((column) => (
               <div
                 key={column.id}
                 className="flex-1 min-w-[145px]"
               >
                 <KanbanColumn
                   id={column.id}
-                  title={column.title}
+                  title={column.name}
                   tasks={getTasksForColumn(column.id)}
-                  onTaskClick={onTaskSelect}
+                  onTaskClick={onTaskSelect || (() => {})}
                 />
               </div>
             ))}
@@ -510,8 +610,8 @@ export default function BoardContent({
       <TaskDialog
         open={isTaskDialogOpen}
         onOpenChange={setIsTaskDialogOpen}
-        columns={displayColumns} // Pass the current display columns
-        projectId={currentProject?.id}
+        projectId={workspaceProject?.id || "personal"}
+        columns={columns}
         onTaskCreated={handleTaskCreated}
         onTaskUpdated={handleTaskUpdated}
       />

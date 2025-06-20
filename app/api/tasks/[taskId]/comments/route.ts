@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminDb } from "@/services/admin/mongoAdmin";
+import { getUserDatabaseConnection, getAdminDb, getOrganizationDatabaseConnection } from "@/services/db/dynamicConnection";
 import { ObjectId } from "mongodb";
 
 export async function GET(
@@ -8,16 +8,30 @@ export async function GET(
 ) {
   try {
     const taskId = params.taskId;
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+    const organizationId = searchParams.get('organizationId');
 
-    const adminDb = await getAdminDb();
-    if (!adminDb) {
+    let database;
+    if (organizationId) {
+      // Use organization database for org tasks
+      database = await getOrganizationDatabaseConnection(organizationId);
+    } else if (userId) {
+      // Use user-specific database for personal tasks
+      database = await getUserDatabaseConnection(userId);
+    } else {
+      // Fallback to admin database
+      database = await getAdminDb();
+    }
+    
+    if (!database) {
       return NextResponse.json(
         { error: "Database connection failed" },
         { status: 500 },
       );
     }
 
-    const comments = await adminDb
+    const comments = await database
       .collection("comments")
       .find({ taskId: new ObjectId(taskId) })
       .sort({ createdAt: 1 })
@@ -58,8 +72,23 @@ export async function POST(
       );
     }
 
-    const adminDb = await getAdminDb();
-    if (!adminDb) {
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId') || data.userId;
+    const organizationId = searchParams.get('organizationId') || data.organizationId;
+
+    let database;
+    if (organizationId) {
+      // Use organization database for org tasks
+      database = await getOrganizationDatabaseConnection(organizationId);
+    } else if (userId) {
+      // Use user-specific database for personal tasks
+      database = await getUserDatabaseConnection(userId);
+    } else {
+      // Fallback to admin database
+      database = await getAdminDb();
+    }
+    
+    if (!database) {
       return NextResponse.json(
         { error: "Database connection failed" },
         { status: 500 },
@@ -75,7 +104,7 @@ export async function POST(
       updatedAt: new Date(),
     };
 
-    const result = await adminDb.collection("comments").insertOne(commentData);
+    const result = await database.collection("comments").insertOne(commentData);
 
     return NextResponse.json({
       id: result.insertedId.toString(),

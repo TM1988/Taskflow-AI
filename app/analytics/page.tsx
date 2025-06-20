@@ -32,8 +32,15 @@ export default function AnalyticsPage() {
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [showContent, setShowContent] = useState(false); // Add instant loading
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Show content immediately for instant navigation
+  useEffect(() => {
+    const timer = setTimeout(() => setShowContent(true), 10);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const fetchProjects = async () => {

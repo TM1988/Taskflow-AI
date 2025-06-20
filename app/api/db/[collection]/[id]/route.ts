@@ -1,6 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminDb } from "@/services/admin/mongoAdmin";
+import { getUserDatabaseConnection, getAdminDb } from "@/services/db/dynamicConnection";
 import { ObjectId } from "mongodb";
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+
+async function isOrganizationsEnabledForUser(userId: string): Promise<boolean> {
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userDocRef);
+    
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      const databaseConfig = userData.databaseConfig;
+      return databaseConfig?.includeOrganizations === true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error checking organizations setting:', error);
+    return false;
+  }
+}
 
 function isValidObjectId(id: string): boolean {
   return ObjectId.isValid(id) && (new ObjectId(id)).toString() === id;
@@ -13,12 +33,40 @@ export async function GET(
   try {
     const { collection: collectionName, id } = params;
     
-    const adminDb = await getAdminDb();
-    if (!adminDb) {
-      throw new Error("MongoDB not initialized");
+    // Get user ID from query parameters
+    const userId = new URL(request.url).searchParams.get('userId');
+    
+    // Check allowed collections based on user configuration
+    let allowedCollections = ['tasks', 'columns', 'comments'];
+    
+    if (userId && collectionName === 'organizations') {
+      const organizationsEnabled = await isOrganizationsEnabledForUser(userId);
+      if (organizationsEnabled) {
+        allowedCollections.push('organizations');
+      }
+    }
+    
+    if (!allowedCollections.includes(collectionName)) {
+      return NextResponse.json(
+        { error: `Collection '${collectionName}' is not allowed. Available collections: ${allowedCollections.join(', ')}.` },
+        { status: 400 }
+      );
+    }
+    
+    let database;
+    if (userId) {
+      // Use user-specific database (custom or official based on their config)
+      database = await getUserDatabaseConnection(userId);
+    } else {
+      // Fallback to admin database
+      database = await getAdminDb();
+    }
+    
+    if (!database) {
+      throw new Error("Database not initialized");
     }
 
-    const collection = adminDb.collection(collectionName);
+    const collection = database.collection(collectionName);
     
     // Try to find by ObjectId if valid, otherwise try string ID
     let doc;
@@ -61,14 +109,43 @@ export async function PUT(
 ) {
   try {
     const { collection: collectionName, id } = params;
+    
     const data = await request.json();
     
-    const adminDb = await getAdminDb();
-    if (!adminDb) {
-      throw new Error("MongoDB not initialized");
+    // Get user ID from request data or query parameters
+    const userId = data.userId || new URL(request.url).searchParams.get('userId');
+    
+    // Check allowed collections based on user configuration
+    let allowedCollections = ['tasks', 'columns', 'comments'];
+    
+    if (userId && collectionName === 'organizations') {
+      const organizationsEnabled = await isOrganizationsEnabledForUser(userId);
+      if (organizationsEnabled) {
+        allowedCollections.push('organizations');
+      }
+    }
+    
+    if (!allowedCollections.includes(collectionName)) {
+      return NextResponse.json(
+        { error: `Collection '${collectionName}' is not allowed. Available collections: ${allowedCollections.join(', ')}.` },
+        { status: 400 }
+      );
+    }
+    
+    let database;
+    if (userId) {
+      // Use user-specific database (custom or official based on their config)
+      database = await getUserDatabaseConnection(userId);
+    } else {
+      // Fallback to admin database
+      database = await getAdminDb();
+    }
+    
+    if (!database) {
+      throw new Error("Database not initialized");
     }
 
-    const collection = adminDb.collection(collectionName);
+    const collection = database.collection(collectionName);
     
     if (data._isSetOperation) {
       // Set operation (upsert)
@@ -120,12 +197,40 @@ export async function DELETE(
   try {
     const { collection: collectionName, id } = params;
     
-    const adminDb = await getAdminDb();
-    if (!adminDb) {
-      throw new Error("MongoDB not initialized");
+    // Get user ID from query parameters
+    const userId = new URL(request.url).searchParams.get('userId');
+    
+    // Check allowed collections based on user configuration
+    let allowedCollections = ['tasks', 'columns', 'comments'];
+    
+    if (userId && collectionName === 'organizations') {
+      const organizationsEnabled = await isOrganizationsEnabledForUser(userId);
+      if (organizationsEnabled) {
+        allowedCollections.push('organizations');
+      }
+    }
+    
+    if (!allowedCollections.includes(collectionName)) {
+      return NextResponse.json(
+        { error: `Collection '${collectionName}' is not allowed. Available collections: ${allowedCollections.join(', ')}.` },
+        { status: 400 }
+      );
+    }
+    
+    let database;
+    if (userId) {
+      // Use user-specific database (custom or official based on their config)
+      database = await getUserDatabaseConnection(userId);
+    } else {
+      // Fallback to admin database
+      database = await getAdminDb();
+    }
+    
+    if (!database) {
+      throw new Error("Database not initialized");
     }
 
-    const collection = adminDb.collection(collectionName);
+    const collection = database.collection(collectionName);
     
     // Try ObjectId if valid, otherwise try string ID as fallback
     let result;

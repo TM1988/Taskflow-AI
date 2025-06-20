@@ -27,8 +27,9 @@ export interface GithubRepository {
 
 export const githubServiceServer = {
   // Exchange GitHub code for access token
-  async exchangeCodeForToken(code: string) {
+  async exchangeCodeForToken(code: string, context: string = "personal") {
     try {
+      // Use personal GitHub app credentials (project-level or personal use both use personal app)
       const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
       const clientSecret = process.env.GITHUB_CLIENT_SECRET;
 

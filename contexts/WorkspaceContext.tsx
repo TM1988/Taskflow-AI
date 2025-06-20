@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/services/auth/AuthContext';
 
 export type WorkspaceType = 'personal' | 'organization';
@@ -23,139 +24,236 @@ export interface WorkspaceContextType {
   currentOrganization: Organization | null;
   currentProject: OrganizationProject | null;
   organizations: Organization[];
-  setWorkspace: (type: WorkspaceType, orgId?: string, projectId?: string) => void;
+  setWorkspace: (type: WorkspaceType, orgId?: string, projectId?: string) => Promise<void>;
   isPersonalWorkspace: boolean;
   getWorkspaceDisplayName: () => string;
-  refreshOrganizations: () => Promise<void>;
+  refreshOrganizations: () => Promise<Organization[]>;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const [currentWorkspace, setCurrentWorkspace] = useState<WorkspaceType>('personal');
+  const pathname = usePathname();
+  
+  // Automatically detect workspace type from URL
+  const isProjectPage = pathname.startsWith('/projects/');
+  const projectIdFromUrl = isProjectPage ? pathname.split('/')[2] : null;
+  
+  // INITIALIZE workspace state based on current URL immediately!
+  const [currentWorkspace, setCurrentWorkspace] = useState<WorkspaceType>(
+    isProjectPage ? 'organization' : 'personal'
+  );
   const [currentOrganization, setCurrentOrganization] = useState<Organization | null>(null);
-  const [currentProject, setCurrentProject] = useState<OrganizationProject | null>(null);
+  // Initialize currentProject with placeholder if on a project page
+  const [currentProject, setCurrentProject] = useState<OrganizationProject | null>(
+    isProjectPage && projectIdFromUrl 
+      ? { id: projectIdFromUrl, name: "Loading project..." } 
+      : null
+  );
   const [organizations, setOrganizations] = useState<Organization[]>([]);
 
-  // Load workspace preference from localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedWorkspace = localStorage.getItem('workspace-context');
-      if (savedWorkspace) {
-        try {
-          const parsed = JSON.parse(savedWorkspace);
-          setCurrentWorkspace(parsed.type || 'personal');
-        } catch (error) {
-          console.error('Error parsing saved workspace:', error);
+  const fetchOrganizations = useCallback(async () => {
+    if (!user?.uid) {
+      console.log("fetchOrganizations: No user UID, returning empty array.");
+      setOrganizations([]); // Clear if no user
+      return [];
+    }
+    console.log("fetchOrganizations: Called for user:", user.uid);
+    try {
+      const response = await fetch(`/api/organizations?userId=${user.uid}`);
+      if (response.ok) {
+        const orgs = await response.json();
+        console.log("Fetched organizations successfully in fetchOrganizations:", orgs);
+        setOrganizations(orgs); // Ensure state is set here
+        return orgs;
+      } else {
+        console.error("fetchOrganizations: Response not OK", response.status, await response.text());
+        setOrganizations([]); // Clear on error
+        return [];
+      }
+    } catch (error) {
+      console.error("Error fetching organizations in fetchOrganizations:", error);
+      setOrganizations([]); // Clear on error
+      return [];
+    }
+  }, [user]); // Depends on user
+
+  const refreshOrganizations = useCallback(async () => {
+    if (!user) {
+      console.log("refreshOrganizations: No user, returning empty array.");
+      setOrganizations([]); // Clear if no user
+      return [];
+    }
+    console.log("refreshOrganizations: Called by user:", user.uid);
+    try {
+      // Fetch organizations from API with projects included
+      const response = await fetch(`/api/organizations?userId=${user.uid}`);
+      
+      if (!response.ok) {
+        console.error("refreshOrganizations: Response not OK", response.status, await response.text());
+        setOrganizations([]); // Clear on error
+        throw new Error('Failed to fetch organizations');
+      }
+      
+      const organizationsData = await response.json();
+      console.log('Refreshed organizations with projects:', organizationsData);
+      
+      setOrganizations(organizationsData);
+      return organizationsData;
+    } catch (error) {
+      console.error('Error fetching organizations:', error);
+      setOrganizations([]); // Clear on error
+      return [];
+    }
+  }, [user]); // Depends on user
+
+  const loadProjectData = useCallback(async (projectId: string) => {
+    console.log(`loadProjectData called for projectId: ${projectId}. Current organizations count: ${organizations.length}`);
+    try {
+      let orgsToSearch = organizations;
+
+      if (orgsToSearch.length === 0 && user) { // Ensure user exists before fetching
+        console.log("Organizations list is empty, attempting to fetch them now within loadProjectData.");
+        const fetchedOrgs = await fetchOrganizations();
+        if (fetchedOrgs && fetchedOrgs.length > 0) {
+          console.log("Successfully fetched organizations within loadProjectData:", fetchedOrgs);
+          orgsToSearch = fetchedOrgs;
+        } else {
+          console.log("Failed to fetch organizations or no organizations found within loadProjectData. Trying refresh.");
+          // Try refresh as a fallback
+          const refreshedOrgs = await refreshOrganizations();
+          if (refreshedOrgs && refreshedOrgs.length > 0) {
+             orgsToSearch = refreshedOrgs;
+          } else {
+            console.error('Still no organizations after fetch/refresh in loadProjectData.');
+            return; 
+          }
         }
       }
-    }
-  }, []);
 
-  // Fetch organizations when user changes
+      let foundProject = null;
+      let foundOrg = null;
+      
+      console.log("Searching for project in orgsToSearch:", orgsToSearch);
+      for (const org of orgsToSearch) {
+        if (org && org.projects) {
+          foundProject = org.projects.find((p: OrganizationProject) => p.id === projectId);
+          if (foundProject) {
+            foundOrg = org;
+            break;
+          }
+        } else {
+          console.warn("Encountered an undefined org or org without projects array:", org);
+        }
+      }
+
+      if (!foundProject && user && organizations.length > 0 && orgsToSearch === organizations) {
+        console.log("Project not found in existing (potentially stale) organizations, refreshing and trying again.");
+        const freshOrgs = await refreshOrganizations();
+        for (const org of freshOrgs) {
+           if (org && org.projects) {
+            foundProject = org.projects.find((p: OrganizationProject) => p.id === projectId);
+            if (foundProject) {
+              foundOrg = org;
+              break;
+            }
+          }
+        }
+      }
+
+      if (foundProject && foundOrg) {
+        console.log("Project and Org found:", foundProject, foundOrg);
+        setCurrentOrganization(foundOrg);
+        setCurrentProject(foundProject);
+      } else {
+        console.log(`Project with ID ${projectId} not found after all attempts.`);
+        // Potentially set currentProject to an error state or null if not found
+        // setCurrentProject({ id: projectId, name: "Project not found" }); 
+      }
+    } catch (error) {
+      console.error('Failed to load project data:', error);
+    }
+  }, [user, organizations, fetchOrganizations, refreshOrganizations]);
+
+  // Effect for initial URL-based workspace and project loading
   useEffect(() => {
-    if (user) {
-      refreshOrganizations();
+    console.log("Workspace context update - pathname:", pathname, "isProjectPage:", isProjectPage, "projectIdFromUrl:", projectIdFromUrl, "currentProject:", currentProject, "user:", user);
+    
+    if (isProjectPage && projectIdFromUrl) {
+      setCurrentWorkspace('organization');
+      if (user && projectIdFromUrl && (!currentProject || currentProject.id !== projectIdFromUrl || currentProject.name === "Loading project...")) {
+        console.log("Calling loadProjectData for:", projectIdFromUrl);
+        loadProjectData(projectIdFromUrl);
+      }
     } else {
-      setOrganizations([]);
       setCurrentWorkspace('personal');
       setCurrentOrganization(null);
       setCurrentProject(null);
     }
-  }, [user]);
+  }, [pathname, user, loadProjectData, isProjectPage, projectIdFromUrl, currentProject]);
 
-  const refreshOrganizations = async () => {
-    if (!user) return;
-
-    try {
-      // For now, using mock data - replace with actual API call
-      const mockOrganizations: Organization[] = [
-        {
-          id: "org1",
-          name: "Acme Corp",
-          role: "Admin",
-          projects: [
-            { id: "proj1", name: "E-commerce Platform", description: "Main platform" },
-            { id: "proj2", name: "Mobile App", description: "iOS/Android app" }
-          ]
-        },
-        {
-          id: "org2",
-          name: "Tech Startup",
-          role: "Member",
-          projects: [
-            { id: "proj3", name: "AI Dashboard", description: "Analytics platform" }
-          ]
-        }
-      ];
-
-      setOrganizations(mockOrganizations);
-
-      // Restore organization context if needed
-      const savedWorkspace = localStorage.getItem('workspace-context');
-      if (savedWorkspace) {
-        try {
-          const parsed = JSON.parse(savedWorkspace);
-          if (parsed.type === 'organization' && parsed.orgId) {
-            const org = mockOrganizations.find(o => o.id === parsed.orgId);
-            if (org) {
-              setCurrentOrganization(org);
-              if (parsed.projectId) {
-                const project = org.projects.find(p => p.id === parsed.projectId);
-                setCurrentProject(project || org.projects[0] || null);
-              } else {
-                setCurrentProject(org.projects[0] || null);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error restoring workspace context:', error);
-        }
+  // Effect for fetching organizations when user changes or on initial load
+  useEffect(() => {
+    if (user) {
+      console.log("User detected, fetching organizations. Current organizations count:", organizations.length);
+      if (organizations.length === 0) { // Only fetch if not already populated
+         fetchOrganizations();
       }
-    } catch (error) {
-      console.error('Error fetching organizations:', error);
+    } else {
+      console.log("User is null, clearing organizations and workspace details.");
+      setOrganizations([]);
+      setCurrentOrganization(null);
+      setCurrentProject(null);
+      setCurrentWorkspace('personal'); // Reset to personal if user logs out
     }
-  };
+  }, [user, fetchOrganizations]);
 
-  const setWorkspace = (type: WorkspaceType, orgId?: string, projectId?: string) => {
+  // Simplified setWorkspace - temporarily made async for compatibility
+  const setWorkspace = async (type: WorkspaceType, orgId?: string, projectId?: string) => {
     setCurrentWorkspace(type);
 
     if (type === 'personal') {
       setCurrentOrganization(null);
       setCurrentProject(null);
-      localStorage.setItem('workspace-context', JSON.stringify({ type: 'personal' }));
     } else if (type === 'organization' && orgId) {
+      // Find organization and project from existing data
       const org = organizations.find(o => o.id === orgId);
       if (org) {
         setCurrentOrganization(org);
-        
-        // Set project (use provided projectId or first available project)
         const project = projectId 
-          ? org.projects.find(p => p.id === projectId) 
+          ? org.projects.find((p: OrganizationProject) => p.id === projectId) 
           : org.projects[0];
         setCurrentProject(project || null);
-
-        localStorage.setItem('workspace-context', JSON.stringify({
-          type: 'organization',
-          orgId,
-          projectId: project?.id
-        }));
       }
     }
   };
 
   const getWorkspaceDisplayName = () => {
+    console.log("getWorkspaceDisplayName called - currentWorkspace:", currentWorkspace, "org:", currentOrganization?.name, "project:", currentProject?.name);
+    
     if (currentWorkspace === 'personal') {
       return 'Personal';
     }
-    if (currentOrganization && currentProject) {
-      return `${currentOrganization.name} / ${currentProject.name}`;
+
+    // If on an organization workspace (project page)
+    if (currentWorkspace === 'organization') {
+      if (currentProject) {
+        // This will return "Loading project..." initially if that's the name, 
+        // or the actual project name once loaded.
+        return currentProject.name; 
+      }
+      // If project is null but org is loaded (e.g. navigating to an org page without a specific project selected yet)
+      if (currentOrganization) {
+        return currentOrganization.name;
+      }
+      // Fallback if project and org are not yet loaded, but we know it's an org workspace.
+      // This state implies currentProject should have been initialized with a placeholder.
+      // If for some reason currentProject is null here on an org page, show a generic loading.
+      return "Loading..."; 
     }
-    if (currentOrganization) {
-      return currentOrganization.name;
-    }
-    return 'Personal';
+    
+    return 'Personal'; // Default fallback
   };
 
   const value: WorkspaceContextType = {

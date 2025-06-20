@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import {
   AlertCircle,
   Clock,
@@ -59,7 +59,7 @@ interface TaskCardProps {
   onClick?: () => void;
 }
 
-export default function TaskCard({ task, isDragging, onClick }: TaskCardProps) {
+const TaskCard = memo(function TaskCard({ task, isDragging, onClick }: TaskCardProps) {
   const [prefetched, setPrefetched] = useState(false);
 
   const prefetchTaskData = () => {
@@ -147,4 +147,6 @@ export default function TaskCard({ task, isDragging, onClick }: TaskCardProps) {
       </CardContent>
     </Card>
   );
-}
+});
+
+export default TaskCard;

@@ -15,8 +15,13 @@ export const convertMongoDocument = (doc: any): any => {
 };
 
 // Client-side API calls instead of direct MongoDB operations
-export const getDocument = async (collectionName: string, id: string) => {
-  const response = await fetch(`/api/db/${collectionName}/${id}`);
+export const getDocument = async (collectionName: string, id: string, userId?: string) => {
+  const params = new URLSearchParams();
+  if (userId) {
+    params.append('userId', userId);
+  }
+  
+  const response = await fetch(`/api/db/${collectionName}/${id}?${params.toString()}`);
   if (!response.ok) {
     throw new Error(`Failed to fetch document: ${response.statusText}`);
   }
@@ -29,8 +34,14 @@ export const getDocuments = async (
   whereConditions: [string, any, any][] = [],
   orderByField?: string,
   orderDirection?: "asc" | "desc",
+  userId?: string,
 ) => {
   const params = new URLSearchParams();
+  
+  // Add userId if provided
+  if (userId) {
+    params.append('userId', userId);
+  }
   
   // Add where conditions as query parameters
   whereConditions.forEach(([field, operator, value], index) => {
@@ -52,11 +63,16 @@ export const getDocuments = async (
   return docs.map(convertMongoDocument);
 };
 
-export const addDocument = async (collectionName: string, data: any) => {
+export const addDocument = async (collectionName: string, data: any, userId?: string) => {
+  const payload = { ...data };
+  if (userId) {
+    payload.userId = userId;
+  }
+  
   const response = await fetch(`/api/db/${collectionName}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
   
   if (!response.ok) {
@@ -67,11 +83,16 @@ export const addDocument = async (collectionName: string, data: any) => {
   return convertMongoDocument(result);
 };
 
-export const updateDocument = async (collectionName: string, id: string, data: any) => {
+export const updateDocument = async (collectionName: string, id: string, data: any, userId?: string) => {
+  const payload = { ...data };
+  if (userId) {
+    payload.userId = userId;
+  }
+  
   const response = await fetch(`/api/db/${collectionName}/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
   
   if (!response.ok) {
@@ -82,8 +103,13 @@ export const updateDocument = async (collectionName: string, id: string, data: a
   return convertMongoDocument(result);
 };
 
-export const deleteDocument = async (collectionName: string, id: string) => {
-  const response = await fetch(`/api/db/${collectionName}/${id}`, {
+export const deleteDocument = async (collectionName: string, id: string, userId?: string) => {
+  const params = new URLSearchParams();
+  if (userId) {
+    params.append('userId', userId);
+  }
+  
+  const response = await fetch(`/api/db/${collectionName}/${id}?${params.toString()}`, {
     method: 'DELETE',
   });
   

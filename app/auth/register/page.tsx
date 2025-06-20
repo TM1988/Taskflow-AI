@@ -22,7 +22,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { signUp, signInWithGoogleProvider, signInWithGithubProvider } =
+  const { register, signInWithGoogleProvider, signInWithGithubProvider } =
     useAuth();
   const { toast } = useToast();
 
@@ -31,7 +31,7 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      await signUp(email, password, name);
+      await register(email, password, name);
       toast({
         title: "Success",
         description: "Your account has been created.",

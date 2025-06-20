@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMongoDb } from "@/services/singleton";
 import { ObjectId } from "mongodb";
+import { db } from "@/config/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 export async function POST(
   request: NextRequest,
@@ -12,12 +14,10 @@ export async function POST(
 
     const { mongoDb } = await getMongoDb();
 
-    // Verify the project exists
-    const projectDoc = await mongoDb
-      .collection("projects")
-      .findOne({ _id: new ObjectId(projectId) });
+    // Verify the project exists in Firestore
+    const projectDoc = await getDoc(doc(db, "projects", projectId));
 
-    if (!projectDoc) {
+    if (!projectDoc.exists()) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 

@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/services/auth/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
 import { DateSelector } from "@/components/ui/date-selector";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
@@ -147,9 +148,11 @@ export default function TaskDetail({
   const [editedTask, setEditedTask] = useState<any>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const { user } = useAuth();
+  const { currentOrganization, currentProject } = useWorkspace();
   const { toast } = useToast();
 
   const resetTaskState = () => {
+    console.log("Resetting task state");
     setTask(null);
     setComments([]);
     setCommentText("");
@@ -157,6 +160,23 @@ export default function TaskDetail({
     setIsEditing(false);
     setEditedTask(null);
   };
+
+  // Reset task state when dialog opens with different taskId
+  useEffect(() => {
+    if (open && taskId) {
+      // If this is a different task, reset immediately
+      if (task && task.id !== taskId) {
+        console.log("Different task detected, resetting state");
+        resetTaskState();
+      }
+    } else if (!open) {
+      // Reset when dialog closes to prevent stale data
+      console.log("Dialog closed, resetting state");
+      setTimeout(() => {
+        resetTaskState();
+      }, 200); // Small delay to allow dialog animation
+    }
+  }, [open, taskId, task?.id, task]);
 
   // Initialize editedTask when task changes
   useEffect(() => {
@@ -192,10 +212,20 @@ export default function TaskDetail({
         setLoading(true);
         console.log(`Fetching task data for ID: ${taskId}`);
 
+        // Build API URLs with organization context
+        let taskApiUrl = `/api/task-direct/${taskId}?userId=${user?.uid}`;
+        let commentsApiUrl = `/api/tasks/${taskId}/comments?userId=${user?.uid}`;
+        
+        if (currentOrganization?.id && currentProject?.id) {
+          taskApiUrl += `&organizationId=${currentOrganization.id}&projectId=${currentProject.id}`;
+          commentsApiUrl += `&organizationId=${currentOrganization.id}&projectId=${currentProject.id}`;
+          console.log(`[TaskDetail] Using organization context: org=${currentOrganization.id}, project=${currentProject.id}`);
+        }
+
         // Implement parallel fetching of task data and comments
         const [taskResponse, commentsResponse] = await Promise.all([
-          fetch(`/api/task-direct/${taskId}`),
-          fetch(`/api/tasks/${taskId}/comments`),
+          fetch(taskApiUrl),
+          fetch(commentsApiUrl),
         ]);
 
         // Process task data
@@ -243,7 +273,7 @@ export default function TaskDetail({
     return () => {
       isMounted = false;
     };
-  }, [taskId, open, task?.id]);
+  }, [taskId, open, task?.id, currentOrganization?.id, currentProject?.id, user?.uid]);
 
   // Add delay before showing error
   useEffect(() => {
@@ -274,7 +304,12 @@ export default function TaskDetail({
     if (!commentText.trim() || !taskId || !user) return;
 
     try {
-      const response = await fetch(`/api/tasks/${taskId}/comments`, {
+      let commentsApiUrl = `/api/tasks/${taskId}/comments?userId=${user.uid}`;
+      if (currentOrganization?.id && currentProject?.id) {
+        commentsApiUrl += `&organizationId=${currentOrganization.id}&projectId=${currentProject.id}`;
+      }
+
+      const response = await fetch(commentsApiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -282,6 +317,9 @@ export default function TaskDetail({
           taskId,
           authorId: user.uid,
           authorName: user.displayName || user.email,
+          userId: user.uid,
+          ...(currentOrganization?.id && { organizationId: currentOrganization.id }),
+          ...(currentProject?.id && { projectId: currentProject.id }),
         }),
       });
 
@@ -321,49 +359,42 @@ export default function TaskDetail({
       const response = await fetch(`/api/tasks/${taskId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updateData),
+        body: JSON.stringify({
+          ...updateData,
+          userId: user?.uid,
+          ...(currentOrganization?.id && { organizationId: currentOrganization.id }),
+          ...(currentProject?.id && { projectId: currentProject.id }),
+        }),
       });
 
       if (response.ok) {
-        const updatedTask = await response.json();
-        console.log("Task updated successfully:", updatedTask);
+        const responseData = await response.json();
+        console.log("Task updated successfully:", responseData);
 
-        // Update the task state with the edited values
-        setTask({
+        // Use the complete task data from the API response
+        const updatedTaskData = responseData.task || responseData;
+        
+        // Update the task state with the fresh data from the server
+        // Ensure ID consistency for proper local updates
+        const mergedTask = {
           ...task,
-          ...updatedTask,
-        });
-
+          ...updatedTaskData,
+          // Ensure both id and _id are properly set for compatibility
+          id: updatedTaskData.id || task.id || task._id,
+          _id: updatedTaskData._id || updatedTaskData.id || task._id || task.id,
+        };
+        
+        setTask(mergedTask);
+        setEditedTask(mergedTask); // Also update the edited task to prevent stale data
         setIsEditing(false);
 
-        // Debug: Check if window.boardContentRef exists and log its methods
-        console.log("=== BOARD UPDATE DEBUG ===");
-        console.log("window.boardContentRef exists:", !!window.boardContentRef);
-        console.log("window.boardContentRef:", window.boardContentRef);
+        // Always notify parent component first - this is the primary update mechanism
+        console.log("Notifying parent component of task update:", mergedTask);
+        onTaskUpdate(mergedTask);
+
+        // Remove redundant board refresh calls - the parent component handles the update
+        // The local state update via onTaskUpdate is sufficient
         
-        if (window.boardContentRef) {
-          console.log("Available methods:", Object.keys(window.boardContentRef));
-          console.log("updateTaskLocally exists:", !!window.boardContentRef.updateTaskLocally);
-          console.log("refreshTasks exists:", !!window.boardContentRef.refreshTasks);
-        }
-
-        // Update the board's local state
-        if (window.boardContentRef?.updateTaskLocally) {
-          console.log("Calling updateTaskLocally with:", updatedTask);
-          window.boardContentRef.updateTaskLocally(updatedTask);
-          console.log("updateTaskLocally called successfully");
-        } else if (window.boardContentRef?.refreshTasks) {
-          console.log("updateTaskLocally not available, calling refreshTasks");
-          window.boardContentRef.refreshTasks();
-          console.log("refreshTasks called successfully");
-        } else {
-          console.error("No board update methods available!");
-          console.log("window object keys:", Object.keys(window));
-        }
-
-        // Notify parent component
-        onTaskUpdate(updatedTask);
-
         toast({
           title: "Success",
           description: "Task updated successfully",
@@ -567,9 +598,6 @@ export default function TaskDetail({
                   <TabsTrigger value="comments" className="flex-1">
                     Comments ({comments.length})
                   </TabsTrigger>
-                  <TabsTrigger value="activity" className="flex-1">
-                    Activity
-                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="details" className="space-y-4 mt-4">
@@ -648,11 +676,7 @@ export default function TaskDetail({
                   </div>
                 </TabsContent>
 
-                <TabsContent value="activity" className="mt-4">
-                  <div className="text-center py-8 text-muted-foreground">
-                    Activity tracking coming soon!
-                  </div>
-                </TabsContent>
+
               </Tabs>
             )}
           </>

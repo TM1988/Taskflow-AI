@@ -42,5 +42,18 @@ export interface Organization extends MongoDocument {
   name: string;
   description?: string;
   ownerId: string;
-  members: string[];
+  members: {
+    userId: string;
+    role: 'Owner' | 'Admin' | 'Member';
+    joinedAt: Date;
+  }[];
+}
+
+export interface OrganizationMember {
+  id: string;
+  name: string;
+  email: string;
+  role: 'Owner' | 'Admin' | 'Member';
+  joinedAt: Date;
+  avatar?: string;
 }

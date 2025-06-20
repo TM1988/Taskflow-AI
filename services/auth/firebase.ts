@@ -59,11 +59,11 @@ export const signOut = async (): Promise<void> => {
 };
 
 // Get current user
-export const getCurrentUser = (): User | null => {
+export const getCurrentUser = () => {
   return auth.currentUser;
 };
 
 // Listen to auth state changes
-export const onAuthStateChanged = (callback: (user: User | null) => void) => {
+export const listenToAuthStateChanges = (callback: (user: User | null) => void) => {
   return auth.onAuthStateChanged(callback);
 };

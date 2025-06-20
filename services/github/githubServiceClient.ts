@@ -20,7 +20,17 @@ export const githubServiceClient = {
       throw new Error("Failed to connect repository to project");
     }
 
-    return await response.json();
+    const result = await response.json();
+    
+    // Trigger refresh event for imported repositories
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('repositoryImported', {
+        detail: { userId, projectId, fullName }
+      }));
+      console.log("🔄 Repository imported event dispatched");
+    }
+    
+    return result;
   },
 
   async getUserRepositories(userId: string) {

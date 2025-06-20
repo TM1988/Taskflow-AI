@@ -19,9 +19,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useAuth } from "@/services/auth/AuthContext";
 
 interface TaskImportExportProps {
-  projectId: string;
+  projectId?: string; // Make optional for personal boards
   onTasksImported?: () => void;
 }
 
@@ -34,15 +36,41 @@ export default function TaskImportExport({
   const [importFile, setImportFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const { toast } = useToast();
+  const { currentOrganization } = useWorkspace();
+  const { user } = useAuth();
+
+  // Determine if this is a personal board
+  const isPersonalBoard = !projectId || projectId === "personal";
+  
+  console.log("[TaskImportExport] projectId:", projectId, "isPersonalBoard:", isPersonalBoard);
 
   // Handle task export
   const handleExport = async () => {
-    if (!projectId) return;
+    if (!projectId && !isPersonalBoard) return;
 
     setIsExporting(true);
     try {
-      // Fetch all board data for the project (tasks and columns)
-      const response = await fetch(`/api/projects/${projectId}/export-tasks`);
+      let url: string;
+      
+      if (isPersonalBoard) {
+        // Use personal export endpoint
+        url = `/api/tasks/export-personal?userId=${user?.uid}`;
+      } else {
+        // Use project export endpoint
+        const baseUrl = `/api/projects/${projectId}/export-tasks`;
+        const params = new URLSearchParams();
+        
+        if (currentOrganization?.id) {
+          params.append('organizationId', currentOrganization.id);
+        }
+        if (user?.uid) {
+          params.append('userId', user.uid);
+        }
+        
+        url = `${baseUrl}${params.toString() ? `?${params.toString()}` : ''}`;
+      }
+      
+      const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error(`Failed to export board data: ${response.statusText}`);
@@ -52,26 +80,33 @@ export default function TaskImportExport({
       const blob = new Blob([JSON.stringify(boardData, null, 2)], {
         type: "application/json",
       });
-      const url = URL.createObjectURL(blob);
+      const downloadUrl = URL.createObjectURL(blob);
 
       const downloadLink = document.createElement("a");
-      downloadLink.href = url;
-      downloadLink.download = `taskflow-board-${projectId}-${new Date().toISOString().slice(0, 10)}.json`;
+      downloadLink.href = downloadUrl;
+      const filename = isPersonalBoard 
+        ? `taskflow-personal-board-${new Date().toISOString().slice(0, 10)}.json`
+        : `taskflow-board-${projectId}-${new Date().toISOString().slice(0, 10)}.json`;
+      downloadLink.download = filename;
       document.body.appendChild(downloadLink);
       downloadLink.click();
       document.body.removeChild(downloadLink);
 
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(downloadUrl);
 
       toast({
         title: "Export successful",
-        description: "Your board data (columns and tasks) has been exported successfully",
+        description: isPersonalBoard 
+          ? "Your personal board data (columns and tasks) has been exported successfully"
+          : "Your board data (columns and tasks) has been exported successfully",
       });
     } catch (error) {
       console.error("Error exporting board data:", error);
       toast({
         title: "Export failed",
-        description: "There was an error exporting your board data",
+        description: isPersonalBoard 
+          ? "There was an error exporting your personal board data"
+          : "There was an error exporting your board data",
         variant: "destructive",
       });
     } finally {
@@ -88,7 +123,7 @@ export default function TaskImportExport({
 
   // Handle task import
   const handleImport = async () => {
-    if (!projectId || !importFile) return;
+    if ((!projectId && !isPersonalBoard) || !importFile) return;
 
     setIsImporting(true);
     try {
@@ -110,7 +145,29 @@ export default function TaskImportExport({
         );
       }
 
-      const response = await fetch(`/api/projects/${projectId}/import-tasks`, {
+      let importUrl: string;
+      
+      if (isPersonalBoard) {
+        // Use personal import endpoint
+        importUrl = `/api/tasks/import-personal?userId=${user?.uid}`;
+      } else {
+        // Use project import endpoint
+        const baseUrl = `/api/projects/${projectId}/import-tasks`;
+        const params = new URLSearchParams();
+        
+        if (currentOrganization?.id) {
+          params.append('organizationId', currentOrganization.id);
+        }
+        if (user?.uid) {
+          params.append('userId', user.uid);
+        }
+        
+        importUrl = `${baseUrl}${params.toString() ? `?${params.toString()}` : ''}`;
+      }
+
+      console.log("[TaskImportExport] Import URL:", importUrl);
+
+      const response = await fetch(importUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dataToImport),
@@ -123,6 +180,8 @@ export default function TaskImportExport({
 
       const result = await response.json();
 
+      console.log("[TaskImportExport] Import successful, result:", result);
+
       toast({
         title: "Import successful",
         description: `Successfully imported ${result.importedTaskCount} tasks${result.importedColumnCount ? ` and ${result.importedColumnCount} columns` : ''}`,
@@ -131,9 +190,22 @@ export default function TaskImportExport({
       setImportDialogOpen(false);
       setImportFile(null);
 
-      if (onTasksImported) {
-        onTasksImported();
-      }
+      // Add a small delay to ensure the backend has processed the import
+      setTimeout(() => {
+        console.log("[TaskImportExport] Starting refresh after import...");
+        
+        // Refresh the board data
+        if (onTasksImported) {
+          console.log("Calling onTasksImported to refresh board data");
+          onTasksImported();
+        }
+
+        // Also try to refresh via window reference as backup
+        if (window.boardContentRef?.refreshTasks) {
+          console.log("Calling window.boardContentRef.refreshTasks as backup");
+          window.boardContentRef.refreshTasks();
+        }
+      }, 100); // Reduced delay to 100ms
     } catch (error) {
       console.error("Error importing board data:", error);
       toast({
@@ -183,7 +255,7 @@ export default function TaskImportExport({
             <DialogTitle>Import Board Data</DialogTitle>
             <DialogDescription>
               Import board data (columns and tasks) from a JSON file. This will add the columns and tasks to your
-              current board and will not overwrite existing items. Columns with the same name will be merged.
+              current board and will not overwrite existing items. {!isPersonalBoard ? "Columns with the same name will be merged." : ""}
             </DialogDescription>
           </DialogHeader>
 

@@ -28,31 +28,46 @@ import {
   User, 
   Building, 
   ChevronDown, 
+  ChevronRight,
   Plus, 
   Users, 
   Briefcase, 
   FolderPlus, 
   UserPlus, 
-  FileText, 
+  FileText,
   Bell 
 } from "lucide-react";
 import { useAuth } from "@/services/auth/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext"; // Import the real context
 
-// Simple workspace context placeholder since the actual one doesn't exist
-const useWorkspace = () => ({
-  getWorkspaceDisplayName: () => "Personal Workspace",
-  isPersonalWorkspace: true,
-  organizations: [] as any[],
-  currentOrganization: null as any,
-  currentProject: null as any,
-  setWorkspace: (...args: any[]) => {},
-});
-
+// Remove the placeholder and use the real context
 export default function Header() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(false);
-  const workspaceContext = useWorkspace();
+  const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set());
+  const workspaceContext = useWorkspace(); // Use the real context
+
+  // Auto-expand organization if it has the current project
+  React.useEffect(() => {
+    if (workspaceContext.currentOrganization && workspaceContext.currentProject) {
+      setExpandedOrgs(prev => {
+        const newSet = new Set(prev);
+        newSet.add(workspaceContext.currentOrganization!.id);
+        return newSet;
+      });
+    }
+  }, [workspaceContext.currentOrganization, workspaceContext.currentProject]);
+
+  const toggleOrgExpansion = (orgId: string) => {
+    const newExpanded = new Set(expandedOrgs);
+    if (newExpanded.has(orgId)) {
+      newExpanded.delete(orgId);
+    } else {
+      newExpanded.add(orgId);
+    }
+    setExpandedOrgs(newExpanded);
+  };
 
   const handleLogout = async () => {
     try {
@@ -80,7 +95,7 @@ export default function Header() {
                 <div className="flex flex-col">
                   <span className="text-sm font-medium">{workspaceContext.getWorkspaceDisplayName()}</span>
                   <span className="text-xs text-muted-foreground hidden sm:block">
-                    {workspaceContext.isPersonalWorkspace ? "Workspace" : "Organization"}
+                    {workspaceContext.isPersonalWorkspace ? "Workspace" : workspaceContext.currentProject ? "Project" : "Organization"}
                   </span>
                 </div>
                 <ChevronDown className="h-3 w-3" />
@@ -94,7 +109,9 @@ export default function Header() {
               <div className="px-2 py-1">
                 <p className="text-xs font-medium text-muted-foreground mb-1">PERSONAL</p>
                 <DropdownMenuItem 
-                  onClick={() => workspaceContext.setWorkspace('personal')}
+                  onClick={() => {
+                    router.push('/dashboard');
+                  }}
                   className={workspaceContext.isPersonalWorkspace ? "bg-accent" : ""}
                 >
                   <User className="mr-2 h-4 w-4" />
@@ -112,29 +129,76 @@ export default function Header() {
               
               {/* Organizations Section */}
               <div className="px-2 py-1">
-                <p className="text-xs font-medium text-muted-foreground mb-1">ORGANIZATIONS</p>
+                <p className="text-xs font-medium text-muted-foreground mb-1">WORKSPACES</p>
                 {workspaceContext.organizations && workspaceContext.organizations.length > 0 ? (
                   workspaceContext.organizations.map((org: any) => (
                     <div key={org.id}>
-                      {org.projects && org.projects.map((project: any) => (
+                      <div className="flex items-center">
                         <DropdownMenuItem 
-                          key={`${org.id}-${project.id}`}
-                          onClick={() => workspaceContext.setWorkspace('organization', org.id, project.id)}
-                          className={
-                            workspaceContext.currentOrganization?.id === org.id && workspaceContext.currentProject?.id === project.id 
+                          onClick={() => router.push(`/organizations/${org.id}`)}
+                          className={`flex-1 ${
+                            workspaceContext.currentOrganization?.id === org.id && !workspaceContext.currentProject
                               ? "bg-accent" : ""
-                          }
+                          }`}
                         >
                           <Users className="mr-2 h-4 w-4" />
                           <div className="flex flex-col flex-1">
-                            <span className="text-sm">{org.name} / {project.name}</span>
+                            <span className="text-sm">{org.name}</span>
                             <span className="text-xs text-muted-foreground">{org.role}</span>
                           </div>
-                          {workspaceContext.currentOrganization?.id === org.id && workspaceContext.currentProject?.id === project.id && (
+                          {workspaceContext.currentOrganization?.id === org.id && !workspaceContext.currentProject && (
                             <div className="ml-auto h-2 w-2 rounded-full bg-primary" />
                           )}
                         </DropdownMenuItem>
-                      ))}
+                        
+                        {/* Collapsible toggle for projects */}
+                        {org.projects && org.projects.length > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-muted"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleOrgExpansion(org.id);
+                            }}
+                          >
+                            {expandedOrgs.has(org.id) ? (
+                              <ChevronDown className="h-3 w-3" />
+                            ) : (
+                              <ChevronRight className="h-3 w-3" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                      
+                      {/* Show projects under organization when expanded */}
+                      {org.projects && org.projects.length > 0 && expandedOrgs.has(org.id) && (
+                        <div className="ml-4 space-y-1 mt-1">
+                          {org.projects.map((project: any) => (
+                            <DropdownMenuItem 
+                              key={project.id}
+                              onClick={() => {
+                                router.push(`/projects/${project.id}/dashboard`);
+                              }}
+                              className={
+                                workspaceContext.currentProject?.id === project.id 
+                                  ? "bg-accent text-accent-foreground" : ""
+                              }
+                            >
+                              <div className="ml-2 mr-2 h-4 w-4 flex items-center justify-center">
+                                <div className="h-2 w-2 rounded-full bg-muted-foreground" />
+                              </div>
+                              <div className="flex flex-col flex-1">
+                                <span className="text-sm">{project.name}</span>
+                                <span className="text-xs text-muted-foreground">Project</span>
+                              </div>
+                              {workspaceContext.currentProject?.id === project.id && (
+                                <div className="ml-auto h-2 w-2 rounded-full bg-primary" />
+                              )}
+                            </DropdownMenuItem>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))
                 ) : (
@@ -151,9 +215,11 @@ export default function Header() {
                 <Briefcase className="mr-2 h-4 w-4" />
                 Manage Organizations
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/organizations/join")}>
-                <Plus className="mr-2 h-4 w-4" />
-                Join Organization
+              
+              {/* Debug: Refresh Organizations */}
+              <DropdownMenuItem onClick={() => workspaceContext.refreshOrganizations()}>
+                <Building className="mr-2 h-4 w-4" />
+                Refresh Organizations
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -199,11 +265,16 @@ export default function Header() {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>Quick Actions</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push("/board?new-task=true")}>
+              <DropdownMenuItem onClick={() => {
+                const basePath = workspaceContext.isPersonalWorkspace 
+                  ? "/board" 
+                  : `/projects/${workspaceContext.currentProject?.id}/board`;
+                router.push(`${basePath}?new-task=true`);
+              }}>
                 <Plus className="mr-2 h-4 w-4" />
                 New Task
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/projects?new=true")}>
+              <DropdownMenuItem onClick={() => router.push("/organizations")}>
                 <FolderPlus className="mr-2 h-4 w-4" />
                 New Project
               </DropdownMenuItem>
@@ -215,10 +286,6 @@ export default function Header() {
               <DropdownMenuItem onClick={() => router.push("/repositories")}>
                 <FileText className="mr-2 h-4 w-4" />
                 Connect Repository
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/settings")}>
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -261,7 +328,12 @@ export default function Header() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => router.push("/profile")}>
+                <User className="mr-2 h-4 w-4" />
+                Profile
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push("/settings")}>
+                <Settings className="mr-2 h-4 w-4" />
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -282,24 +354,14 @@ export default function Header() {
         <CommandEmpty>No results found.</CommandEmpty>
         <CommandList>
           <CommandGroup heading="Tasks">
-            {workspaceContext.currentProject?.tasks?.map((task: any) => (
-              <CommandItem
-                key={task.id}
-                onSelect={() => {
-                  router.push(`/task/${task.id}`);
-                  setSearchOpen(false);
-                }}
-              >
-                {task.title}
-              </CommandItem>
-            )) || []}
+            {/* Tasks would be loaded separately from the current project */}
           </CommandGroup>
           <CommandGroup heading="Projects">
             {workspaceContext.currentOrganization?.projects?.map((project: any) => (
               <CommandItem
                 key={project.id}
                 onSelect={() => {
-                  router.push(`/board?projectId=${project.id}`);
+                  router.push(`/projects/${project.id}/dashboard`);
                   setSearchOpen(false);
                 }}
               >

@@ -2,92 +2,92 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
   ActivityIcon,
   BarChart3Icon,
+  Building,
+  Calendar,
   ChevronLeft,
   ChevronRight,
   CodeIcon,
+  Home,
   LayoutDashboardIcon,
   MenuIcon,
+  PanelLeftClose,
+  Settings,
   Settings2Icon,
   UsersIcon,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { LogoIcon } from "@/components/icons";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-
-interface NavItemProps {
-  href: string;
-  icon: React.ReactNode;
-  label: string;
-  active?: boolean;
-  collapsed?: boolean;
-}
-
-function NavItem({ href, icon, label, active, collapsed }: NavItemProps) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-200 hover:bg-accent",
-        active ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-        collapsed && "justify-center"
-      )}
-    >
-      {icon}
-      {!collapsed && <span>{label}</span>}
-    </Link>
-  );
-}
+import { useSidebar } from "@/contexts/SidebarContext";
 
 export default function Sidebar() {
+  const { isExpanded, toggle } = useSidebar();
+  const router = useRouter();
   const pathname = usePathname();
-  const { isPersonalWorkspace, getWorkspaceDisplayName } = useWorkspace();
+  const { 
+    isPersonalWorkspace, 
+    getWorkspaceDisplayName, 
+    currentProject
+  } = useWorkspace();
   const [collapsed, setCollapsed] = useState(false);
   const [open, setOpen] = useState(false);
 
-  // Context‐aware navigation items
+  // Determine if we're on a project page by checking the URL pattern
+  const isOnProjectPage = pathname.startsWith('/projects/');
+  const projectIdFromUrl = isOnProjectPage ? pathname.split('/')[2] : null;
+
+  // Generate base path for navigation - use URL to determine context, not workspace context
+  const getBasePath = () => {
+    if (isOnProjectPage && projectIdFromUrl) {
+      return `/projects/${projectIdFromUrl}`;
+    }
+    return '';
+  };
+
+  // Context‐aware navigation items - based on URL, not workspace context
   const navigationItems = [
     {
       name: "Dashboard",
-      href: "/",
+      href: isOnProjectPage ? `${getBasePath()}/dashboard` : "/dashboard",
       icon: <LayoutDashboardIcon className="h-4 w-4" />,
-      description: isPersonalWorkspace ? "Personal overview" : "Project overview",
+      description: isOnProjectPage ? "Project overview" : "Personal overview",
     },
     {
       name: "Board",
-      href: "/board",
+      href: isOnProjectPage ? `${getBasePath()}/board` : "/board",
       icon: <ActivityIcon className="h-4 w-4" />,
-      description: isPersonalWorkspace ? "Personal task board" : "Project task board",
+      description: isOnProjectPage ? "Project task board" : "Personal task board",
     },
     {
       name: "Analytics",
-      href: "/analytics",
+      href: isOnProjectPage ? `${getBasePath()}/analytics` : "/analytics",
       icon: <BarChart3Icon className="h-4 w-4" />,
-      description: isPersonalWorkspace ? "Personal analytics" : "Project analytics",
+      description: isOnProjectPage ? "Project analytics" : "Personal analytics",
     },
     {
-      name: isPersonalWorkspace ? "Personal Repos" : "Repositories",
-      href: "/repositories",
+      name: isOnProjectPage ? "Repositories" : "Personal Repos",
+      href: isOnProjectPage ? `${getBasePath()}/repositories` : "/repositories",
       icon: <CodeIcon className="h-4 w-4" />,
-      description: isPersonalWorkspace ? "Your repositories" : "Project repositories",
+      description: isOnProjectPage ? "Project repositories" : "Your repositories",
     },
     {
-      name: isPersonalWorkspace ? "Contacts" : "Team",
-      href: "/team",
+      name: isOnProjectPage ? "Team" : "Contacts",
+      href: isOnProjectPage ? `${getBasePath()}/team` : "/team",
       icon: <UsersIcon className="h-4 w-4" />,
-      description: isPersonalWorkspace ? "Personal contacts" : "Project team",
+      description: isOnProjectPage ? "Project team" : "Personal contacts",
     },
     {
       name: "Settings",
-      href: "/settings",
+      href: isOnProjectPage ? `${getBasePath()}/settings` : "/settings",
       icon: <Settings2Icon className="h-4 w-4" />,
-      description: isPersonalWorkspace ? "Personal settings" : "Project settings",
+      description: isOnProjectPage ? "Project settings" : "Personal settings",
     },
   ];
 
@@ -105,14 +105,19 @@ export default function Sidebar() {
       <div className="flex-1 px-3 py-2">
         <nav className="flex flex-col gap-1">
           {navigationItems.map((item) => (
-            <NavItem
+            <Button
               key={item.name}
-              href={item.href}
-              icon={item.icon}
-              label={item.name}
-              active={pathname === item.href}
-              collapsed={collapsed}
-            />
+              variant="ghost"
+              onClick={() => router.replace(item.href)}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-accent justify-start h-auto",
+                pathname === item.href ? "bg-accent text-accent-foreground" : "text-muted-foreground",
+                collapsed && "justify-center"
+              )}
+            >
+              {item.icon}
+              {!collapsed && <span>{item.name}</span>}
+            </Button>
           ))}
         </nav>
       </div>

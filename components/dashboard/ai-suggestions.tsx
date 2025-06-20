@@ -6,6 +6,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sparkles, ArrowRight, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+interface AISuggestionsProps {
+  projectId?: string;
+}
+
 interface SuggestionItemProps {
   title: string;
   description: string;
@@ -40,7 +44,7 @@ function SuggestionItem({ title, description, type, action }: SuggestionItemProp
   );
 }
 
-export default function AISuggestions() {
+export default function AISuggestions({ projectId }: AISuggestionsProps) {
   const [activeTab, setActiveTab] = useState('all');
   
   const suggestions = {
@@ -97,14 +101,14 @@ export default function AISuggestions() {
       </CardHeader>
       <CardContent className="p-4">
         <Tabs defaultValue="all" className="space-y-4" onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-4 h-8">
+          <TabsList className="grid grid-cols-4 w-full">
             <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
-            <TabsTrigger value="optimization" className="text-xs">Optimizations</TabsTrigger>
+            <TabsTrigger value="optimization" className="text-xs">Optimize</TabsTrigger>
             <TabsTrigger value="risk" className="text-xs">Risks</TabsTrigger>
-            <TabsTrigger value="priority" className="text-xs">Priorities</TabsTrigger>
+            <TabsTrigger value="priority" className="text-xs">Priority</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="all" className="space-y-4">
+          <TabsContent value="all" className="space-y-3 mt-4">
             {activeTab === 'all' && (
               <>
                 {suggestions.priority[0] && (
@@ -135,7 +139,7 @@ export default function AISuggestions() {
             )}
           </TabsContent>
           
-          <TabsContent value="optimization">
+          <TabsContent value="optimization" className="space-y-3 mt-4">
             {suggestions.optimization.map((suggestion, i) => (
               <SuggestionItem
                 key={i}
@@ -147,7 +151,7 @@ export default function AISuggestions() {
             ))}
           </TabsContent>
           
-          <TabsContent value="risk">
+          <TabsContent value="risk" className="space-y-3 mt-4">
             {suggestions.risk.map((suggestion, i) => (
               <SuggestionItem
                 key={i}
@@ -159,7 +163,7 @@ export default function AISuggestions() {
             ))}
           </TabsContent>
           
-          <TabsContent value="priority">
+          <TabsContent value="priority" className="space-y-3 mt-4">
             {suggestions.priority.map((suggestion, i) => (
               <SuggestionItem
                 key={i}

@@ -64,6 +64,7 @@ export default function KanbanColumn({
                         {...providedDrag.dragHandleProps}
                       >
                         <TaskCard
+                          key={`${task.id}-${task.updatedAt || task.title}-${task.priority}`}
                           task={task}
                           isDragging={snapshotDrag.isDragging}
                           onClick={() => onTaskClick && onTaskClick(task.id)}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,7 @@ import { ArrowLeft, CheckCircle, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { confirmPasswordReset, verifyPasswordResetCode } from "firebase/auth";
 import { auth } from "@/config/firebase";
 
-export default function AuthActionPage() {
+function AuthActionContent() {
   const [mode, setMode] = useState<string | null>(null);
   const [oobCode, setOobCode] = useState<string | null>(null);
   const [email, setEmail] = useState("");
@@ -263,5 +263,17 @@ export default function AuthActionPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function AuthActionPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-100 flex items-center justify-center p-4">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600"></div>
+      </div>
+    }>
+      <AuthActionContent />
+    </Suspense>
   );
 }

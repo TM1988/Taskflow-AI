@@ -1,26 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import BoardContent from "@/components/board/board-content";
 import TaskDetail from "@/components/board/task-detail";
+import DatabaseStatus from "@/components/ui/database-status";
 import { useSearchParams } from "next/navigation";
 import { taskService } from "@/services/tasks/taskService";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useAuth } from "@/services/auth/AuthContext";
 
-export default function BoardPage() {
+function BoardPageContent() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
   const [boardRefreshTrigger, setBoardRefreshTrigger] = useState(0);
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentProject, setCurrentProject] = useState<any>(null);
+  const { user } = useAuth();
 
-  // Handle task selection
+  // Handle task selection from URL
   useEffect(() => {
     const taskId = searchParams.get("taskId");
     if (taskId) {
@@ -28,16 +28,6 @@ export default function BoardPage() {
       setTaskDetailOpen(true);
     }
   }, [searchParams]);
-
-  useEffect(() => {
-    // Mark initial load as complete after a short delay
-    const timer = setTimeout(() => {
-      setInitialLoadComplete(true);
-      setIsLoading(false);
-    }, 2000); // 2 seconds should be enough
-
-    return () => clearTimeout(timer);
-  }, []);
 
   const handleTaskSelect = (taskId: string) => {
     // Clear previous task if different
@@ -56,21 +46,28 @@ export default function BoardPage() {
 
   const handleTaskUpdate = async (updatedTask: any) => {
     try {
-      await taskService.updateTask(updatedTask.id, updatedTask);
+      console.log("Personal board: Handling task update:", updatedTask);
+      
+      // Update via board content component (immediate visual update)
+      if (window.boardContentRef?.updateTaskLocally) {
+        console.log("Personal board: Updating task locally");
+        window.boardContentRef.updateTaskLocally(updatedTask);
+      }
+      
       toast({
         title: "Success",
         description: "Task updated successfully",
       });
-      // Refresh board content without page reload
-      setBoardRefreshTrigger((prev) => prev + 1);
     } catch (error) {
-      setLoadError("Failed to update task. Please try refreshing the page.");
       console.error("Error updating task:", error);
       toast({
         title: "Error",
         description: "Failed to update task",
         variant: "destructive",
       });
+      
+      // Force refresh on error
+      setBoardRefreshTrigger((prev) => prev + 1);
     }
   };
 
@@ -85,7 +82,7 @@ export default function BoardPage() {
       }
 
       // Then perform the actual deletion
-      await taskService.deleteTask(taskId);
+      await taskService.deleteTask(taskId, user?.uid);
 
       toast({
         title: "Success",
@@ -110,41 +107,12 @@ export default function BoardPage() {
     setBoardRefreshTrigger((prev) => prev + 1);
   };
 
-  // Get current project from BoardContent component
-  const updateCurrentProject = (project: any) => {
-    // Only update if the project ID changes to prevent infinite loops
-    if (!currentProject || currentProject.id !== project.id) {
-      setCurrentProject(project);
-    }
-  };
-
-  // Show loading state if still initializing
-  if (isLoading && !initialLoadComplete) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 space-y-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-muted-foreground">Loading your tasks...</p>
-      </div>
-    );
-  }
-
-  if (loadError) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 space-y-4">
-        <div className="text-destructive">{loadError}</div>
-        <Button onClick={() => window.location.reload()}>Refresh Page</Button>
-      </div>
-    );
-  }
-
-  // Just render the content directly - no extra wrapping elements
   return (
     <>
+      <DatabaseStatus />
       <BoardContent
-        projectId={currentProject?.id || ""}
         onTaskSelect={handleTaskSelect}
         refreshTrigger={boardRefreshTrigger}
-        onProjectUpdate={updateCurrentProject}
       />
 
       <TaskDetail
@@ -155,5 +123,17 @@ export default function BoardPage() {
         onTaskDelete={handleTaskDelete}
       />
     </>
+  );
+}
+
+export default function BoardPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    }>
+      <BoardPageContent />
+    </Suspense>
   );
 }

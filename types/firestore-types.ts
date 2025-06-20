@@ -37,4 +37,23 @@ export interface Project extends MongoDocument {
   description?: string;
   ownerId: string;
   members: string[];
+  organizationId?: string;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  description?: string;
+  ownerId: string;
+  members: string[];
+  memberCount: number;
+  projects: string[];
+  settings: {
+    isPublic: boolean;
+    allowMemberInvites: boolean;
+    requireApprovalForJoining: boolean;
+    useSelfHosting?: boolean; // New field for per-organization storage
+  };
+  createdAt: Date | string;
+  updatedAt: Date | string;
 }

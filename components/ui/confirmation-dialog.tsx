@@ -1,4 +1,5 @@
-import React from "react";
+"use client";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,8 +16,8 @@ interface ConfirmationDialogProps {
   onOpenChange: (open: boolean) => void;
   title: string;
   description: string;
-  confirmText?: string;
-  cancelText?: string;
+  confirmText: string;
+  cancelText: string;
   onConfirm: () => void;
   variant?: "default" | "destructive";
 }
@@ -26,8 +27,8 @@ export function ConfirmationDialog({
   onOpenChange,
   title,
   description,
-  confirmText = "Continue",
-  cancelText = "Cancel",
+  confirmText,
+  cancelText,
   onConfirm,
   variant = "default",
 }: ConfirmationDialogProps) {

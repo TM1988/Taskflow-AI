@@ -14,6 +14,10 @@ import {
 import { cva } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
+interface DashboardMetricsProps {
+  projectId?: string;
+}
+
 const metricIconVariants = cva(
   "rounded-md p-2",
   {
@@ -45,8 +49,8 @@ function MetricCard({ title, value, change, trend, icon, variant = 'default' }: 
   return (
     <Card>
       <CardContent className="p-6">
-        <div className="flex justify-between">
-          <div className="space-y-1">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1 flex-1">
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
             <div className="flex items-baseline gap-2">
               <p className="text-2xl font-bold">{value}</p>
@@ -71,40 +75,40 @@ function MetricCard({ title, value, change, trend, icon, variant = 'default' }: 
   );
 }
 
-export default function DashboardMetrics() {
+export default function DashboardMetrics({ projectId }: DashboardMetricsProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <MetricCard
-        title="Open Tasks"
-        value="24"
-        change="+4% from last sprint"
+        title="My Active Tasks"
+        value="12"
+        change="+3 this week"
         trend="up"
         icon={<ListChecks className="h-5 w-5" />}
         variant="info"
       />
       <MetricCard
-        title="Completed Tasks"
-        value="18"
-        change="+12% from last sprint"
+        title="Completed This Week"
+        value="8"
+        change="+25% from last week"
         trend="up"
         icon={<CheckCircle className="h-5 w-5" />}
         variant="success"
       />
       <MetricCard
-        title="Open PRs"
-        value="7"
-        change="-2 from yesterday"
-        trend="down"
-        icon={<GitPullRequest className="h-5 w-5" />}
-        variant="warning"
+        title="My Projects"
+        value="5"
+        change="2 active"
+        trend="neutral"
+        icon={<Activity className="h-5 w-5" />}
+        variant="default"
       />
       <MetricCard
-        title="Time Spent"
-        value="32.5h"
-        change="on track"
+        title="Focus Time"
+        value="18.5h"
+        change="this week"
         trend="neutral"
         icon={<Clock className="h-5 w-5" />}
-        variant="default"
+        variant="warning"
       />
     </div>
   );

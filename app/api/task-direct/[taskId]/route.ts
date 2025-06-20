@@ -1,6 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminDb } from "@/services/admin/mongoAdmin";
+import { getUserDatabaseConnection, getOrganizationDatabaseConnection, getAdminDb } from "@/services/db/dynamicConnection";
 import { ObjectId } from "mongodb";
+import { db } from "@/config/firebase"; // Added for Firestore access
+import { doc, getDoc } from "firebase/firestore"; // Added for Firestore access
+
+// Helper function to get the database connection based on project organization
+async function getDatabaseForProject(projectId: string, userId?: string) {
+  try {
+    const projectDocRef = doc(db, "projects", projectId);
+    const projectDoc = await getDoc(projectDocRef);
+    
+    if (projectDoc.exists()) {
+      const project = projectDoc.data();
+      if (project.organizationId) {
+        console.log(`[DIRECT API] Task's project ${projectId} belongs to organization ${project.organizationId}`);
+        return await getOrganizationDatabaseConnection(project.organizationId);
+      }
+    }
+    
+    if (userId) {
+      console.log(`[DIRECT API] Task's project ${projectId} not in org or no orgId, using user database for ${userId}`);
+      return await getUserDatabaseConnection(userId);
+    }
+    
+    console.log(`[DIRECT API] Task's project ${projectId} using admin database as fallback`);
+    return await getAdminDb();
+  } catch (error) {
+    console.error("[DIRECT API] Error determining database for project:", error);
+    return await getAdminDb(); // Fallback to admin DB on error
+  }
+}
 
 export async function GET(
   request: NextRequest,
@@ -14,20 +43,45 @@ export async function GET(
   }
 
   try {
-    const adminDb = await getAdminDb();
-    if (!adminDb) {
-      return NextResponse.json(
-        { error: "Database connection failed" },
-        { status: 500 },
-      );
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+    const organizationId = searchParams.get('organizationId'); // Get organizationId from params
+    const projectId = searchParams.get('projectId'); // Get projectId from params
+
+    console.log(`[DIRECT API] Context: taskId=${taskId}, userId=${userId}, orgId=${organizationId}, projId=${projectId}`);
+
+    let database;
+    
+    // If organizationId is provided, use it directly
+    if (organizationId) {
+      console.log(`[DIRECT API] Using organization DB for org: ${organizationId}`);
+      database = await getOrganizationDatabaseConnection(organizationId);
+    } else if (projectId) {
+      // If projectId is provided, use getDatabaseForProject to determine the correct DB
+      console.log(`[DIRECT API] Determining DB for project: ${projectId}`);
+      database = await getDatabaseForProject(projectId, userId || undefined);
+    } else {
+      // Fallback: try to find task in user DB or admin DB
+      console.log(`[DIRECT API] No org/project context, trying user/admin DB`);
+      database = userId ? await getUserDatabaseConnection(userId) : await getAdminDb();
+    }
+    
+    if (!database) {
+      return NextResponse.json({ error: "Database connection failed" }, { status: 500 });
     }
 
-    const task = await adminDb
-      .collection("tasks")
-      .findOne({ _id: new ObjectId(taskId) });
+    // Try tasks collection first
+    let task = await database.collection("tasks").findOne({ _id: new ObjectId(taskId) });
+    let isPersonalTask = false;
+
+    // If not found and no organizationId, try personalTasks collection
+    if (!task && !organizationId) {
+      task = await database.collection("personalTasks").findOne({ _id: new ObjectId(taskId) });
+      isPersonalTask = true;
+    }
 
     if (!task) {
-      console.log(`[DIRECT API] Task ${taskId} not found`);
+      console.log(`[DIRECT API] Task ${taskId} not found in any collection`);
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
@@ -35,26 +89,24 @@ export async function GET(
       id: task._id.toString(),
       title: task.title,
       description: task.description || "",
-      projectId: task.projectId.toString(),
-      columnId: task.columnId.toString(),
-      status: task.status,
-      priority: task.priority,
-      order: task.order,
-      isBlocked: task.isBlocked,
-      dueDate: task.dueDate ? task.dueDate.toISOString() : null,
-      createdAt: task.createdAt ? task.createdAt.toISOString() : null,
-      updatedAt: task.updatedAt ? task.updatedAt.toISOString() : null,
+      projectId: task.projectId || (isPersonalTask ? "personal" : null),
+      columnId: task.columnId || 'todo',
+      status: task.status || 'todo',
+      priority: task.priority || 'medium',
+      order: task.order || 0,
+      isBlocked: task.isBlocked || false,
+      dueDate: task.dueDate ? new Date(task.dueDate).toISOString() : null,
+      createdAt: task.createdAt ? new Date(task.createdAt).toISOString() : null,
+      updatedAt: task.updatedAt ? new Date(task.updatedAt).toISOString() : null,
     };
-
-    // Add a small artificial delay in development to make loading state more visible
-    if (process.env.NODE_ENV === "development") {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
 
     console.log(`[DIRECT API] Successfully loaded task ${taskId}`);
     return NextResponse.json(result);
   } catch (error) {
     console.error(`[DIRECT API] Error loading task:`, error);
+    if (error instanceof Error && error.message.includes("Argument passed in must be a string of 12 bytes")) {
+      return NextResponse.json({ error: "Invalid Task ID format" }, { status: 400 });
+    }
     return NextResponse.json({ error: "Failed to load task" }, { status: 500 });
   }
 }

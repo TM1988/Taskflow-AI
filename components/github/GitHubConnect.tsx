@@ -3,111 +3,71 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { GitHubIcon } from "@/components/icons";
 import { useAuth } from "@/services/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Settings } from "lucide-react";
+import { unifiedGitHubService } from "@/services/github/unifiedGitHubService";
+import GitHubRepositoryImporter from "./GitHubRepositoryImporter";
 
 interface GitHubConnectProps {
   projectId?: string;
+  organizationId?: string;
+  context?: "personal" | "project" | "organization";
+  showImporter?: boolean;
 }
 
-export const GitHubConnect: React.FC<GitHubConnectProps> = ({ projectId }) => {
+export const GitHubConnect: React.FC<GitHubConnectProps> = ({ 
+  projectId, 
+  organizationId,
+  context = "personal",
+  showImporter = false
+}) => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [repositories, setRepositories] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // Check if user has connected GitHub
+  // Check if user has connected GitHub for this context
+  const checkGitHubConnection = useCallback(async () => {
+    if (!user?.uid) return;
+
+    console.log(`🔍 GitHubConnect: Checking connection for context: ${context}, orgId: ${organizationId}, projectId: ${projectId}`);
+
+    try {
+      const connected = await unifiedGitHubService.checkConnection(user.uid, context, projectId, organizationId);
+      console.log(`🔍 GitHubConnect: Setting connected state to: ${connected}`);
+      setIsConnected(connected);
+    } catch (error) {
+      console.log("🔍 GitHubConnect: Error checking connection:", error instanceof Error ? error.message : "Not connected");
+      setIsConnected(false);
+    }
+  }, [user, context, projectId, organizationId]);
+
   useEffect(() => {
-    const checkGitHubConnection = async () => {
-      if (!user?.uid) return;
-
-      try {
-        // Use API route instead of direct MongoDB call
-        const response = await fetch(`/api/github/connection-status?userId=${user.uid}`);
-        if (!response.ok) {
-          throw new Error('Failed to check connection status');
-        }
-        const data = await response.json();
-        setIsConnected(data.isConnected);
-      } catch (error) {
-        console.error("Error checking GitHub connection:", error);
-        setIsConnected(false);
-      }
-    };
-
     if (user) {
       checkGitHubConnection();
     } else {
       setIsConnected(false);
     }
-  }, [user]);
-
-  const connectRepository = async (fullName: string) => {
-    if (!user || !projectId) return;
-
-    setLoading(true);
-    try {
-      const response = await fetch('/api/github/connect-repository', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.uid, projectId, repositoryFullName: fullName }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to connect repository');
-      }
-      
-      // Refresh repositories
-      loadRepositories();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to connect repository");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadRepositories = useCallback(async () => {
-    if (!user?.uid) return;
-    
-    setLoading(true);
-    try {
-      const response = await fetch(`/api/github/repositories?userId=${user.uid}`);
-      if (response.ok) {
-        const data = await response.json();
-        setRepositories(data.repositories || []);
-      } else {
-        console.error('Failed to load repositories');
-      }
-    } catch (error) {
-      console.error('Error loading repositories:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.uid]); // Added dependency
-
-  useEffect(() => {
-    loadRepositories();
-  }, [loadRepositories]);
+  }, [user, checkGitHubConnection]);
 
   const handleConnectGitHub = () => {
-    const GITHUB_CLIENT_ID = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
+    // Use the appropriate GitHub client ID and App name based on context
+    // For both personal and project contexts, use personal credentials
+    const GITHUB_CLIENT_ID = context === "organization" 
+      ? process.env.NEXT_PUBLIC_ORG_GITHUB_CLIENT_ID 
+      : process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
+    
+    const GITHUB_APP_NAME = context === "organization" 
+      ? "taskflow-ai-organizations"
+      : "taskflow-ai-personal";
     
     if (!GITHUB_CLIENT_ID) {
       toast({
         title: "Configuration Error",
-        description: "GitHub Client ID is not configured.",
+        description: `GitHub App is not configured for ${context} context.`,
         variant: "destructive",
       });
       return;
@@ -115,16 +75,27 @@ export const GitHubConnect: React.FC<GitHubConnectProps> = ({ projectId }) => {
 
     setIsConnecting(true);
 
+    // Clear any previous processed codes to prevent conflicts
+    sessionStorage.removeItem("github_processed_code");
+
     // Generate a stronger state with timestamp + random
     const state = `${Date.now()}-${Math.random().toString(36).substring(2)}`;
     localStorage.setItem("github_oauth_state", state);
+    
+    // Store context information for OAuth callback
+    const contextData = {
+      context,
+      projectId: context === 'project' ? projectId : undefined,
+      organizationId: context === 'organization' ? organizationId : undefined
+    };
+    localStorage.setItem("github_oauth_context", JSON.stringify(contextData));
 
-    // Get the current origin for the redirect URI
-    const redirectUri = `${window.location.origin}/github-callback`;
-
-    // Redirect to GitHub OAuth
-    const authUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${redirectUri}&scope=repo,read:user&state=${state}`;
-    window.location.href = authUrl;
+    // For GitHub Apps, we use the installation flow with the app name
+    // This allows users to select which repositories to grant access to
+    const installUrl = `https://github.com/apps/${GITHUB_APP_NAME}/installations/new?state=${state}`;
+    
+    console.log(`🔄 Redirecting to GitHub App installation: ${installUrl}`);
+    window.location.href = installUrl;
   };
 
   const handleDisconnectGitHub = async () => {
@@ -133,11 +104,16 @@ export const GitHubConnect: React.FC<GitHubConnectProps> = ({ projectId }) => {
     setIsConnecting(true);
 
     try {
-      // Call API to remove GitHub token
+      // Call API to remove GitHub token with context
       const response = await fetch("/api/github/auth", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.uid }),
+        body: JSON.stringify({ 
+          userId: user.uid,
+          context,
+          projectId: context === 'project' ? projectId : undefined,
+          organizationId: context === 'organization' ? organizationId : undefined
+        }),
       });
 
       if (!response.ok) {
@@ -211,20 +187,28 @@ export const GitHubConnect: React.FC<GitHubConnectProps> = ({ projectId }) => {
               </svg>
               GitHub Connected Successfully
             </div>
-            <Button
-              variant="outline"
-              onClick={handleDisconnectGitHub}
-              disabled={isConnecting}
-            >
-              {isConnecting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Disconnecting...
-                </>
-              ) : (
-                "Disconnect GitHub"
+            <div className="flex gap-2">
+              {showImporter && projectId && (
+                <GitHubRepositoryImporter 
+                  projectId={projectId}
+                  context={context}
+                />
               )}
-            </Button>
+              <Button
+                variant="outline"
+                onClick={handleDisconnectGitHub}
+                disabled={isConnecting}
+              >
+                {isConnecting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Disconnecting...
+                  </>
+                ) : (
+                  "Disconnect GitHub"
+                )}
+              </Button>
+            </div>
           </div>
         ) : (
           <Button

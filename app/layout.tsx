@@ -5,7 +5,8 @@ import { AuthProvider } from "@/services/auth/AuthContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
-import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
+import LayoutWrapper from "@/components/layout/layout-wrapper";
+import { SidebarProvider } from "@/contexts/SidebarContext";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "700"] });
 
@@ -30,7 +31,9 @@ export default function RootLayout({
         >
           <AuthProvider>
             <WorkspaceProvider>
-              <LayoutWrapper>{children}</LayoutWrapper>
+              <SidebarProvider>
+                <LayoutWrapper>{children}</LayoutWrapper>
+              </SidebarProvider>
             </WorkspaceProvider>
           </AuthProvider>
           <Toaster />

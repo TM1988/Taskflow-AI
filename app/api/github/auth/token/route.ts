@@ -4,7 +4,7 @@ import { getAdminDb } from "@/services/admin/mongoAdmin";
 
 export async function POST(request: NextRequest) {
   try {
-    const { code, userId } = await request.json();
+    const { code, userId, context, projectId, organizationId } = await request.json();
 
     if (!code || !userId) {
       return NextResponse.json(
@@ -13,8 +13,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
-    const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+    // Choose the correct GitHub app credentials based on context
+    const clientId = context === "organization" 
+      ? process.env.NEXT_PUBLIC_GITHUB_ORG_CLIENT_ID 
+      : process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
+    
+    const clientSecret = context === "organization"
+      ? process.env.GITHUB_ORG_CLIENT_SECRET
+      : process.env.GITHUB_CLIENT_SECRET;
 
     if (!clientId || !clientSecret) {
       return NextResponse.json(
@@ -40,7 +46,17 @@ export async function POST(request: NextRequest) {
     const tokenData = await tokenResponse.json();
 
     if (tokenData.error) {
-      throw new Error(tokenData.error_description || tokenData.error);
+      // Provide more specific error messages for common issues
+      let errorMessage = tokenData.error_description || tokenData.error;
+      
+      if (tokenData.error === "bad_verification_code" || 
+          tokenData.error === "incorrect_client_credentials") {
+        errorMessage = "The authorization code has expired or is invalid. Please try connecting again.";
+      } else if (tokenData.error === "access_denied") {
+        errorMessage = "GitHub access was denied. Please try connecting again and grant the necessary permissions.";
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const adminDb = await getAdminDb();
@@ -49,17 +65,31 @@ export async function POST(request: NextRequest) {
       throw new Error("MongoDB connection failed");
     }
 
-    // Store token in database
+    // Create a context-specific token identifier
+    let tokenId = userId; // Default for personal context
+    if (context === 'project' && projectId) {
+      tokenId = `${userId}_project_${projectId}`;
+    } else if (context === 'organization' && organizationId) {
+      tokenId = `${userId}_org_${organizationId}`;
+    }
+
+    // Store token in database with context information
+    const tokenDocument = {
+      tokenId,
+      userId,
+      context: context || 'personal', // 'personal', 'project', or 'organization'
+      projectId: projectId || null,
+      organizationId: organizationId || null,
+      accessToken: tokenData.access_token,
+      tokenType: tokenData.token_type,
+      scope: tokenData.scope,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
     await adminDb.collection("githubTokens").replaceOne(
-      { userId },
-      {
-        userId,
-        accessToken: tokenData.access_token,
-        tokenType: tokenData.token_type,
-        scope: tokenData.scope,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
+      { tokenId },
+      tokenDocument,
       { upsert: true }
     );
 

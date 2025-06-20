@@ -29,6 +29,8 @@ import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/services/auth/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext"; // Added import
 
 interface TaskDialogProps {
   open: boolean;
@@ -57,6 +59,8 @@ export default function TaskDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { currentOrganization, currentWorkspace } = useWorkspace(); // Added useWorkspace
 
   // Reset when dialog opens - ONLY reset when dialog first opens, not on every columns change
   useEffect(() => {
@@ -69,7 +73,7 @@ export default function TaskDialog({
         dueDate: null,
       });
     }
-  }, [open]); // REMOVED columns dependency to prevent constant resets
+  }, [open, columns]); // Add columns back for proper initialization
 
   // Handle column changes separately - only update columnId if current one doesn't exist
   useEffect(() => {
@@ -96,11 +100,13 @@ export default function TaskDialog({
       columnId,
       priority,
       dueDate,
+      projectId,
+      organizationId: currentWorkspace === 'organization' ? currentOrganization?.id : undefined,
     });
-    if (!title.trim() || !columnId || !projectId) {
+    if (!title.trim() || !columnId) { // projectId check removed as it's part of the payload now or handled by context
       toast({
         title: "Error",
-        description: "Please fill in all fields",
+        description: "Please fill in title and select a column.",
         variant: "destructive",
       });
       return;
@@ -109,30 +115,63 @@ export default function TaskDialog({
     try {
       setIsSubmitting(true);
 
+      if (!user?.uid) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to create tasks",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Format the request payload
-      const taskData = {
+      const taskData: any = {
         title,
         description,
         columnId,
         priority,
         dueDate,
+        userId: user.uid, // Keep userId for personal tasks or if API needs it
       };
 
-      console.log("Creating task:", taskData);
+      let apiUrl = "/api/tasks";
+      let apiMethod = "POST";
 
-      // Try the board-specific API endpoint
-      const response = await fetch(`/api/board/${projectId}`, {
-        method: "POST",
+      // Handle different task types
+      if (projectId === "personal") {
+        // Personal task (not tied to any project)
+        taskData.projectId = "personal"; // Set projectId to "personal" as expected by API
+        console.log("Creating personal task:", taskData);
+      } else if (currentWorkspace === 'organization' && currentOrganization?.id && projectId) {
+        // Organization project task
+        taskData.organizationId = currentOrganization.id;
+        taskData.projectId = projectId;
+        console.log("Creating task for organization:", taskData);
+      } else if (projectId) {
+        // Personal project task
+        taskData.projectId = projectId;
+        console.log("Creating task for personal project:", taskData);
+      } else {
+        // Fallback to personal task
+        taskData.projectId = "personal"; // Set projectId to "personal" as expected by API
+        console.log("Creating personal task (fallback):", taskData);
+      }
+
+
+      const response = await fetch(apiUrl, {
+        method: apiMethod,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(taskData),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to create task");
+        const errorData = await response.json().catch(() => ({ message: "Failed to create task" }));
+        console.error("API Error:", response.status, errorData);
+        throw new Error(errorData.message || "Failed to create task");
       }
 
       const newTask = await response.json();
-      console.log("Task created:", newTask);
+      console.log("Task created/updated:", newTask);
 
       // Clear form
       setFormData({

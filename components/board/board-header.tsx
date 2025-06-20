@@ -3,7 +3,7 @@
 
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Filter } from "lucide-react";
+import { Plus, Search, Filter, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import TaskImportExport from "./task-import-export";
 import {
@@ -32,6 +32,9 @@ interface BoardHeaderProps {
   projectId?: string;
   onTasksImported?: () => void;
   onColumnUpdate?: (columns: any[]) => void; // Add this prop
+  hasUnsavedChanges?: boolean; // Add this prop
+  onSync?: () => void; // Add this prop
+  isSyncing?: boolean; // Add this prop
 }
 
 export default function BoardHeader({
@@ -43,6 +46,9 @@ export default function BoardHeader({
   projectId,
   onTasksImported,
   onColumnUpdate, // Add this prop
+  hasUnsavedChanges = false, // Add this prop
+  onSync, // Add this prop
+  isSyncing = false, // Add this prop
 }: BoardHeaderProps) {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
@@ -104,13 +110,11 @@ export default function BoardHeader({
   return (
     <div className="flex flex-col items-center space-y-2 py-4 px-6 bg-background">
       <div className="flex items-center gap-3">
-        {/* Import/Export */}
-        {projectId && (
-          <TaskImportExport
-            projectId={projectId}
-            onTasksImported={onTasksImported}
-          />
-        )}
+        {/* Import/Export - Show for both project and personal boards */}
+        <TaskImportExport
+          projectId={projectId}
+          onTasksImported={onTasksImported}
+        />
 
         {/* Search */}
         <div className="relative">
@@ -126,10 +130,10 @@ export default function BoardHeader({
         {/* Filter */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="h-8 w-8">
+            <Button variant="outline" size="icon" className="h-8 w-8 relative">
               <Filter className="h-4 w-4" />
               {activeFiltersCount > 0 && (
-                <Badge className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center">
+                <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center min-w-[16px]">
                   {activeFiltersCount}
                 </Badge>
               )}
@@ -200,6 +204,20 @@ export default function BoardHeader({
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* Sync Now Button - only show when there are unsaved changes */}
+        {hasUnsavedChanges && onSync && (
+          <Button 
+            onClick={onSync} 
+            size="sm" 
+            variant="outline" 
+            className="h-8 px-3"
+            disabled={isSyncing}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? 'Syncing...' : 'Sync Now'}
+          </Button>
+        )}
 
         {/* Add Task */}
         <Button onClick={onAddTask} size="sm" className="h-8 px-3">

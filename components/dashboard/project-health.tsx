@@ -4,6 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 
+interface ProjectHealthProps {
+  projectId?: string;
+}
+
 interface HealthItemProps {
   label: string;
   status: 'on-track' | 'at-risk' | 'behind';
@@ -43,7 +47,7 @@ function HealthItem({ label, status, value }: HealthItemProps) {
   );
 }
 
-export default function ProjectHealth() {
+export default function ProjectHealth({ projectId }: ProjectHealthProps) {
   return (
     <Card>
       <CardHeader>

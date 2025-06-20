@@ -21,8 +21,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, signInWithGoogleProvider, signInWithGithubProvider } =
-    useAuth();
+  const { login, signInWithGoogleProvider, signInWithGithubProvider } = useAuth();
   const { toast } = useToast();
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -30,7 +29,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await signIn(email, password);
+      await login(email, password);
       toast({
         title: "Success",
         description: "You have successfully signed in.",
