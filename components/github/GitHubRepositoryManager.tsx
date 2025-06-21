@@ -294,12 +294,9 @@ export default function GitHubRepositoryManager({
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-1">
               <TabsTrigger value="imported">
                 Imported ({importedRepos.length})
-              </TabsTrigger>
-              <TabsTrigger value="available">
-                Available ({availableRepos.length})
               </TabsTrigger>
             </TabsList>
             
@@ -384,23 +381,13 @@ export default function GitHubRepositoryManager({
                 </div>
               )}
             </TabsContent>
-            
-            <TabsContent value="available" className="space-y-4">
-              <div className="text-center py-8 text-muted-foreground">
-                <p>Available repositories are shown in the import dialog.</p>
-                <Button onClick={handleOpenImportDialog} className="mt-4">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Open Import Dialog
-                </Button>
-              </div>
-            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
 
       {/* Import Dialog */}
       <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh]">
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>Import GitHub Repositories</DialogTitle>
             <DialogDescription>
@@ -408,7 +395,7 @@ export default function GitHubRepositoryManager({
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
+          <div className="flex-1 space-y-4 overflow-hidden">
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -419,7 +406,7 @@ export default function GitHubRepositoryManager({
               />
             </div>
             
-            <ScrollArea className="h-[400px] pr-4">
+            <ScrollArea className="flex-1 max-h-[50vh] pr-4">
               {loadingAvailable ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin mr-2" />
