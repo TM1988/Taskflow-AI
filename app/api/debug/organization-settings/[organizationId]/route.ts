@@ -8,8 +8,6 @@ export async function GET(
 ) {
   try {
     const { organizationId } = params;
-    
-    console.log(`[DEBUG] Checking organization settings for: ${organizationId}`);
 
     // Get organization's database configuration from Firestore
     const orgDocRef = doc(db, 'organizations', organizationId);
@@ -37,12 +35,9 @@ export async function GET(
       fullOrgData: orgData
     };
 
-    console.log(`[DEBUG] Organization settings debug info:`, JSON.stringify(debugInfo, null, 2));
-
     return NextResponse.json(debugInfo);
 
   } catch (error) {
-    console.error("[DEBUG] Error checking organization settings:", error);
     return NextResponse.json({
       error: "Failed to check organization settings",
       details: error instanceof Error ? error.message : "Unknown error"
