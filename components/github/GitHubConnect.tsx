@@ -39,7 +39,7 @@ export default function GitHubConnect({
       const response = await fetch(`/api/github/connection-status?userId=${user.uid}&context=${context}`);
       const data = await response.json();
       
-      const connected = response.ok && data.connected;
+      const connected = response.ok && data.isConnected;
       setIsConnected(connected);
       onConnectionChange?.(connected);
     } catch (error) {

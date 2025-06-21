@@ -273,10 +273,10 @@ export default function CompactOnboarding({
         router.push('/organizations');
         break;
       case 'connect-github':
-        router.push('/settings?tab=github');
+        router.push('/repositories');
         break;
       case 'enable-ai-suggestions':
-        router.push('/settings/ai-config');
+        router.push('/settings?tab=ai');
         break;
       default:
         break;
