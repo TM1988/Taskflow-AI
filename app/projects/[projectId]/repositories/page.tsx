@@ -23,7 +23,7 @@ export default function ProjectRepositoriesPage() {
       <GitHubConnectionManager 
         projectId={projectId}
         organizationId={currentOrganization?.id}
-        context={currentOrganization ? "organization" : "project"}
+        context="project"
         showRepositoryManager={true}
       />
     </div>

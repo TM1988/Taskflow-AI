@@ -217,13 +217,6 @@ class GitHubRepositoryService {
       organizationId: context === 'organization' ? organizationId : undefined
     };
     localStorage.setItem("github_oauth_context", JSON.stringify(contextData));
-    
-    // Use the same GitHub client ID for all contexts since we're using GitHub Apps now
-    const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
-    
-    if (!clientId) {
-      throw new Error(`GitHub Client ID is not configured`);
-    }
 
     // Clear any previous processed codes
     sessionStorage.removeItem("github_processed_code");
@@ -231,6 +224,30 @@ class GitHubRepositoryService {
     // Use environment variable for redirect URI if available, otherwise construct from origin
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
     const redirectUri = `${baseUrl}/github-callback`;
+
+    // For project and organization contexts, use GitHub App installation
+    if (context === 'project' || context === 'organization') {
+      const appId = process.env.NEXT_PUBLIC_ORG_GITHUB_APP_ID;
+      
+      if (!appId) {
+        throw new Error('Organization GitHub App ID is not configured');
+      }
+
+      // Use the organization GitHub App for project and organization contexts
+      const appName = "taskflow-ai-org";
+      const installUrl = `https://github.com/apps/${appName}/installations/new?` +
+        `state=${state}`;
+      
+      return installUrl;
+    }
+    
+    // For personal context, use OAuth
+    const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
+    
+    if (!clientId) {
+      throw new Error('Personal GitHub Client ID is not configured');
+    }
+    
     const scope = "repo,read:user";
     
     const authUrl = `https://github.com/login/oauth/authorize?` +

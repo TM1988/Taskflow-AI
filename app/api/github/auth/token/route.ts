@@ -13,13 +13,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use single GitHub app credentials for all contexts
-    const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
-    const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+    // Use the appropriate GitHub credentials based on context
+    let clientId: string | undefined;
+    let clientSecret: string | undefined;
+
+    if (context === 'project' || context === 'organization') {
+      // Use organization GitHub app credentials for project/organization contexts
+      clientId = process.env.NEXT_PUBLIC_ORG_GITHUB_CLIENT_ID;
+      clientSecret = process.env.GITHUB_ORG_CLIENT_SECRET;
+    } else {
+      // Use personal GitHub app credentials for personal context
+      clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
+      clientSecret = process.env.GITHUB_CLIENT_SECRET;
+    }
 
     if (!clientId || !clientSecret) {
       return NextResponse.json(
-        { error: "GitHub configuration missing" },
+        { error: `GitHub configuration missing for ${context} context` },
         { status: 500 }
       );
     }

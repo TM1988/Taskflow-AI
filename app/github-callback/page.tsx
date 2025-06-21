@@ -84,7 +84,7 @@ export default function GitHubCallbackPage() {
             }
 
             // Use the appropriate GitHub client ID based on context
-            const GITHUB_CLIENT_ID = context === "organization" 
+            const GITHUB_CLIENT_ID = (context === "project" || context === "organization") 
               ? process.env.NEXT_PUBLIC_ORG_GITHUB_CLIENT_ID 
               : process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
 
@@ -228,8 +228,8 @@ export default function GitHubCallbackPage() {
         let newRedirectDescription = "Redirecting to dashboard...";
         
         if (context === "project" && projectId) {
-          redirectPath = `/projects/${projectId}/settings`;
-          newRedirectDescription = "Redirecting to project settings...";
+          redirectPath = `/projects/${projectId}/repositories`;
+          newRedirectDescription = "Redirecting to project repositories...";
         } else {
           redirectPath = "/repositories"; // Redirect to repositories page for personal context
           newRedirectDescription = "Redirecting to repositories...";
