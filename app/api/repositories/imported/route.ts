@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/services/admin/mongoAdmin";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const requestId = Math.random().toString(36).substr(2, 9);
 

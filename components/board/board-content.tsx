@@ -71,9 +71,6 @@ export default function BoardContent({
   ], []);
 
   const updateTaskLocally = useCallback((updatedTask: any) => {
-    console.log("BoardContent: updateTaskLocally called with:", updatedTask);
-    console.log("BoardContent: Current tasks:", tasks.map(t => ({ id: t.id, _id: t._id, title: t.title })));
-    
     setTasks(prevTasks => {
       // More robust ID matching - check all possible ID combinations
       const taskId = updatedTask.id || updatedTask._id;
@@ -86,11 +83,7 @@ export default function BoardContent({
         t._id === taskDbId
       );
       
-      console.log("BoardContent: Task found for update:", taskFound ? 'YES' : 'NO');
-      console.log("BoardContent: Looking for ID:", taskId, "or _id:", taskDbId);
-      
       if (!taskFound) {
-        console.log("BoardContent: Task not found, available tasks:", prevTasks.map(t => ({ id: t.id, _id: t._id })));
         return prevTasks; // Return unchanged if task not found
       }
       
@@ -112,7 +105,6 @@ export default function BoardContent({
         return task;
       });
       
-      console.log("BoardContent: Updated tasks array, count:", newTasks.length);
       return newTasks;
     });
     
@@ -122,7 +114,6 @@ export default function BoardContent({
   }, [tasks]); // Add tasks dependency back for proper functionality
 
   const removeTaskLocally = useCallback((taskId: string) => {
-    console.log("removeTaskLocally called with:", taskId);
     setTasks(prevTasks => prevTasks.filter(task => 
       task.id !== taskId && task._id !== taskId
     ));
@@ -133,18 +124,15 @@ export default function BoardContent({
   const fetchBoardData = useCallback(async () => {
     if (!user?.uid) return;
     
-    console.log("[BoardContent] fetchBoardData called - user:", user.uid, "projectId:", projectId, "workspaceProject:", workspaceProject?.id);
     setLoading(true);
 
     try {
       // Handle personal board
       if (!projectId && !workspaceProject?.id) { // Use workspaceProject here
-        console.log("[BoardContent] Loading personal board data");
         
         const personalColumns = defaultColumns;
         setColumns(personalColumns);
 
-        console.log("[BoardContent] Fetching personal tasks from:", `/api/tasks?userId=${user.uid}&personal=true`);
         const tasksResponse = await fetch(`/api/tasks?userId=${user.uid}&personal=true&t=${Date.now()}`, {
           cache: 'no-cache'
         });
@@ -152,9 +140,6 @@ export default function BoardContent({
         let personalTasks = [];
         if (tasksResponse.ok) {
           personalTasks = await tasksResponse.json();
-          console.log("[BoardContent] Personal tasks loaded:", personalTasks.length, "tasks");
-        } else {
-          console.log("[BoardContent] No personal tasks found or error:", tasksResponse.status);
         }
 
         const normalizedTasks = personalTasks.map((task: any) => ({

@@ -33,14 +33,10 @@ export const GitHubConnect: React.FC<GitHubConnectProps> = ({
   const checkGitHubConnection = useCallback(async () => {
     if (!user?.uid) return;
 
-    console.log(`🔍 GitHubConnect: Checking connection for context: ${context}, orgId: ${organizationId}, projectId: ${projectId}`);
-
     try {
       const connected = await unifiedGitHubService.checkConnection(user.uid, context, projectId, organizationId);
-      console.log(`🔍 GitHubConnect: Setting connected state to: ${connected}`);
       setIsConnected(connected);
     } catch (error) {
-      console.log("🔍 GitHubConnect: Error checking connection:", error instanceof Error ? error.message : "Not connected");
       setIsConnected(false);
     }
   }, [user, context, projectId, organizationId]);
@@ -54,20 +50,24 @@ export const GitHubConnect: React.FC<GitHubConnectProps> = ({
   }, [user, checkGitHubConnection]);
 
   const handleConnectGitHub = () => {
-    // Use the appropriate GitHub client ID and App name based on context
-    // For both personal and project contexts, use personal credentials
-    const GITHUB_CLIENT_ID = context === "organization" 
-      ? process.env.NEXT_PUBLIC_ORG_GITHUB_CLIENT_ID 
-      : process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
+    // Determine which GitHub app to use based on context
+    let GITHUB_CLIENT_ID: string | undefined;
+    let GITHUB_APP_NAME: string;
     
-    const GITHUB_APP_NAME = context === "organization" 
-      ? "taskflow-ai-organizations"
-      : "taskflow-ai-personal";
+    if (context === 'personal') {
+      // Personal context uses personal GitHub app
+      GITHUB_CLIENT_ID = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
+      GITHUB_APP_NAME = "taskflow-ai-personal";
+    } else {
+      // Project and organization contexts both use the organization GitHub app
+      GITHUB_CLIENT_ID = process.env.NEXT_PUBLIC_GITHUB_ORG_CLIENT_ID;
+      GITHUB_APP_NAME = "taskflow-ai-org";
+    }
     
     if (!GITHUB_CLIENT_ID) {
       toast({
         title: "Configuration Error",
-        description: `GitHub App is not configured for ${context} context.`,
+        description: `GitHub App for ${context} context is not configured properly.`,
         variant: "destructive",
       });
       return;
@@ -94,7 +94,6 @@ export const GitHubConnect: React.FC<GitHubConnectProps> = ({
     // This allows users to select which repositories to grant access to
     const installUrl = `https://github.com/apps/${GITHUB_APP_NAME}/installations/new?state=${state}`;
     
-    console.log(`🔄 Redirecting to GitHub App installation: ${installUrl}`);
     window.location.href = installUrl;
   };
 

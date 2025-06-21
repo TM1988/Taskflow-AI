@@ -69,11 +69,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Project ID is required" }, { status: 400 });
     }
 
-    console.log(`[api/columns GET] Fetching columns for project ${projectId}, user ${userId}, org ${organizationId}`);
-    
     // Get the correct MongoDB project ID for database operations
     const mongoProjectId = await getMongoProjectId(projectId);
-    console.log(`[api/columns GET] Using mongoProjectId: ${mongoProjectId} for database operations`);
     
     const database = await getDatabaseForProject(projectId, { userId: userId || undefined, organizationId: organizationId || undefined });
     
