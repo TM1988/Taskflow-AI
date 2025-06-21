@@ -41,7 +41,12 @@ export default function GitHubConnectionManager({
     }
 
     try {
-      const connected = await githubRepositoryService.checkConnection(user.uid, context);
+      const connected = await githubRepositoryService.checkConnection(
+        user.uid, 
+        context,
+        projectId,
+        organizationId
+      );
       setIsConnected(connected);
       onConnectionChange?.(connected);
       
@@ -51,7 +56,7 @@ export default function GitHubConnectionManager({
       setIsConnected(false);
       onConnectionChange?.(false);
     }
-  }, [user, context, onConnectionChange]);
+  }, [user, context, projectId, organizationId, onConnectionChange]);
 
   // Check connection on mount and when dependencies change
   useEffect(() => {
@@ -247,6 +252,7 @@ export default function GitHubConnectionManager({
         ) : (
           <GitHubRepositoryManager 
             projectId={projectId}
+            organizationId={organizationId}
             context={context}
           />
         )

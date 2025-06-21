@@ -42,17 +42,81 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch repositories from GitHub
-    const reposResponse = await fetch(
-      "https://api.github.com/user/repos?per_page=100",
-      {
-        headers: {
-          Authorization: `token ${tokenDoc.accessToken}`,
-          Accept: "application/vnd.github.v3+json",
-          "User-Agent": "Taskflow-App",
+    // Fetch repositories from GitHub based on context
+    let reposResponse;
+    
+    if (context === 'organization' || context === 'project') {
+      // For organization/project context, check if we have installation access
+      // Try to get accessible repositories through the GitHub App installation
+      reposResponse = await fetch(
+        "https://api.github.com/user/installations",
+        {
+          headers: {
+            Authorization: `token ${tokenDoc.accessToken}`,
+            Accept: "application/vnd.github.v3+json",
+            "User-Agent": "Taskflow-App",
+          },
         },
-      },
-    );
+      );
+
+      if (reposResponse.ok) {
+        const installations = await reposResponse.json();
+        console.log(`📦 Found ${installations.installations?.length || 0} installations for user`);
+        
+        // If we have installations, try to get installation repositories
+        if (installations.installations && installations.installations.length > 0) {
+          // For now, we'll use the first installation or try to find the right one
+          const installation = installations.installations[0];
+          
+          // Get repositories accessible through this installation
+          reposResponse = await fetch(
+            `https://api.github.com/user/installations/${installation.id}/repositories`,
+            {
+              headers: {
+                Authorization: `token ${tokenDoc.accessToken}`,
+                Accept: "application/vnd.github.v3+json",
+                "User-Agent": "Taskflow-App",
+              },
+            },
+          );
+          
+          if (reposResponse.ok) {
+            const installationData = await reposResponse.json();
+            // Return the repositories from the installation
+            return NextResponse.json({
+              repositories: installationData.repositories || [],
+              context,
+              tokenId,
+              requestId,
+            });
+          }
+        }
+      }
+      
+      // Fallback to user repos with organization affiliation
+      reposResponse = await fetch(
+        "https://api.github.com/user/repos?per_page=100&affiliation=organization_member,collaborator",
+        {
+          headers: {
+            Authorization: `token ${tokenDoc.accessToken}`,
+            Accept: "application/vnd.github.v3+json",
+            "User-Agent": "Taskflow-App",
+          },
+        },
+      );
+    } else {
+      // For personal context, fetch user repositories
+      reposResponse = await fetch(
+        "https://api.github.com/user/repos?per_page=100",
+        {
+          headers: {
+            Authorization: `token ${tokenDoc.accessToken}`,
+            Accept: "application/vnd.github.v3+json",
+            "User-Agent": "Taskflow-App",
+          },
+        },
+      );
+    }
 
     if (!reposResponse.ok) {
       throw new Error(`GitHub API error: ${reposResponse.status}`);

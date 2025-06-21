@@ -35,9 +35,22 @@ class GitHubRepositoryService {
   /**
    * Check if user has GitHub connected for a specific context
    */
-  async checkConnection(userId: string, context: string = 'personal'): Promise<boolean> {
+  async checkConnection(userId: string, context: string = 'personal', projectId?: string, organizationId?: string): Promise<boolean> {
     try {
-      const response = await fetch(`${this.baseUrl}/connection?userId=${userId}&context=${context}`);
+      const params = new URLSearchParams({
+        userId,
+        context
+      });
+
+      // Add projectId and organizationId if provided
+      if (projectId) {
+        params.append('projectId', projectId);
+      }
+      if (organizationId) {
+        params.append('organizationId', organizationId);
+      }
+
+      const response = await fetch(`${this.baseUrl}/connection?${params}`);
       if (!response.ok) return false;
       
       const data = await response.json();
@@ -51,12 +64,20 @@ class GitHubRepositoryService {
   /**
    * Fetch available repositories from GitHub API
    */
-  async fetchAvailableRepositories(userId: string, context: string = 'personal'): Promise<GitHubRepository[]> {
+  async fetchAvailableRepositories(userId: string, context: string = 'personal', projectId?: string, organizationId?: string): Promise<GitHubRepository[]> {
     try {
       const params = new URLSearchParams({
         userId,
         context
       });
+
+      // Add projectId and organizationId if provided
+      if (projectId) {
+        params.append('projectId', projectId);
+      }
+      if (organizationId) {
+        params.append('organizationId', organizationId);
+      }
 
       const response = await fetch(`${this.baseUrl}/repositories?${params}`);
       if (!response.ok) {

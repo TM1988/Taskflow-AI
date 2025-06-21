@@ -18,11 +18,13 @@ import { Loader2, Search, Star, GitFork, AlertCircle, ExternalLink, Plus, Trash2
 
 interface GitHubRepositoryManagerProps {
   projectId?: string;
+  organizationId?: string;
   context?: string;
 }
 
 export default function GitHubRepositoryManager({ 
   projectId, 
+  organizationId, 
   context = "personal"
 }: GitHubRepositoryManagerProps) {
   const { user } = useAuth();
@@ -78,9 +80,14 @@ export default function GitHubRepositoryManager({
     
     setLoadingAvailable(true);
     try {
-      const repos = await githubRepositoryService.fetchAvailableRepositories(user.uid, context);
+      const repos = await githubRepositoryService.fetchAvailableRepositories(
+        user.uid, 
+        context,
+        effectiveProjectId, // Pass the projectId for project contexts
+        organizationId // Pass organizationId for organization contexts
+      );
       setAvailableRepos(repos);
-      console.log(`📚 Loaded ${repos.length} available repositories from GitHub`);
+      console.log(`📚 Loaded ${repos.length} available repositories from GitHub for context: ${context}`);
     } catch (error) {
       console.error("Error loading available repositories:", error);
       toast({
