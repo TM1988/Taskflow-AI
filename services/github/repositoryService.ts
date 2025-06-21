@@ -233,9 +233,9 @@ class GitHubRepositoryService {
         throw new Error('Organization GitHub App ID is not configured');
       }
 
-      // Use GitHub's universal app installation URL with the App ID
-      // This works regardless of the app's slug name
-      const installUrl = `https://github.com/settings/apps/${appId}/installations/new?` +
+      // Use the confirmed working organization app name
+      const appName = "taskflow-ai-organizations";
+      const installUrl = `https://github.com/apps/${appName}/installations/new?` +
         `state=${state}`;
       
       return installUrl;

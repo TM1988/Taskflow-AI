@@ -52,19 +52,19 @@ export const GitHubConnect: React.FC<GitHubConnectProps> = ({
   const handleConnectGitHub = () => {
     // Determine which GitHub app to use based on context
     let GITHUB_CLIENT_ID: string | undefined;
-    let GITHUB_APP_ID: string | undefined;
+    let GITHUB_APP_NAME: string;
     
     if (context === 'personal') {
       // Personal context uses personal GitHub app
       GITHUB_CLIENT_ID = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
-      GITHUB_APP_ID = process.env.NEXT_PUBLIC_GITHUB_APP_ID;
+      GITHUB_APP_NAME = "taskflow-ai-personal"; // Confirmed working name
     } else {
       // Project and organization contexts both use the organization GitHub app
       GITHUB_CLIENT_ID = process.env.NEXT_PUBLIC_GITHUB_ORG_CLIENT_ID;
-      GITHUB_APP_ID = process.env.NEXT_PUBLIC_ORG_GITHUB_APP_ID;
+      GITHUB_APP_NAME = "taskflow-ai-organizations"; // Confirmed working name
     }
     
-    if (!GITHUB_CLIENT_ID || !GITHUB_APP_ID) {
+    if (!GITHUB_CLIENT_ID) {
       toast({
         title: "Configuration Error",
         description: `GitHub App for ${context} context is not configured properly.`,
@@ -90,9 +90,8 @@ export const GitHubConnect: React.FC<GitHubConnectProps> = ({
     };
     localStorage.setItem("github_oauth_context", JSON.stringify(contextData));
 
-    // Use GitHub's universal app installation URL with the App ID
-    // This works regardless of the app's slug name
-    const installUrl = `https://github.com/settings/apps/${GITHUB_APP_ID}/installations/new?state=${state}`;
+    // Use GitHub's public app installation URL with the app name
+    const installUrl = `https://github.com/apps/${GITHUB_APP_NAME}/installations/new?state=${state}`;
     
     window.location.href = installUrl;
   };
