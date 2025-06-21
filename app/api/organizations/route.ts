@@ -182,7 +182,12 @@ export async function POST(request: NextRequest) {
         // Add a small delay to ensure Firestore document is written
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        const initResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/organizations/initialize-database`, {
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+        if (!baseUrl) {
+          throw new Error('NEXT_PUBLIC_BASE_URL is not configured');
+        }
+        
+        const initResponse = await fetch(`${baseUrl}/api/organizations/initialize-database`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

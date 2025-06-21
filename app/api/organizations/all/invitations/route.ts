@@ -45,7 +45,12 @@ export async function GET(request: NextRequest) {
       // Only include non-expired invitations
       if (expiresAt > now) {
         // Get organization details
-        const orgResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/organizations/${data.organizationId}`);
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+        if (!baseUrl) {
+          throw new Error('NEXT_PUBLIC_BASE_URL is not configured');
+        }
+        
+        const orgResponse = await fetch(`${baseUrl}/api/organizations/${data.organizationId}`);
         let organizationName = data.organizationId;
         
         if (orgResponse.ok) {

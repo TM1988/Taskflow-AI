@@ -94,7 +94,12 @@ export async function POST(
 
     // Send email invitation
     try {
-      const inviteUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/invite/${token}`;
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+      if (!baseUrl) {
+        throw new Error('NEXT_PUBLIC_BASE_URL is not configured');
+      }
+      
+      const inviteUrl = `${baseUrl}/invite/${token}`;
       
       await sendOrganizationInvitation({
         to: email,
