@@ -34,8 +34,13 @@ export default function ForgotPasswordPage() {
 
     try {
       // Configure action code settings to use custom URL
+      const customActionUrl = process.env.NEXT_PUBLIC_CUSTOM_ACTION_URL;
+      if (!customActionUrl) {
+        throw new Error('Custom action URL is not configured');
+      }
+      
       const actionCodeSettings = {
-        url: process.env.NEXT_PUBLIC_CUSTOM_ACTION_URL,
+        url: customActionUrl,
         handleCodeInApp: false, // This ensures it opens in browser, not app
       };
 
