@@ -229,7 +229,6 @@ export default function ProjectRepositoryManager({
         <GitHubConnect 
           projectId={projectId}
           context="project"
-          showImporter={false}
         />
       </div>
     );

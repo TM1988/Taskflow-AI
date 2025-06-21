@@ -3,51 +3,56 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GitHubIcon } from "@/components/icons";
 import { useAuth } from "@/services/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Settings } from "lucide-react";
-import { unifiedGitHubService } from "@/services/github/unifiedGitHubService";
-import GitHubRepositoryImporter from "./GitHubRepositoryImporter";
+import { Loader2 } from "lucide-react";
 
 interface GitHubConnectProps {
   projectId?: string;
   organizationId?: string;
   context?: "personal" | "project" | "organization";
-  showImporter?: boolean;
+  onConnectionChange?: (connected: boolean) => void;
 }
 
-export const GitHubConnect: React.FC<GitHubConnectProps> = ({ 
-  projectId, 
+export default function GitHubConnect({
+  projectId,
   organizationId,
   context = "personal",
-  showImporter = false
-}) => {
+  onConnectionChange
+}: GitHubConnectProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // Check if user has connected GitHub for this context
+  // Check GitHub connection status
   const checkGitHubConnection = useCallback(async () => {
-    if (!user?.uid) return;
+    if (!user?.uid) {
+      setIsConnected(false);
+      return;
+    }
 
     try {
-      const connected = await unifiedGitHubService.checkConnection(user.uid, context, projectId, organizationId);
+      const response = await fetch(`/api/github/connection-status?userId=${user.uid}&context=${context}`);
+      const data = await response.json();
+      
+      const connected = response.ok && data.connected;
       setIsConnected(connected);
+      onConnectionChange?.(connected);
     } catch (error) {
+      console.error("Error checking GitHub connection:", error);
       setIsConnected(false);
+      onConnectionChange?.(false);
     }
-  }, [user, context, projectId, organizationId]);
+  }, [user, context, onConnectionChange]);
 
+  // Check connection on mount and when dependencies change
   useEffect(() => {
-    if (user) {
-      checkGitHubConnection();
-    } else {
-      setIsConnected(false);
-    }
-  }, [user, checkGitHubConnection]);
+    checkGitHubConnection();
+  }, [checkGitHubConnection]);
 
   const handleConnectGitHub = () => {
     // Determine which GitHub app to use based on context
@@ -57,11 +62,11 @@ export const GitHubConnect: React.FC<GitHubConnectProps> = ({
     if (context === 'personal') {
       // Personal context uses personal GitHub app
       GITHUB_CLIENT_ID = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
-      GITHUB_APP_NAME = "taskflow-ai-personal"; // Confirmed working name
+      GITHUB_APP_NAME = "taskflow-ai-personal";
     } else {
       // Project and organization contexts both use the organization GitHub app
-      GITHUB_CLIENT_ID = process.env.NEXT_PUBLIC_GITHUB_ORG_CLIENT_ID;
-      GITHUB_APP_NAME = "taskflow-ai-organizations"; // Confirmed working name
+      GITHUB_CLIENT_ID = process.env.NEXT_PUBLIC_ORG_GITHUB_CLIENT_ID;
+      GITHUB_APP_NAME = "taskflow-ai-organizations";
     }
     
     if (!GITHUB_CLIENT_ID) {
@@ -102,10 +107,9 @@ export const GitHubConnect: React.FC<GitHubConnectProps> = ({
     setIsConnecting(true);
 
     try {
-      // Call API to remove GitHub token with context
-      const response = await fetch("/api/github/auth", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch(`/api/github/auth`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           userId: user.uid,
           context,
@@ -115,11 +119,13 @@ export const GitHubConnect: React.FC<GitHubConnectProps> = ({
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to disconnect GitHub");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to disconnect GitHub');
       }
 
       setIsConnected(false);
+      onConnectionChange?.(false);
+      
       toast({
         title: "Success",
         description: "GitHub disconnected successfully",
@@ -127,34 +133,14 @@ export const GitHubConnect: React.FC<GitHubConnectProps> = ({
     } catch (error) {
       console.error("Error disconnecting GitHub:", error);
       toast({
-        title: "Error",
-        description: "Failed to disconnect from GitHub. Please try again.",
+        title: "Disconnect Failed",
+        description: error instanceof Error ? error.message : "Failed to disconnect GitHub. Please try again.",
         variant: "destructive",
       });
     } finally {
       setIsConnecting(false);
     }
   };
-
-  // Show loading state while checking connection
-  if (isConnected === null) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <GitHubIcon className="h-5 w-5" />
-            GitHub Connection
-          </CardTitle>
-          <CardDescription>
-            Connect your GitHub account to sync repositories and track progress
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex justify-center p-6">
-          <Loader2 className="h-6 w-6 animate-spin" />
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <Card>
@@ -163,13 +149,15 @@ export const GitHubConnect: React.FC<GitHubConnectProps> = ({
           <GitHubIcon className="h-5 w-5" />
           GitHub Connection
         </CardTitle>
-        <CardDescription>
-          Connect your GitHub account to sync repositories and track progress
-        </CardDescription>
       </CardHeader>
-      <CardContent>
-        {isConnected ? (
-          <div className="flex flex-col gap-4">
+      <CardContent className="space-y-4">
+        {isConnected === null ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Checking connection status...
+          </div>
+        ) : isConnected ? (
+          <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -185,51 +173,52 @@ export const GitHubConnect: React.FC<GitHubConnectProps> = ({
               </svg>
               GitHub Connected Successfully
             </div>
-            <div className="flex gap-2">
-              {showImporter && projectId && (
-                <GitHubRepositoryImporter 
-                  projectId={projectId}
-                  context={context}
-                />
+            
+            <Button 
+              variant="destructive" 
+              onClick={handleDisconnectGitHub}
+              disabled={isConnecting}
+              className="w-full"
+            >
+              {isConnecting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Disconnecting...
+                </>
+              ) : (
+                <>
+                  <GitHubIcon className="h-4 w-4 mr-2" />
+                  Disconnect GitHub
+                </>
               )}
-              <Button
-                variant="outline"
-                onClick={handleDisconnectGitHub}
-                disabled={isConnecting}
-              >
-                {isConnecting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Disconnecting...
-                  </>
-                ) : (
-                  "Disconnect GitHub"
-                )}
-              </Button>
-            </div>
+            </Button>
           </div>
         ) : (
-          <Button
-            className="flex items-center gap-2"
-            onClick={handleConnectGitHub}
-            disabled={isConnecting}
-          >
-            {isConnecting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Connecting...
-              </>
-            ) : (
-              <>
-                <GitHubIcon className="h-4 w-4" />
-                Connect GitHub
-              </>
-            )}
-          </Button>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Connect GitHub for this {context} to import repositories
+            </p>
+            
+            <Button 
+              onClick={handleConnectGitHub}
+              disabled={isConnecting}
+              className="w-full"
+            >
+              {isConnecting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  <GitHubIcon className="h-4 w-4 mr-2" />
+                  Connect GitHub
+                </>
+              )}
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>
   );
-};
-
-export default GitHubConnect;
+}
