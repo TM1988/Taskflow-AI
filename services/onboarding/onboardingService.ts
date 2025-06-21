@@ -20,10 +20,8 @@ class OnboardingService {
    */
   async getProgress(userId: string): Promise<OnboardingProgress> {
     try {
-      console.log(`📊 Getting onboarding progress for user: ${userId}`);
       const response = await fetch(`/api/users/${userId}/onboarding`);
       if (!response.ok) {
-        console.log("📊 No existing progress found, returning initial state");
         // Return initial progress if none exists
         const totalSteps = DEFAULT_ONBOARDING_STEPS.length;
         return {
@@ -42,11 +40,6 @@ class OnboardingService {
       }
 
       const progress = await response.json();
-      console.log(`📊 Progress retrieved:`, {
-        completedSteps: progress.completedSteps,
-        completedStepsCount: progress.completedStepsCount,
-        progressPercentage: progress.progressPercentage
-      });
       
       return {
         ...progress,
@@ -95,7 +88,6 @@ class OnboardingService {
    */
   async completeStep(userId: string, stepId: string): Promise<OnboardingProgress> {
     try {
-      console.log(`🎯 onboardingService.completeStep: Marking ${stepId} as completed for user ${userId}`);
       
       // Directly call the API endpoint that handles step completion
       const response = await fetch(`/api/users/${userId}/onboarding`, {
@@ -109,7 +101,6 @@ class OnboardingService {
       }
 
       const result = await response.json();
-      console.log(`✅ onboardingService.completeStep: Step ${stepId} completed successfully`, result);
       return result;
     } catch (error) {
       console.error('Error completing step:', error);
@@ -231,20 +222,12 @@ class OnboardingService {
    */
   async needsOnboarding(userId: string): Promise<boolean> {
     try {
-      console.log(`🔍 needsOnboarding: Checking for user ${userId}`);
       const progress = await this.getProgress(userId);
       
       // Only show onboarding if the user has NEVER completed it
       // If completedAt exists, they have finished onboarding at least once
       const hasEverCompleted = progress.completedAt !== undefined;
       const shouldShow = !hasEverCompleted;
-      
-      console.log(`🔍 needsOnboarding result:`, {
-        userId,
-        hasEverCompleted,
-        completedAt: progress.completedAt,
-        shouldShow
-      });
       
       return shouldShow;
     } catch (error) {
@@ -359,7 +342,6 @@ class OnboardingService {
    */
   async uncompleteStep(userId: string, stepId: string): Promise<OnboardingProgress> {
     try {
-      console.log(`🎯 onboardingService.uncompleteStep: Unmarking ${stepId} as completed for user ${userId}`);
       
       // Call the API endpoint that handles step removal
       const response = await fetch(`/api/users/${userId}/onboarding/uncomplete`, {
@@ -373,7 +355,6 @@ class OnboardingService {
       }
 
       const result = await response.json();
-      console.log(`✅ onboardingService.uncompleteStep: Step ${stepId} uncompleted successfully`, result);
       return result;
     } catch (error) {
       console.error('Error uncompleting step:', error);

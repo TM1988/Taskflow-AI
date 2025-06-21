@@ -35,7 +35,7 @@ class UnifiedGitHubService {
 
   // Fetch all available GitHub repositories for a user
   async fetchAvailableRepositories(userId: string, context: string = "personal"): Promise<GitHubRepository[]> {
-    console.log(`🔍 [GitHubService] Fetching available repositories for user: ${userId}, context: ${context}`);
+    // Fetch available repositories
     
     try {
       const params = new URLSearchParams({ userId, context });
@@ -60,7 +60,7 @@ class UnifiedGitHubService {
 
   // Fetch only imported (connected to projects) repositories
   async fetchImportedRepositories(userId: string): Promise<GitHubRepository[]> {
-    console.log(`🔍 [GitHubService] Fetching imported repositories for user: ${userId}`);
+    // Fetch imported repositories
     
     try {
       const response = await fetch(`/api/repositories/imported?userId=${userId}`);
@@ -89,7 +89,7 @@ class UnifiedGitHubService {
     projectId: string, 
     repositories: GitHubRepository[]
   ): Promise<RepositoryImportResult> {
-    console.log(`🔄 [GitHubService] Importing ${repositories.length} repositories to project ${projectId}`);
+    // Import repositories to project
     
     try {
       const importPromises = repositories.map(repo => 
@@ -194,7 +194,7 @@ class UnifiedGitHubService {
         detail: { userId, projectId, repositories, count: repositories.length }
       });
       window.dispatchEvent(event);
-      console.log(`🔄 [GitHubService] Dispatched repositoriesImported event for ${repositories.length} repositories`);
+      // Dispatch repository update event
     }
   }
 }

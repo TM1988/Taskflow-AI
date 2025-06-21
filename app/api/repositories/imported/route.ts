@@ -58,12 +58,10 @@ export async function GET(request: NextRequest) {
     
     // Process project repository assignments from the projectRepositories collection
     // This is the primary source for repositories imported via the GitHub selector
-    console.log(`🔍 [${requestId}] Processing repository assignments...`);
+    // Process repository assignments
     projectRepoAssignments.forEach((assignment: any) => {
       const projectName = projectMap.get(assignment.projectId) || `Project ${assignment.projectId}`;
       const repoKey = assignment.fullName;
-      
-      console.log(`🔍 [${requestId}] Processing assignment: ${repoKey} -> ${projectName}`);
       
       if (!repositoryMap.has(repoKey)) {
         // Parse the fullName to get repo details

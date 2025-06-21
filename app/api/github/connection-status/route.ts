@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log(`🔄 [${requestId}] Getting admin database...`);
+    // Get admin database
     const adminDb = await getAdminDb();
 
     if (!adminDb) {

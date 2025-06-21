@@ -10,24 +10,20 @@ async function getMongoProjectId(firebaseProjectId: string): Promise<string> {
   try {
     // Check if this is a Firebase ID that has a corresponding MongoDB ID
     if (firebaseProjectId.length < 25) { // Firebase IDs are shorter than MongoDB ObjectIds
-      console.log(`[Columns getMongoProjectId] Project ID ${firebaseProjectId} looks like Firebase ID, checking for MongoDB mapping...`);
       const projectDocRef = doc(db, "projects", firebaseProjectId);
       const projectDoc = await getDoc(projectDocRef);
       
       if (projectDoc.exists()) {
         const projectData = projectDoc.data();
         if (projectData.customDbProjectId) {
-          console.log(`[Columns getMongoProjectId] Found MongoDB project ID: ${projectData.customDbProjectId} for Firebase ID: ${firebaseProjectId}`);
           return projectData.customDbProjectId;
         }
       }
     }
     
     // If no mapping found, return the original ID
-    console.log(`[Columns getMongoProjectId] Using original project ID: ${firebaseProjectId}`);
     return firebaseProjectId;
   } catch (error) {
-    console.log(`[Columns getMongoProjectId] Error checking Firebase mapping:`, error);
     return firebaseProjectId;
   }
 }
@@ -36,40 +32,28 @@ async function getMongoProjectId(firebaseProjectId: string): Promise<string> {
 async function getDatabaseForProject(projectId: string, options: { userId?: string, organizationId?: string }) {
   const { userId, organizationId: directOrganizationId } = options;
   try {
-    console.log(`[getDatabaseForProject - Columns] Project: ${projectId}, UserID: ${userId}, DirectOrgID: ${directOrganizationId}`);
-
     if (directOrganizationId) {
-      console.log(`[getDatabaseForProject - Columns] Using directOrganizationId: ${directOrganizationId} for project ${projectId}.`);
       return await getOrganizationDatabaseConnection(directOrganizationId);
     }
 
     // If no directOrganizationId, try Firestore lookup
-    console.log(`[getDatabaseForProject - Columns] No directOrganizationId. Fetching project ${projectId} from Firestore to find its organization.`);
     const projectDocRef = doc(db, "projects", projectId);
     const projectDoc = await getDoc(projectDocRef);
 
     if (projectDoc.exists()) {
       const project = projectDoc.data();
-      console.log(`[getDatabaseForProject - Columns] Project ${projectId} found in Firestore. Data:`, JSON.stringify(project, null, 2));
       if (project.organizationId) {
-        console.log(`[getDatabaseForProject - Columns] Project ${projectId} has organizationId: ${project.organizationId} from Firestore. Using organization database.`);
         return await getOrganizationDatabaseConnection(project.organizationId);
       }
-    } else {
-      console.log(`[getDatabaseForProject - Columns] Project ${projectId} not found in Firestore.`);
     }
 
     // Fallbacks if organizationId couldn't be determined
     if (userId) {
-      console.log(`[getDatabaseForProject - Columns] Falling back to user database for userId: ${userId} (project ${projectId}).`);
       return await getUserDatabaseConnection(userId);
     } else {
-      console.warn(`[getDatabaseForProject - Columns] No userId provided for fallback, and project ${projectId} could not be associated with an organization. Falling back to admin database.`);
       return await getAdminDb();
     }
   } catch (error) {
-    console.error(`[getDatabaseForProject - Columns] Error determining database for project ${projectId}:`, error);
-    console.warn(`[getDatabaseForProject - Columns] Falling back to admin database due to an error for project ${projectId}.`);
     return await getAdminDb(); // Fallback on error
   }
 }
@@ -106,8 +90,6 @@ export async function GET(request: NextRequest) {
       .sort({ order: 1 })
       .toArray();
 
-    console.log(`Found ${columns.length} columns for project ${projectId}`);
-
     // Convert ObjectId to string
     const formattedColumns = columns.map(col => ({
       ...col,
@@ -132,9 +114,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Project ID is required" }, { status: 400 });
     }
 
-    console.log(`[api/columns POST] Action for project ${projectId}, user ${userId}, org ${organizationId}`);
-    console.log("[api/columns POST] Body:", body);
-
     // Pass organizationId to getDatabaseForProject
     // If createDefaults is true, and organizationId is present, it will use the org DB.
     // If it's a personal project, organizationId will be undefined, and it will fall back to user/admin DB.
@@ -149,11 +128,8 @@ export async function POST(request: NextRequest) {
     
     // If createDefaults is true, create all default columns atomically
     if (createDefaults) {
-      console.log(`[api/columns POST] Creating default columns for project: ${projectId}, org: ${organizationId}`);
-      
       // Get the correct MongoDB project ID for database operations
       const mongoProjectId = await getMongoProjectId(projectId);
-      console.log(`[api/columns POST] Using mongoProjectId: ${mongoProjectId} for database operations`);
       
       // First check if columns already exist (using MongoDB project ID)
       const existingColumns = await database
@@ -162,7 +138,6 @@ export async function POST(request: NextRequest) {
         .toArray();
       
       if (existingColumns.length > 0) {
-        console.log("Columns already exist, returning existing:", existingColumns.length);
         const formattedColumns = existingColumns
           .map((col: any) => ({
             ...col,
@@ -198,7 +173,6 @@ export async function POST(request: NextRequest) {
         id: result.insertedIds[index].toString()
       }));
 
-      console.log("Created default columns:", columns.length);
       return NextResponse.json({ columns }, { status: 201 });
     }
 
@@ -246,7 +220,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Project ID is required for updating columns" }, { status: 400 });
     }
 
-    console.log(`[api/columns PUT] Updating columns for project ${projectId}, user ${userId}, org ${organizationId}`);
+    // Get database connection
 
     // Pass organizationId to getDatabaseForProject
     const database = await getDatabaseForProject(projectId, { userId: userId || undefined, organizationId: organizationId || undefined });

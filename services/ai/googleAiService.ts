@@ -47,7 +47,7 @@ export class GoogleAiService {
         model: "gemini-pro",
         safetySettings,
       });
-      console.log("Google AI Service initialized successfully");
+      // Google AI Service initialized successfully
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error occurred";
@@ -58,7 +58,7 @@ export class GoogleAiService {
 
   // Improved test method with proper error handling
   async testApiKey(): Promise<boolean> {
-    console.log("Testing Google AI API key...");
+    // Testing Google AI API key...
 
     if (!this.apiKey) {
       console.error("No API key provided");
@@ -85,7 +85,7 @@ export class GoogleAiService {
       const result = await Promise.race([resultPromise, timeout]);
 
       const responseText = result.response.text().trim().toLowerCase();
-      console.log("API key test response:", responseText);
+      // API key test response
 
       // Check that we got a legitimate response
       return responseText.includes("verified");
@@ -152,7 +152,7 @@ export class GoogleAiService {
     `;
 
     try {
-      console.log("Generating task suggestions...");
+      // Generating task suggestions...
       const result = await this.model.generateContent({
         contents: [
           { role: "user", parts: [{ text: systemPrompt }] },
@@ -169,10 +169,6 @@ export class GoogleAiService {
       });
 
       const responseText = result.response.text();
-      console.log(
-        "AI suggestion response received, length:",
-        responseText.length,
-      );
 
       // Extract JSON from response
       const jsonMatch =

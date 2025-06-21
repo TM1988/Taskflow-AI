@@ -228,7 +228,9 @@ class GitHubRepositoryService {
     // Clear any previous processed codes
     sessionStorage.removeItem("github_processed_code");
     
-    const redirectUri = `${window.location.origin}/github-callback`;
+    // Use environment variable for redirect URI if available, otherwise construct from origin
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
+    const redirectUri = `${baseUrl}/github-callback`;
     const scope = "repo,read:user";
     
     const authUrl = `https://github.com/login/oauth/authorize?` +

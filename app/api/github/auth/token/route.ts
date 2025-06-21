@@ -13,14 +13,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Choose the correct GitHub app credentials based on context
-    const clientId = context === "organization" 
-      ? process.env.NEXT_PUBLIC_GITHUB_ORG_CLIENT_ID 
-      : process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
-    
-    const clientSecret = context === "organization"
-      ? process.env.GITHUB_ORG_CLIENT_SECRET
-      : process.env.GITHUB_CLIENT_SECRET;
+    // Use single GitHub app credentials for all contexts
+    const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
+    const clientSecret = process.env.GITHUB_CLIENT_SECRET;
 
     if (!clientId || !clientSecret) {
       return NextResponse.json(

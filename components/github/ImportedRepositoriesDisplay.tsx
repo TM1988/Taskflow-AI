@@ -67,7 +67,7 @@ export default function ImportedRepositoriesDisplay({
   // Listen for repository import/remove events
   useEffect(() => {
     const handleRepositoryUpdate = (event: any) => {
-      console.log("🔄 [ImportedReposDisplay] Repository update event received, refreshing...");
+      // Repository update event received, refreshing...
       loadRepositories(false); // Don't show loading spinner for updates
     };
 

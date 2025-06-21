@@ -153,7 +153,6 @@ export async function getOrganizationDatabaseConnection(organizationId: string, 
       const database = client.db(officialDbName);
       
       connectionCache.set(cacheKey, { client, db: database });
-      console.log(`[getOrganizationDatabaseConnection] Successfully connected to official database: ${officialDbName}`);
       return database;
     } catch (error) {
       console.error(`[getOrganizationDatabaseConnection] Failed to connect to official database:`, error);

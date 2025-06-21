@@ -33,12 +33,6 @@ export const githubServiceServer = {
       const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
       const clientSecret = process.env.GITHUB_CLIENT_SECRET;
 
-      console.log(
-        "Exchanging code for token with client ID:",
-        clientId?.slice(0, 5) + "...",
-      );
-      console.log("Client secret available:", !!clientSecret);
-
       if (!clientId || !clientSecret) {
         throw new Error(
           "GitHub OAuth credentials not configured: " +

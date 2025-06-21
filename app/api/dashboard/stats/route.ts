@@ -19,7 +19,6 @@ export async function GET(request: NextRequest) {
     const stats = await dashboardService.getProjectStats(userId);
     return NextResponse.json(stats);
   } catch (error) {
-    console.error("Error fetching dashboard stats:", error);
     return NextResponse.json(
       { error: "Failed to fetch dashboard statistics" },
       { status: 500 },

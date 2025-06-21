@@ -14,14 +14,6 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get("userId");
     const organizationId = searchParams.get("organizationId");
 
-    console.log(`🔄 [${requestId}] Projects API GET called`);
-    console.log(`🔍 [${requestId}] Request details:`, {
-      url: request.url,
-      userId,
-      organizationId,
-      searchParams: Object.fromEntries(searchParams.entries())
-    });
-
     if (!userId) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 });
     }
@@ -52,11 +44,7 @@ export async function GET(request: NextRequest) {
       query.organizationId = organizationId;
     }
 
-    console.log(`🔍 [${requestId}] Executing MongoDB query:`, JSON.stringify(query, null, 2));
-
     const projects = await database.collection("projects").find(query).toArray();
-    
-    console.log(`✅ [${requestId}] Found ${projects.length} projects`);
 
     // Format projects for response
     const formattedProjects = projects.map((project: any) => ({

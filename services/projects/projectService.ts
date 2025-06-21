@@ -25,7 +25,7 @@ export const projectService = {
   // Get all projects for a user
   async getUserProjects(userId: string): Promise<Project[]> {
     try {
-      console.log(`Fetching projects for user: ${userId}`);
+      // Fetching projects
       
       const response = await fetch(`/api/projects?userId=${userId}`);
 
