@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -101,8 +101,14 @@ export function ProfilePictureUpload({
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [rotation, setRotation] = useState(0);
+  const [localPhotoURL, setLocalPhotoURL] = useState<string | null>(currentPhotoURL || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Update local photo URL when prop changes
+  useEffect(() => {
+    setLocalPhotoURL(currentPhotoURL || null);
+  }, [currentPhotoURL]);
 
   const sizeClasses = {
     sm: "h-16 w-16",
@@ -175,6 +181,7 @@ export function ProfilePictureUpload({
       
       if (photoURL) {
         console.log("Upload successful, updating profile...");
+        setLocalPhotoURL(photoURL); // Update local state immediately
         onPhotoUpdate(photoURL);
         setCropModalOpen(false);
         setImageSrc(null);
@@ -205,6 +212,7 @@ export function ProfilePictureUpload({
       setUploading(true);
       const success = await deleteProfilePicture(userId);
       if (success) {
+        setLocalPhotoURL(null); // Update local state immediately
         onPhotoUpdate(null);
         toast({
           title: "Success",
@@ -228,7 +236,7 @@ export function ProfilePictureUpload({
         <div className="relative group">
           <Avatar className={sizeClasses[size]}>
             <AvatarImage 
-              src={currentPhotoURL || undefined} 
+              src={localPhotoURL || undefined} 
               alt={displayName || "Profile"} 
             />
             <AvatarFallback className="text-lg">
@@ -273,10 +281,10 @@ export function ProfilePictureUpload({
             type="button"
           >
             <Upload className="h-4 w-4 mr-1" />
-            {currentPhotoURL ? "Change" : "Upload"}
+            {localPhotoURL ? "Change" : "Upload"}
           </Button>
           
-          {currentPhotoURL && (
+          {localPhotoURL && (
             <Button
               variant="ghost"
               size="sm"

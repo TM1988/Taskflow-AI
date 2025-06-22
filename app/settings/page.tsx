@@ -21,6 +21,7 @@ import { useTheme } from "next-themes";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/services/auth/AuthContext";
+import { auth } from "@/config/firebase";
 import { cn } from "@/lib/utils";
 import ColumnManager from "@/components/board/column-manager";
 import CreateOrganizationModal from "@/components/organizations/create-organization-modal";
@@ -411,6 +412,9 @@ function SettingsPageContent() {
       if (!response.ok) {
         throw new Error("Failed to update profile picture in database");
       }
+
+      // Force a refresh of the user state by reloading the auth user
+      await auth.currentUser?.reload();
 
       toast({
         title: "Success",

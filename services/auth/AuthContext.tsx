@@ -142,7 +142,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const updateProfile = async (profileData: { displayName?: string; photoURL?: string }) => {
     if (!user) throw new Error("No user logged in");
     
-    await updateFirebaseProfile(user, profileData);
+    // Get the current Firebase auth user to ensure we have all methods
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error("No authenticated user found");
+    
+    await updateFirebaseProfile(currentUser, profileData);
     
     // Update user state
     setUser({
