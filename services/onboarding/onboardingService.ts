@@ -7,6 +7,9 @@ import {
 
 class OnboardingService {
   private static instance: OnboardingService;
+  private cache: Map<string, { data: OnboardingProgress; timestamp: number }> = new Map();
+  private needsOnboardingCache: Map<string, { result: boolean; timestamp: number }> = new Map();
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   static getInstance(): OnboardingService {
     if (!OnboardingService.instance) {
@@ -88,6 +91,9 @@ class OnboardingService {
    */
   async completeStep(userId: string, stepId: string): Promise<OnboardingProgress> {
     try {
+      // Clear cache when updating progress
+      this.needsOnboardingCache.delete(userId);
+      this.cache.delete(userId);
       
       // Directly call the API endpoint that handles step completion
       const response = await fetch(`/api/users/${userId}/onboarding`, {
@@ -222,12 +228,24 @@ class OnboardingService {
    */
   async needsOnboarding(userId: string): Promise<boolean> {
     try {
+      // Check cache first
+      const cached = this.needsOnboardingCache.get(userId);
+      if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+        return cached.result;
+      }
+
       const progress = await this.getProgress(userId);
       
       // Only show onboarding if the user has NEVER completed it
       // If completedAt exists, they have finished onboarding at least once
       const hasEverCompleted = progress.completedAt !== undefined;
       const shouldShow = !hasEverCompleted;
+      
+      // Cache the result
+      this.needsOnboardingCache.set(userId, {
+        result: shouldShow,
+        timestamp: Date.now()
+      });
       
       return shouldShow;
     } catch (error) {

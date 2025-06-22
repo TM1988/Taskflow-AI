@@ -170,7 +170,7 @@ export default function ProjectSettingsPage({ params }: ProjectSettingsPageProps
     if (user && params.projectId) {
       fetchProjectData();
     }
-  }, [user, fetchProjectData]);
+  }, [user, params.projectId]); // Remove fetchProjectData from dependencies to prevent infinite loop
 
   const handleSave = async () => {
     try {

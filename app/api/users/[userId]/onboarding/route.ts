@@ -79,10 +79,43 @@ export async function PUT(
 ) {
   try {
     const { userId } = params;
-    const { stepId } = await request.json();
+    const body = await request.json();
+    const { stepId } = body;
+    
+    if (!stepId) {
+      return NextResponse.json(
+        { error: "stepId is required" },
+        { status: 400 }
+      );
+    }
+
     const { mongoDb } = await getMongoDb();
 
     console.log(`🎯 API: Marking step ${stepId} as completed for user ${userId}`);
+
+    // Check if step is already completed to prevent duplicate updates
+    const existingProgress = await mongoDb
+      .collection("onboarding_progress")
+      .findOne({ userId });
+
+    if (existingProgress?.completedSteps?.includes(stepId)) {
+      console.log(`🎯 API: Step ${stepId} already completed, returning existing progress`);
+      
+      const completedStepsCount = existingProgress.completedSteps.length;
+      const totalSteps = DEFAULT_ONBOARDING_STEPS.length;
+      const progressPercentage = (completedStepsCount / totalSteps) * 100;
+      const isCompleted = completedStepsCount === totalSteps;
+      
+      return NextResponse.json({
+        ...existingProgress,
+        steps: DEFAULT_ONBOARDING_STEPS,
+        totalSteps,
+        completedStepsCount,
+        progressPercentage,
+        completed: isCompleted,
+        estimatedTimeRemaining: (totalSteps - completedStepsCount) * 3
+      });
+    }
 
     const updatedProgress = await mongoDb
       .collection("onboarding_progress")

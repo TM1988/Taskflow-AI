@@ -135,7 +135,7 @@ export default function ProjectTeamPage() {
     if (params.projectId) {
       fetchProjectData();
     }
-  }, [params.projectId, fetchProjectData]);
+  }, [params.projectId]); // Remove fetchProjectData from dependencies to prevent infinite loop
 
   // Filter org members who are not already project members
   const availableMembers = orgMembers.filter(

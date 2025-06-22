@@ -34,6 +34,7 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
   const pathname = usePathname();
   const { user } = useAuth();
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
   
   // Check if current page should show the layout (sidebar + header)
   const isAuthPage = pathname.startsWith("/auth") || pathname.startsWith("/invite");
@@ -41,19 +42,27 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
   // Check onboarding status for authenticated users
   useEffect(() => {
     const checkOnboarding = async () => {
-      if (user && !isAuthPage) {
+      if (user && !isAuthPage && !onboardingChecked) {
         try {
           const needsOnboarding = await onboardingService.needsOnboarding(user.uid);
           setShowOnboarding(needsOnboarding);
         } catch (error) {
           console.error("Error checking onboarding status:", error);
           setShowOnboarding(false);
+        } finally {
+          setOnboardingChecked(true);
         }
       }
     };
 
-    checkOnboarding();
-  }, [user, isAuthPage]);
+    // Reset check when user changes
+    if (!user) {
+      setOnboardingChecked(false);
+      setShowOnboarding(false);
+    } else {
+      checkOnboarding();
+    }
+  }, [user, isAuthPage, onboardingChecked]);
 
   // For auth pages, don't show sidebar and header
   if (isAuthPage) {
@@ -74,6 +83,7 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
           userId={user.uid} 
           onComplete={() => {
             setShowOnboarding(false);
+            setOnboardingChecked(false); // Allow re-checking if onboarding is reset
           }}
         />
       )}
