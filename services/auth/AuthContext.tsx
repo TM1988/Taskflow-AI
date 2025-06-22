@@ -87,9 +87,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       await signInWithEmailAndPassword(auth, email, password);
       router.push("/");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error signing in:", error);
-      throw error;
+      
+      // Provide specific error messages
+      if (error.code === 'auth/user-not-found') {
+        throw new Error("This account doesn't exist. Please create an account first.");
+      } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+        // For invalid credentials, we need to be careful not to reveal if email exists
+        // But we can still provide helpful guidance
+        throw new Error("Invalid email or password. Please check your credentials or create an account if you don't have one.");
+      } else if (error.code === 'auth/invalid-email') {
+        throw new Error("Please enter a valid email address.");
+      } else if (error.code === 'auth/user-disabled') {
+        throw new Error("This account has been disabled. Please contact support.");
+      } else if (error.code === 'auth/too-many-requests') {
+        throw new Error("Too many failed attempts. Please try again later.");
+      } else {
+        // For any other error, suggest account creation as a possibility
+        throw new Error("Unable to sign in. Please check your credentials or create an account if you don't have one.");
+      }
     }
   };
 
@@ -103,9 +120,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
       
       router.push("/");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error signing up:", error);
-      throw error;
+      
+      // Provide specific error messages
+      if (error.code === 'auth/email-already-in-use') {
+        throw new Error("An account with this email already exists. Please sign in instead.");
+      } else if (error.code === 'auth/weak-password') {
+        throw new Error("Password is too weak. Please choose a stronger password.");
+      } else if (error.code === 'auth/invalid-email') {
+        throw new Error("Please enter a valid email address.");
+      } else if (error.code === 'auth/operation-not-allowed') {
+        throw new Error("Email/password accounts are not enabled. Please contact support.");
+      } else {
+        throw new Error("Failed to create account. Please try again.");
+      }
     }
   };
 

@@ -16,6 +16,8 @@ import {
 import { Github } from "lucide-react";
 import { useAuth } from "@/services/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { validatePassword } from "@/lib/password-validation";
+import { PasswordStrengthIndicator } from "@/components/ui/password-strength-indicator";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -26,9 +28,25 @@ export default function RegisterPage() {
     useAuth();
   const { toast } = useToast();
 
+  // Check if password meets requirements
+  const passwordValidation = validatePassword(password);
+  const isFormValid = name.trim() && email.trim() && password && passwordValidation.isValid;
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+
+    // Validate password before submitting
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      toast({
+        title: "Password Requirements Not Met",
+        description: passwordValidation.errors.join(", "),
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
 
     try {
       await register(email, password, name);
@@ -36,10 +54,12 @@ export default function RegisterPage() {
         title: "Success",
         description: "Your account has been created.",
       });
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage = error.message || "Failed to create account. Please try again.";
+      
       toast({
         title: "Error",
-        description: "Failed to create account. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -169,8 +189,18 @@ export default function RegisterPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                {password && (
+                  <PasswordStrengthIndicator 
+                    password={password} 
+                    showRequirements={true}
+                  />
+                )}
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isLoading || !isFormValid}
+              >
                 {isLoading
                   ? "Creating account..."
                   : "Create account with Email"}

@@ -34,12 +34,25 @@ export default function LoginPage() {
         title: "Success",
         description: "You have successfully signed in.",
       });
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage = error.message || "Failed to sign in. Please check your credentials.";
+      
       toast({
         title: "Error",
-        description: "Failed to sign in. Please check your credentials.",
+        description: errorMessage,
         variant: "destructive",
       });
+
+      // If user not found, suggest registration
+      if (error.message?.includes("doesn't exist") || error.message?.includes("No account found")) {
+        setTimeout(() => {
+          toast({
+            title: "Need an account?",
+            description: "Click 'Create Account' below to get started.",
+            variant: "default",
+          });
+        }, 2000);
+      }
     } finally {
       setIsLoading(false);
     }
