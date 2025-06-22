@@ -20,23 +20,23 @@ async function validateGoogleAIKey(apiKey: string): Promise<boolean> {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } },
+  { params }: { params: { projectId: string } },
 ) {
   try {
-    const { userId } = params;
-    console.log("GET AI config for user:", userId);
+    const { projectId } = params;
+    console.log("GET Project AI config for project:", projectId);
 
     await initializeMongoDB();
     const { mongoDb } = await getMongoDb();
 
     const config = await mongoDb
-      .collection("userAiConfigs")
-      .findOne({ userId });
+      .collection("projectAiConfigs")
+      .findOne({ projectId });
 
     if (!config) {
       // Return default config if none exists
       return NextResponse.json({
-        userId,
+        projectId,
         aiProvider: "openai",
         apiKey: null,
         model: "gpt-3.5-turbo",
@@ -53,9 +53,9 @@ export async function GET(
       hasApiKey: !!config.apiKey
     });
   } catch (error) {
-    console.error("Error fetching AI config:", error);
+    console.error("Error fetching Project AI config:", error);
     return NextResponse.json(
-      { error: "Failed to fetch AI config" },
+      { error: "Failed to fetch Project AI config" },
       { status: 500 },
     );
   }
@@ -63,13 +63,13 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { userId: string } },
+  { params }: { params: { projectId: string } },
 ) {
   try {
-    const { userId } = params;
+    const { projectId } = params;
     const body = await request.json();
 
-    console.log("PUT AI config for user:", userId, { ...body, apiKey: body.apiKey ? '***masked***' : undefined });
+    console.log("PUT Project AI config for project:", projectId, { ...body, apiKey: body.apiKey ? '***masked***' : undefined });
 
     // Validate API key if provided
     if (body.apiKey) {
@@ -90,22 +90,22 @@ export async function PUT(
 
     const updateData = {
       ...body,
-      userId,
+      projectId,
       updatedAt: new Date(),
     };
 
     const result = await mongoDb
-      .collection("userAiConfigs")
+      .collection("projectAiConfigs")
       .updateOne(
-        { userId },
+        { projectId },
         { $set: updateData },
         { upsert: true },
       );
 
     // Return the updated config instead of just success
     const updatedConfig = await mongoDb
-      .collection("userAiConfigs")
-      .findOne({ userId });
+      .collection("projectAiConfigs")
+      .findOne({ projectId });
 
     return NextResponse.json({
       ...updatedConfig,
@@ -114,9 +114,9 @@ export async function PUT(
       hasApiKey: !!updatedConfig?.apiKey
     });
   } catch (error) {
-    console.error("Error updating AI config:", error);
+    console.error("Error updating Project AI config:", error);
     return NextResponse.json(
-      { error: "Failed to update AI config" },
+      { error: "Failed to update Project AI config" },
       { status: 500 },
     );
   }
@@ -125,7 +125,7 @@ export async function PUT(
 // Also support POST method for compatibility
 export async function POST(
   request: NextRequest,
-  { params }: { params: { userId: string } },
+  { params }: { params: { projectId: string } },
 ) {
   return PUT(request, { params });
 }

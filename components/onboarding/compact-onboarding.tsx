@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,8 @@ import {
   Database,
   Minimize2,
   Maximize2,
-  RefreshCw
+  RefreshCw,
+  GripVertical
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
@@ -42,6 +43,26 @@ export default function CompactOnboarding({
   const [isExpanded, setIsExpanded] = useState(false);
   const [completingStep, setCompletingStep] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  
+  // Dragging state
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [position, setPosition] = useState({ x: 16, y: 16 }); // Default top-4 right-4 (16px)
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Load saved position on mount
+  useEffect(() => {
+    const savedPosition = localStorage.getItem('onboarding-position');
+    if (savedPosition) {
+      try {
+        const parsed = JSON.parse(savedPosition);
+        setPosition(parsed);
+      } catch (error) {
+        console.error('Failed to parse saved onboarding position:', error);
+      }
+    }
+  }, []);
+  
   const { toast } = useToast();
   const router = useRouter();
 
@@ -51,6 +72,111 @@ export default function CompactOnboarding({
       // Remove auto-refresh to avoid API spam and progress conflicts
     }
   }, [userId]);
+
+  // Drag functionality
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (rect) {
+      setDragOffset({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      });
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setIsDragging(true);
+    
+    const touch = e.touches[0];
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (rect) {
+      setDragOffset({
+        x: touch.clientX - rect.left,
+        y: touch.clientY - rect.top
+      });
+    }
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      
+      const newX = e.clientX - dragOffset.x;
+      const newY = e.clientY - dragOffset.y;
+      
+      // Constrain to viewport
+      const maxX = window.innerWidth - (cardRef.current?.offsetWidth || 320);
+      const maxY = window.innerHeight - (cardRef.current?.offsetHeight || 400);
+      
+      setPosition({
+        x: Math.max(0, Math.min(newX, maxX)),
+        y: Math.max(0, Math.min(newY, maxY))
+      });
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isDragging) return;
+      
+      const touch = e.touches[0];
+      const newX = touch.clientX - dragOffset.x;
+      const newY = touch.clientY - dragOffset.y;
+      
+      // Constrain to viewport
+      const maxX = window.innerWidth - (cardRef.current?.offsetWidth || 320);
+      const maxY = window.innerHeight - (cardRef.current?.offsetHeight || 400);
+      
+      setPosition({
+        x: Math.max(0, Math.min(newX, maxX)),
+        y: Math.max(0, Math.min(newY, maxY))
+      });
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      saveCurrentPosition();
+    };
+
+    const handleTouchEnd = () => {
+      setIsDragging(false);
+      saveCurrentPosition();
+    };
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('touchmove', handleTouchMove, { passive: false });
+      document.addEventListener('touchend', handleTouchEnd);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isDragging, dragOffset]);
+
+  // Prevent scrolling on mobile when dragging
+  useEffect(() => {
+    if (isDragging) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isDragging]);
+
+  // Save current position exactly where user drops it
+  const saveCurrentPosition = () => {
+    // Save the exact current position to localStorage
+    localStorage.setItem('onboarding-position', JSON.stringify(position));
+  };
 
   const fetchProgress = async () => {
     console.log("🔄 Fetching onboarding progress for user:", userId);
@@ -313,30 +439,39 @@ export default function CompactOnboarding({
   const progressPercentage = (completedCount / totalCount) * 100;
   const isComplete = completedCount === totalCount;
 
-  console.log("🔍 Onboarding render state:", {
-    completedSteps: progress.completedSteps,
-    completedCount,
-    totalCount,
-    progressPercentage,
-    isComplete,
-    isExpanded,
-    onboardingStepsLength: onboardingSteps.length,
-    shouldShowExpandButton: onboardingSteps.length > 5
-  });
-
   if (isComplete) {
     return null; // Hide when all steps are complete
   }
 
   return (
-    <div className={cn(
-      "fixed top-4 right-4 z-50 w-80 transition-all duration-300",
-      isMinimized && "w-60"
-    )}>
-      <Card className="shadow-lg border-2 border-primary/20">
-        <CardHeader className="pb-3">
+    <div 
+      ref={cardRef}
+      className={cn(
+        "fixed z-50 w-80 transition-all duration-300 select-none",
+        isMinimized && "w-60",
+        isDragging && "cursor-grabbing",
+        !isDragging && "cursor-grab"
+      )}
+      style={{
+        left: position.x,
+        top: position.y,
+        transform: isDragging ? 'scale(1.02)' : 'scale(1)',
+        transition: isDragging ? 'none' : 'transform 0.2s ease-out'
+      }}
+    >
+      <Card className={cn(
+        "shadow-lg border-2 border-primary/20",
+        isDragging && "shadow-2xl border-primary/40"
+      )}>
+        <CardHeader 
+          className="pb-3"
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          title="Drag to move this onboarding panel"
+        >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
+              <GripVertical className="h-4 w-4 text-muted-foreground opacity-60" />
               <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
               <CardTitle className="text-sm font-medium">
                 Getting Started
@@ -368,13 +503,23 @@ export default function CompactOnboarding({
                     syncing...
                   </span>
                 )}
+                {isDragging && (
+                  <span className="text-amber-500 flex items-center gap-1">
+                    <GripVertical className="h-3 w-3" />
+                    dragging...
+                  </span>
+                )}
               </CardDescription>
             </>
           )}
         </CardHeader>
 
         {!isMinimized && (
-          <CardContent className="pt-0">
+          <CardContent 
+            className="pt-0"
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
             <div className="space-y-2">
               {/* Show steps based on expand state */}
               {onboardingSteps
@@ -383,8 +528,6 @@ export default function CompactOnboarding({
                   const isCompleted = progress.completedSteps.includes(step.id);
                   const isCompleting = completingStep === step.id;
                   const IconComponent = getIconForStep(step.id);
-
-                  console.log(`🔍 Rendering step ${step.id}:`, { isCompleted, isCompleting, stepTitle: step.title });
 
                   return (
                     <div

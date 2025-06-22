@@ -108,29 +108,30 @@ export default function ProjectSettingsPage({ params }: ProjectSettingsPageProps
   // Fetch AI config when component mounts
   useEffect(() => {
     const fetchAIConfig = async () => {
-      if (!user) return;
+      if (!params.projectId) return;
 
       try {
-        const response = await fetch(`/api/user-ai-config/${user.uid}`);
+        const response = await fetch(`/api/projects/${params.projectId}/ai-config`);
         if (response.ok) {
           const data = await response.json();
-          setIsEnabled(data.isEnabled || false);
+          console.log("Loaded Project AI config:", data);
+          setIsEnabled(data.isEnabled || data.enabled || false);
           setCurrentKey(data.hasApiKey ? "••••••••••••••••" : null);
         }
       } catch (error) {
-        console.error("Error fetching AI config:", error);
+        console.error("Error fetching Project AI config:", error);
       }
     };
 
     fetchAIConfig();
-  }, [user]);
+  }, [params.projectId]);
 
   const saveAIConfig = async () => {
-    if (!user) return;
+    if (!params.projectId) return;
 
     setIsSaving(true);
     try {
-      const response = await fetch(`/api/user-ai-config/${user.uid}`, {
+      const response = await fetch(`/api/projects/${params.projectId}/ai-config`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -141,6 +142,7 @@ export default function ProjectSettingsPage({ params }: ProjectSettingsPageProps
 
       if (response.ok) {
         const data = await response.json();
+        console.log("Saved Project AI config:", data);
         if (apiKey) {
           setCurrentKey("••••••••••••••••");
           setApiKey("");
@@ -149,16 +151,27 @@ export default function ProjectSettingsPage({ params }: ProjectSettingsPageProps
         setTimeout(() => setConfigSaved(false), 3000);
         toast({
           title: "Success",
-          description: "AI configuration saved",
+          description: "Project AI configuration saved successfully",
         });
       } else {
-        throw new Error("Failed to save AI configuration");
+        const errorData = await response.json();
+        console.error("Error response:", errorData);
+        
+        // Show specific validation error or generic error
+        const errorMessage = errorData.error || "Failed to save Project AI configuration";
+        const errorDetails = errorData.details;
+        
+        toast({
+          title: "Error",
+          description: errorDetails ? `${errorMessage} ${errorDetails}` : errorMessage,
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.error("Error saving AI config:", error);
+      console.error("Error saving Project AI config:", error);
       toast({
-        title: "Error",
-        description: "Failed to save AI configuration",
+        title: "Error", 
+        description: "Network error while saving AI configuration. Please try again.",
         variant: "destructive",
       });
     } finally {

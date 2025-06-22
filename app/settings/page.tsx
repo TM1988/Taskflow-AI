@@ -334,16 +334,20 @@ function SettingsPageContent() {
       } else {
         // Get error message from the response
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to save configuration");
+        const errorMessage = errorData.error || "Failed to save configuration";
+        const errorDetails = errorData.details;
+        
+        toast({
+          title: "Error",
+          description: errorDetails ? `${errorMessage} ${errorDetails}` : errorMessage,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error saving AI config:", error);
       toast({
         title: "Error",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Failed to save AI configuration",
+        description: "Network error while saving AI configuration. Please try again.",
         variant: "destructive",
       });
     } finally {
