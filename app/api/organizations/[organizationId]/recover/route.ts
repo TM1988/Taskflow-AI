@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMongoDb } from "@/services/singleton";
-import { ObjectId } from 'mongodb';
+import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 export async function POST(
   request: NextRequest,
@@ -11,25 +11,28 @@ export async function POST(
     
     console.log(`Recovering organization: ${organizationId}`);
 
-    const { mongoDb } = await getMongoDb();
+    const orgRef = doc(db, "organizations", organizationId);
+    const orgSnap = await getDoc(orgRef);
 
-    // Find the deleted organization
-    const deletedOrg = await mongoDb
-      .collection("organizations")
-      .findOne({ 
-        _id: new ObjectId(organizationId), 
-        deleted: true 
-      });
-
-    if (!deletedOrg) {
+    if (!orgSnap.exists()) {
       return NextResponse.json(
-        { error: "Organization not found or not deleted" },
+        { error: "Organization not found" },
         { status: 404 }
       );
     }
 
+    const orgData = orgSnap.data();
+
+    // Check if organization is actually deleted
+    if (!orgData.deleted) {
+      return NextResponse.json(
+        { error: "Organization is not deleted" },
+        { status: 400 }
+      );
+    }
+
     // Check if recovery window is still valid (24 hours)
-    const deletedAt = new Date(deletedOrg.deletedAt);
+    const deletedAt = orgData.deletedAt?.toDate ? orgData.deletedAt.toDate() : new Date(orgData.deletedAt);
     const now = new Date();
     const hoursSinceDeleted = (now.getTime() - deletedAt.getTime()) / (1000 * 60 * 60);
 
@@ -41,25 +44,12 @@ export async function POST(
     }
 
     // Restore organization by removing deleted flag
-    const result = await mongoDb
-      .collection("organizations")
-      .updateOne(
-        { _id: new ObjectId(organizationId) },
-        { 
-          $unset: { 
-            deleted: "",
-            deletedAt: "",
-            deletedBy: ""
-          },
-          $set: {
-            updatedAt: new Date()
-          }
-        }
-      );
-
-    if (result.modifiedCount === 0) {
-      throw new Error("Failed to recover organization");
-    }
+    await updateDoc(orgRef, {
+      deleted: false,
+      deletedAt: null,
+      deletedBy: null,
+      updatedAt: serverTimestamp()
+    });
 
     console.log(`Organization ${organizationId} recovered successfully`);
     

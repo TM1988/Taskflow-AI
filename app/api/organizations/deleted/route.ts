@@ -19,11 +19,36 @@ export async function GET(request: NextRequest) {
 
     console.log(`Fetching deleted organizations for user: ${userId}`);
 
-    // Query for deleted organizations
-    // For now, return empty array since we don't have soft delete implemented yet
-    // TODO: Implement actual soft delete functionality
-    const deletedOrganizations: any[] = [];
+    // Query for deleted organizations where user is a member
+    const q = query(
+      collection(db, "organizations"),
+      where("deleted", "==", true),
+      where("members", "array-contains", userId)
+    );
 
+    const querySnapshot = await getDocs(q);
+    const deletedOrganizations = querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      
+      // Convert Firestore timestamps to ISO strings
+      const convertTimestamp = (timestamp: any) => {
+        if (!timestamp) return null;
+        if (timestamp && typeof timestamp.toDate === "function") {
+          return timestamp.toDate().toISOString();
+        }
+        return timestamp;
+      };
+
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: convertTimestamp(data.createdAt),
+        updatedAt: convertTimestamp(data.updatedAt),
+        deletedAt: convertTimestamp(data.deletedAt),
+      };
+    });
+
+    console.log(`Found ${deletedOrganizations.length} deleted organizations for user ${userId}`);
     return NextResponse.json(deletedOrganizations);
 
   } catch (error) {
