@@ -463,6 +463,7 @@ export default function TaskDetail({
                         size="sm"
                         variant="destructive"
                         onClick={() => setDeleteConfirmOpen(true)}
+                        disabled={loading}
                       >
                         <Trash className="h-4 w-4 mr-1" />
                         Delete
@@ -696,8 +697,9 @@ export default function TaskDetail({
         cancelText="Cancel"
         onConfirm={() => {
           if (task && task.id) {
+            setDeleteConfirmOpen(false);
             onTaskDelete(task.id);
-            onOpenChange(false);
+            // Don't call onOpenChange here - let the parent handle it
           }
         }}
         variant="destructive"
