@@ -8,10 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { User, Plus, ArrowLeft } from "lucide-react";
+import { User, Plus, ArrowLeft, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/services/auth/AuthContext";
 
 export default function ProjectTeamPage() {
   const params = useParams();
@@ -21,8 +23,10 @@ export default function ProjectTeamPage() {
   const [loading, setLoading] = useState(true);
   const [showAddMember, setShowAddMember] = useState(false);
   const [selectedMember, setSelectedMember] = useState<string>("");
+  const [removingMember, setRemovingMember] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
+  const { user } = useAuth();
 
   const fetchProjectData = async () => {
     try {
@@ -131,6 +135,36 @@ export default function ProjectTeamPage() {
     }
   };
 
+  const removeMemberFromProject = async (memberId: string) => {
+    try {
+      setRemovingMember(memberId);
+
+      const response = await fetch(`/api/projects/${params.projectId}/members?userId=${memberId}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Member removed from project",
+        });
+        fetchProjectData(); // Refresh data
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to remove member");
+      }
+    } catch (error) {
+      console.error("Error removing member:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to remove member from project",
+        variant: "destructive",
+      });
+    } finally {
+      setRemovingMember(null);
+    }
+  };
+
   useEffect(() => {
     if (params.projectId) {
       fetchProjectData();
@@ -192,6 +226,39 @@ export default function ProjectTeamPage() {
                 <Badge variant={member.role === "owner" ? "default" : "outline"}>
                   {member.role === "owner" ? "Owner" : member.role || "Member"}
                 </Badge>
+                {/* Only show remove button for non-owners and if current user is owner */}
+                {member.role !== "owner" && project?.ownerId === user?.uid && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        disabled={removingMember === member.id}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Remove Team Member</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to remove {member.name} from this project? 
+                          They will lose access to all project tasks and data.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => removeMemberFromProject(member.id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          {removingMember === member.id ? "Removing..." : "Remove Member"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
               </div>
             </div>
           </Card>

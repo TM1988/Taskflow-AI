@@ -1,12 +1,6 @@
 import { Octokit } from "octokit";
-import {
-  addDocument,
-  getDocuments,
-  getDocument,
-  updateDocument,
-  deleteDocument,
-  setDocument,
-} from "@/services/db/mongodb";
+import { ObjectId } from "mongodb";
+import { getAdminDb } from "@/services/admin/mongoAdmin";
 
 // Collection names
 const GITHUB_TOKENS_COLLECTION = "githubTokens";
@@ -80,7 +74,8 @@ export const githubServiceServer = {
 
   // Get authenticated Octokit instance for a user
   async getOctokit(userId: string) {
-    const tokenDoc = await getDocument(GITHUB_TOKENS_COLLECTION, userId);
+    const db = await getAdminDb();
+    const tokenDoc = await db.collection(GITHUB_TOKENS_COLLECTION).findOne({ userId: userId });
     if (!tokenDoc) {
       throw new Error(
         "GitHub token not found. Please connect your GitHub account.",
@@ -92,9 +87,12 @@ export const githubServiceServer = {
 
   // Store GitHub token for user
   async storeGithubToken(userId: string, accessToken: string) {
-    return await setDocument(GITHUB_TOKENS_COLLECTION, userId, {
-      accessToken,
-    });
+    const db = await getAdminDb();
+    return await db.collection(GITHUB_TOKENS_COLLECTION).replaceOne(
+      { userId: userId },
+      { userId, accessToken },
+      { upsert: true }
+    );
   },
 
   // Get user GitHub repositories
@@ -110,7 +108,8 @@ export const githubServiceServer = {
 
   // Get repository by ID
   async getRepositoryById(repoId: string) {
-    return await getDocument(REPOSITORIES_COLLECTION, repoId);
+    const db = await getAdminDb();
+    return await db.collection(REPOSITORIES_COLLECTION).findOne({ id: repoId });
   },
 
   // Connect repository to project
@@ -129,7 +128,8 @@ export const githubServiceServer = {
     });
 
     // Store repository in our database
-    const repository = await addDocument(REPOSITORIES_COLLECTION, {
+    const db = await getAdminDb();
+    const repositoryData = {
       name: repoData.name,
       fullName: repoData.full_name,
       url: repoData.html_url,
@@ -139,16 +139,16 @@ export const githubServiceServer = {
       stars: repoData.stargazers_count,
       forks: repoData.forks_count,
       issues: repoData.open_issues_count,
-    });
-
-    return repository;
+    };
+    
+    const result = await db.collection(REPOSITORIES_COLLECTION).insertOne(repositoryData);
+    return { ...repositoryData, _id: result.insertedId };
   },
 
   // Get project repositories
   async getProjectRepositories(projectId: string) {
-    return await getDocuments(REPOSITORIES_COLLECTION, [
-      ["projectId", "==", projectId],
-    ]);
+    const db = await getAdminDb();
+    return await db.collection(REPOSITORIES_COLLECTION).find({ projectId }).toArray();
   },
 
   // Get repository commits
@@ -180,5 +180,52 @@ export const githubServiceServer = {
     });
 
     return pullRequests;
+  },
+
+  // Get repository issues
+  async getRepositoryIssues(userId: string, repoFullName: string) {
+    const octokit = await this.getOctokit(userId);
+    const [owner, repo] = repoFullName.split("/");
+
+    const { data: issues } = await octokit.rest.issues.listForRepo({
+      owner,
+      repo,
+      state: "all",
+      sort: "updated",
+      direction: "desc",
+      per_page: 30,
+    });
+
+    return issues;
+  },
+
+  // Get repository details
+  async getRepositoryDetails(userId: string, repoFullName: string) {
+    const octokit = await this.getOctokit(userId);
+    const [owner, repo] = repoFullName.split("/");
+
+    const { data: repository } = await octokit.rest.repos.get({
+      owner,
+      repo,
+    });
+
+    return repository;
+  },
+
+  // Get repository issues with filters
+  async getRepositoryIssuesFiltered(userId: string, repoFullName: string, state: 'open' | 'closed' | 'all' = 'all', perPage: number = 30) {
+    const octokit = await this.getOctokit(userId);
+    const [owner, repo] = repoFullName.split("/");
+
+    const { data: issues } = await octokit.rest.issues.listForRepo({
+      owner,
+      repo,
+      state,
+      sort: "updated",
+      direction: "desc",
+      per_page: perPage,
+    });
+
+    return issues;
   },
 };

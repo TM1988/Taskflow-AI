@@ -126,7 +126,7 @@ function SettingsPageContent() {
   const [connectionSuccess, setConnectionSuccess] = useState<string | null>(null);
 
   // Tab state for URL parameter handling
-  const [activeTab, setActiveTab] = useState("profile");
+  const [activeTab, setActiveTab] = useState("database");
   const searchParams = useSearchParams();
 
   const { user, updateProfile } = useAuth();
@@ -171,10 +171,15 @@ function SettingsPageContent() {
   // Handle URL tab parameter
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab && ['profile', 'database', 'tags', 'support', 'ai', 'kanban', 'appearance'].includes(tab)) {
+    if (tab === 'profile') {
+      // Redirect profile tab to new profile page
+      router.push(`/profile/${user?.uid}`);
+      return;
+    }
+    if (tab && ['database', 'tags', 'support', 'ai', 'kanban', 'appearance'].includes(tab)) {
       setActiveTab(tab);
     }
-  }, [searchParams]);
+  }, [searchParams, router, user]);
 
   // Load saved default project name
   useEffect(() => {
@@ -825,14 +830,28 @@ Note: Projects and user data are stored in Firestore, not in your custom databas
         <p className="text-muted-foreground">
           Manage your account settings and preferences.
         </p>
+        
+        {/* Profile Settings Moved Notice */}
+        <Alert className="mt-4">
+          <User className="h-4 w-4" />
+          <AlertTitle>Profile Settings Have Moved</AlertTitle>
+          <AlertDescription className="flex items-center justify-between">
+            <span>Profile settings are now available on your dedicated profile page.</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`/profile/${user?.uid}`)}
+              className="ml-4"
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Go to Profile
+            </Button>
+          </AlertDescription>
+        </Alert>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-7">
-          <TabsTrigger value="profile" className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            Profile
-          </TabsTrigger>
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="database" className="flex items-center gap-2">
             <Database className="h-4 w-4" />
             Database
@@ -858,69 +877,6 @@ Note: Projects and user data are stored in Firestore, not in your custom databas
             Appearance
           </TabsTrigger>
         </TabsList>
-
-        {/* Profile Tab */}
-        <TabsContent value="profile">
-          <Card className="p-6">
-            <h2 className="text-2xl font-semibold mb-6">Profile Settings</h2>
-            <form onSubmit={handleSaveProfile} className="space-y-6">
-              <div className="flex justify-center mb-6">
-                <ProfilePictureUpload
-                  userId={user?.uid || ""}
-                  currentPhotoURL={user?.photoURL || null}
-                  onPhotoUpdate={handlePhotoUpdate}
-                />
-              </div>
-
-              <Separator />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="displayName">Display Name</Label>
-                  <Input
-                    id="displayName"
-                    type="text"
-                    value={formData.displayName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, displayName: e.target.value })
-                    }
-                    placeholder="Enter your display name"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <div className="p-3 bg-gray-800 border border-gray-600 rounded-md">
-                    <span className="text-sm text-gray-300">{formData.email}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    You cant change your email after signup
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label>Member Since</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {formatDate(user?.metadata?.creationTime)}
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Last Sign In</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {formatDate(user?.metadata?.lastSignInTime)}
-                  </p>
-                </div>
-              </div>
-
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Saving..." : "Save Changes"}
-              </Button>
-            </form>
-          </Card>
-        </TabsContent>
 
         {/* Database Tab */}
         <TabsContent value="database">

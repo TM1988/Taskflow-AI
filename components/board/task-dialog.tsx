@@ -19,6 +19,9 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { X, Plus } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -41,6 +44,13 @@ interface TaskDialogProps {
   onTaskUpdated?: (task: any) => void;
 }
 
+interface ProjectMember {
+  id: string;
+  name: string;
+  email: string;
+  photoURL?: string;
+}
+
 export default function TaskDialog({
   open,
   onOpenChange,
@@ -55,14 +65,67 @@ export default function TaskDialog({
     columnId: "",
     priority: "medium",
     dueDate: null as string | null,
+    assigneeId: "unassigned",
+    tags: [] as string[],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState("");
   const { toast } = useToast();
   const { user } = useAuth();
-  const { currentOrganization, currentWorkspace } = useWorkspace(); // Added useWorkspace
+  const { currentOrganization, currentWorkspace } = useWorkspace();
 
-  // Reset when dialog opens - ONLY reset when dialog first opens, not on every columns change
+  // Fetch project members when dialog opens for project tasks
+  useEffect(() => {
+    if (open && projectId && projectId !== "personal") {
+      fetchProjectMembers();
+      fetchProjectTags();
+    } else if (open && projectId === "personal") {
+      fetchPersonalTags();
+    }
+  }, [open, projectId]);
+
+  const fetchProjectMembers = async () => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/members`);
+      if (response.ok) {
+        const members = await response.json();
+        setProjectMembers(members);
+      }
+    } catch (error) {
+      console.error('Error fetching project members:', error);
+    }
+  };
+
+  const fetchProjectTags = async () => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/tags`);
+      if (response.ok) {
+        const tags = await response.json();
+        setAvailableTags(tags);
+      }
+    } catch (error) {
+      console.error('Error fetching project tags:', error);
+      setAvailableTags(['frontend', 'backend', 'bug', 'feature', 'urgent']); // fallback
+    }
+  };
+
+  const fetchPersonalTags = async () => {
+    try {
+      const response = await fetch(`/api/user-tags/${user?.uid}`);
+      if (response.ok) {
+        const tags = await response.json();
+        setAvailableTags(tags);
+      }
+    } catch (error) {
+      console.error('Error fetching personal tags:', error);
+      setAvailableTags(['personal', 'work', 'urgent', 'low-priority']); // fallback
+    }
+  };
+
+  // Reset when dialog opens
   useEffect(() => {
     if (open && columns.length > 0) {
       setFormData({
@@ -71,18 +134,19 @@ export default function TaskDialog({
         columnId: columns[0]?.id || "",
         priority: "medium",
         dueDate: null,
+        assigneeId: "unassigned",
+        tags: [],
       });
     }
-  }, [open, columns]); // Add columns back for proper initialization
+  }, [open, columns]);
 
-  // Handle column changes separately - only update columnId if current one doesn't exist
+  // Handle column changes separately
   useEffect(() => {
     if (columns && columns.length > 0 && formData.columnId) {
       const currentColumnExists = columns.find(
         (col) => col.id === formData.columnId
       );
 
-      // Only update if current column doesn't exist in new columns
       if (!currentColumnExists) {
         setFormData((prev) => ({
           ...prev,
@@ -93,17 +157,9 @@ export default function TaskDialog({
   }, [columns, formData.columnId]);
 
   const handleSubmit = async () => {
-    const { title, description, columnId, priority, dueDate } = formData;
-    console.log("Submitting task:", {
-      title,
-      description,
-      columnId,
-      priority,
-      dueDate,
-      projectId,
-      organizationId: currentWorkspace === 'organization' ? currentOrganization?.id : undefined,
-    });
-    if (!title.trim() || !columnId) { // projectId check removed as it's part of the payload now or handled by context
+    const { title, description, columnId, priority, dueDate, assigneeId, tags } = formData;
+    
+    if (!title.trim() || !columnId) {
       toast({
         title: "Error",
         description: "Please fill in title and select a column.",
@@ -131,73 +187,55 @@ export default function TaskDialog({
         columnId,
         priority,
         dueDate,
-        userId: user.uid, // Keep userId for personal tasks or if API needs it
+        userId: user.uid,
+        tags,
       };
 
+      // Add assignee for project tasks
+      if (projectId !== "personal" && assigneeId && assigneeId !== "unassigned") {
+        taskData.assigneeId = assigneeId;
+      }
+
       let apiUrl = "/api/tasks";
-      let apiMethod = "POST";
 
       // Handle different task types
       if (projectId === "personal") {
-        // Personal task (not tied to any project)
-        taskData.projectId = "personal"; // Set projectId to "personal" as expected by API
-        console.log("Creating personal task:", taskData);
+        taskData.projectId = "personal";
       } else if (currentWorkspace === 'organization' && currentOrganization?.id && projectId) {
-        // Organization project task
         taskData.organizationId = currentOrganization.id;
         taskData.projectId = projectId;
-        console.log("Creating task for organization:", taskData);
       } else if (projectId) {
-        // Personal project task
         taskData.projectId = projectId;
-        console.log("Creating task for personal project:", taskData);
-      } else {
-        // Fallback to personal task
-        taskData.projectId = "personal"; // Set projectId to "personal" as expected by API
-        console.log("Creating personal task (fallback):", taskData);
       }
 
-
       const response = await fetch(apiUrl, {
-        method: apiMethod,
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(taskData),
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: "Failed to create task" }));
-        console.error("API Error:", response.status, errorData);
-        throw new Error(errorData.message || "Failed to create task");
+        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
       const newTask = await response.json();
-      console.log("Task created/updated:", newTask);
-
-      // Clear form
-      setFormData({
-        title: "",
-        description: "",
-        columnId: columns[0]?.id || "",
-        priority: "medium",
-        dueDate: null,
-      });
-
-      // Use the callback to update the board
+      
       if (onTaskCreated) {
         onTaskCreated(newTask);
       }
-
-      onOpenChange(false);
 
       toast({
         title: "Success",
         description: "Task created successfully",
       });
+
+      onOpenChange(false);
     } catch (error) {
       console.error("Error creating task:", error);
       toast({
         title: "Error",
-        description: "Failed to create task",
+        description: error instanceof Error ? error.message : "Failed to create task",
         variant: "destructive",
       });
     } finally {
@@ -205,9 +243,35 @@ export default function TaskDialog({
     }
   };
 
+  const addTag = () => {
+    if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
+      setFormData({
+        ...formData,
+        tags: [...formData.tags, newTag.trim()]
+      });
+      setNewTag("");
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setFormData({
+      ...formData,
+      tags: formData.tags.filter(tag => tag !== tagToRemove)
+    });
+  };
+
+  const addExistingTag = (tag: string) => {
+    if (!formData.tags.includes(tag)) {
+      setFormData({
+        ...formData,
+        tags: [...formData.tags, tag]
+      });
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create New Task</DialogTitle>
         </DialogHeader>
@@ -216,38 +280,35 @@ export default function TaskDialog({
             e.preventDefault();
             handleSubmit();
           }}
-          className="space-y-4 py-2"
+          className="space-y-4"
         >
-          <div className="space-y-2">
-            <label htmlFor="title" className="text-sm font-medium">
-              Title
-            </label>
+          <div className="space-y-1">
+            <label className="block text-sm font-medium">Title</label>
             <Input
-              id="title"
-              placeholder="Task title"
               value={formData.title}
               onChange={(e) =>
                 setFormData({ ...formData, title: e.target.value })
               }
+              placeholder="Enter task title"
+              className="w-full"
               required
             />
           </div>
-          <div className="space-y-2">
-            <label htmlFor="description" className="text-sm font-medium">
-              Description
-            </label>
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium">Description</label>
             <Textarea
-              id="description"
-              placeholder="Describe the task..."
               value={formData.description}
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
               }
-              rows={3}
+              placeholder="Enter task description (optional)"
+              className="w-full min-h-[80px]"
             />
           </div>
+
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+            <div className="space-y-1">
               <label className="block text-sm font-medium">Column</label>
               <Select
                 value={formData.columnId}
@@ -256,7 +317,7 @@ export default function TaskDialog({
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a column" />
+                  <SelectValue placeholder="Select column" />
                 </SelectTrigger>
                 <SelectContent>
                   {columns.map((column) => (
@@ -268,7 +329,7 @@ export default function TaskDialog({
               </Select>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1">
               <label className="block text-sm font-medium">Priority</label>
               <Select
                 value={formData.priority}
@@ -288,6 +349,108 @@ export default function TaskDialog({
             </div>
           </div>
 
+          {/* Assignee selection for project tasks */}
+          {projectId && projectId !== "personal" && (
+            <div className="space-y-1">
+              <label className="block text-sm font-medium">Assignee</label>
+              <Select
+                value={formData.assigneeId}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, assigneeId: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select assignee (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {projectMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={member.photoURL} />
+                          <AvatarFallback className="text-xs">
+                            {member.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{member.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Tags section */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium">Tags</label>
+            
+            {/* Current tags */}
+            {formData.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {formData.tags.map((tag) => (
+                  <Badge key={tag} variant="secondary" className="text-xs">
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => removeTag(tag)}
+                      className="ml-1 hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            {/* Add new tag */}
+            <div className="flex gap-2">
+              <Input
+                value={newTag}
+                onChange={(e) => setNewTag(e.target.value)}
+                placeholder="Add new tag"
+                className="text-sm"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addTag();
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addTag}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Available tags */}
+            {availableTags.length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Quick add:</p>
+                <div className="flex flex-wrap gap-1">
+                  {availableTags
+                    .filter(tag => !formData.tags.includes(tag))
+                    .slice(0, 8)
+                    .map((tag) => (
+                    <Badge
+                      key={tag}
+                      variant="outline"
+                      className="text-xs cursor-pointer hover:bg-accent"
+                      onClick={() => addExistingTag(tag)}
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="space-y-1">
             <label className="block text-sm font-medium">Due Date</label>
             <Input
@@ -299,6 +462,7 @@ export default function TaskDialog({
               className="w-full"
             />
           </div>
+          
           <DialogFooter>
             <Button
               type="button"

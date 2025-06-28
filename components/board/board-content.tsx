@@ -384,6 +384,16 @@ export default function BoardContent({
         userId: user.uid,
       };
 
+      // Set completedAt timestamp when moving to done column
+      if (movedTask.columnId === 'done') {
+        updateData.completedAt = new Date().toISOString();
+        updateData.status = 'completed';
+      } else if (source.droppableId === 'done' && movedTask.columnId !== 'done') {
+        // If moving OUT of done column, remove completedAt
+        updateData.completedAt = null;
+        updateData.status = 'in-progress';
+      }
+
       // Include organizationId and projectId for organization tasks
       if (currentOrganization?.id && workspaceProject?.id) {
         updateData.organizationId = currentOrganization.id;
@@ -407,6 +417,13 @@ export default function BoardContent({
       
       const result = await response.json();
       console.log("[handleDragEnd] Task update successful:", result);
+      
+      // Dispatch event for dashboard updates
+      if (movedTask.columnId === 'done') {
+        window.dispatchEvent(new CustomEvent('taskCompleted'));
+      } else {
+        window.dispatchEvent(new CustomEvent('taskUpdated'));
+      }
       
       toast({
         title: "Task moved",
@@ -567,7 +584,7 @@ export default function BoardContent({
         onSearch={handleSearch}
         onFilter={handleFilter}
         onAddTask={() => setIsTaskDialogOpen(true)}
-        projectId={currentProject?.id}
+        projectId={workspaceProject?.id || "personal"}
         onTasksImported={fetchBoardData}
         onColumnUpdate={handleColumnUpdate}
       />

@@ -26,8 +26,8 @@ export const projectService = {
   async getUserProjects(userId: string): Promise<Project[]> {
     try {
       // Fetching projects
-      
-      const response = await fetch(`/api/projects?userId=${userId}`);
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : process.env.NEXTAUTH_URL || 'http://localhost:3000';
+      const response = await fetch(`${baseUrl}/api/projects?userId=${userId}`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch projects: ${response.statusText}`);

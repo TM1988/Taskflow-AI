@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { GitHubIcon } from "@/components/icons";
 import { useAuth } from "@/services/auth/AuthContext";
 import { githubRepositoryService, ImportedRepository } from "@/services/github/repositoryService";
-import { Loader2, Search, Star, GitFork, AlertCircle, ExternalLink, RefreshCw } from "lucide-react";
+import { Loader2, Search, Star, GitFork, AlertCircle, ExternalLink, RefreshCw, Eye } from "lucide-react";
+import Link from "next/link";
 
 interface ImportedRepositoriesDisplayProps {
   title?: string;
@@ -175,19 +176,34 @@ export default function ImportedRepositoriesDisplay({
                       {repo.fullName}
                     </p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    asChild
-                  >
-                    <a
-                      href={repo.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      asChild
                     >
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
-                  </Button>
+                      <Link
+                        href={`/repositories/${repo.fullName.split('/')[0]}/${repo.name}`}
+                        className="flex items-center gap-1"
+                      >
+                        <Eye className="h-4 w-4" />
+                        Details
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      asChild
+                    >
+                      <a
+                        href={repo.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Repository Description */}

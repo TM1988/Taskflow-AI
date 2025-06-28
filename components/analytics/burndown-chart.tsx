@@ -12,6 +12,8 @@ import {
   YAxis,
 } from "recharts";
 import { Card } from "@/components/ui/card";
+import { useAuth } from "@/services/auth/AuthContext";
+import { Loader2 } from "lucide-react";
 
 interface BurndownChartProps {
   height?: number;
@@ -22,27 +24,77 @@ export default function BurndownChart({
   height = 300,
   projectId,
 }: BurndownChartProps) {
-  const [data, setData] = useState([
-    { day: "Day 1", remaining: 95, ideal: 90 },
-    { day: "Day 2", remaining: 85, ideal: 80 },
-    { day: "Day 3", remaining: 82, ideal: 70 },
-    { day: "Day 4", remaining: 70, ideal: 60 },
-    { day: "Day 5", remaining: 65, ideal: 50 },
-    { day: "Day 6", remaining: 55, ideal: 40 },
-    { day: "Day 7", remaining: 50, ideal: 30 },
-    { day: "Day 8", remaining: 45, ideal: 20 },
-    { day: "Day 9", remaining: 25, ideal: 10 },
-    { day: "Day 10", remaining: 10, ideal: 0 },
-  ]);
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
-  // You can fetch project-specific data here
   useEffect(() => {
-    if (projectId) {
-      // Fetch burndown data for the specific project
-      // For now we're using mock data
-      console.log(`Fetching burndown data for project: ${projectId}`);
-    }
-  }, [projectId]);
+    const fetchBurndownData = async () => {
+      if (!user) return;
+
+      try {
+        setLoading(true);
+        let response;
+
+        if (projectId === "personal") {
+          // Fetch personal analytics
+          response = await fetch(`/api/analytics/personal?userId=${user.uid}`);
+        } else if (projectId) {
+          // Fetch project analytics
+          response = await fetch(`/api/analytics/project?projectId=${projectId}&userId=${user.uid}`);
+        } else {
+          // Default to personal analytics
+          response = await fetch(`/api/analytics/personal?userId=${user.uid}`);
+        }
+
+        if (response.ok) {
+          const analytics = await response.json();
+          const burndownData = (analytics.burndown || []).map((item: any) => ({
+            ...item,
+            remaining: Math.round((item.remaining || 0) * 10) / 10,
+            ideal: Math.round((item.ideal || 0) * 10) / 10,
+            completed: Math.round((item.completed || 0) * 10) / 10,
+          }));
+          setData(burndownData);
+        } else {
+          // Fallback to empty data if API fails
+          setData([
+            { day: "Mon", remaining: 0, ideal: 0, completed: 0 },
+            { day: "Tue", remaining: 0, ideal: 0, completed: 0 },
+            { day: "Wed", remaining: 0, ideal: 0, completed: 0 },
+            { day: "Thu", remaining: 0, ideal: 0, completed: 0 },
+            { day: "Fri", remaining: 0, ideal: 0, completed: 0 },
+            { day: "Sat", remaining: 0, ideal: 0, completed: 0 },
+            { day: "Sun", remaining: 0, ideal: 0, completed: 0 },
+          ]);
+        }
+      } catch (error) {
+        console.error("Error fetching burndown data:", error);
+        // Fallback to empty data
+        setData([
+          { day: "Mon", remaining: 0, ideal: 0, completed: 0 },
+          { day: "Tue", remaining: 0, ideal: 0, completed: 0 },
+          { day: "Wed", remaining: 0, ideal: 0, completed: 0 },
+          { day: "Thu", remaining: 0, ideal: 0, completed: 0 },
+          { day: "Fri", remaining: 0, ideal: 0, completed: 0 },
+          { day: "Sat", remaining: 0, ideal: 0, completed: 0 },
+          { day: "Sun", remaining: 0, ideal: 0, completed: 0 },
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBurndownData();
+  }, [projectId, user]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center" style={{ height }}>
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <ResponsiveContainer width="100%" height={height}>

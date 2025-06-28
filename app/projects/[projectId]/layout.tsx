@@ -40,6 +40,11 @@ export default function ProjectLayout({
         
         if (!isOwner && !isMember) {
           console.warn("User does not have access to this project");
+          console.log("Project data:", {
+            ownerId: projectData.ownerId,
+            members: projectData.members,
+            userId: user.uid
+          });
           toast({
             title: "Access Denied",
             description: "You don't have access to this project",

@@ -77,7 +77,7 @@ export default function RepositoryDetail({ repo }: RepositoryDetailProps) {
     setLoading((prev) => ({ ...prev, commits: true }));
     try {
       const response = await fetch(
-        `/api/github/repositories/${repo.id}/commits`,
+        `/api/github/repositories/by-id/${repo.id}/commits`,
       );
       if (response.ok) {
         const data = await response.json();
@@ -95,7 +95,7 @@ export default function RepositoryDetail({ repo }: RepositoryDetailProps) {
 
     setLoading((prev) => ({ ...prev, prs: true }));
     try {
-      const response = await fetch(`/api/github/repositories/${repo.id}/pulls`);
+      const response = await fetch(`/api/github/repositories/by-id/${repo.id}/pulls`);
       if (response.ok) {
         const data = await response.json();
         setPullRequests(data);

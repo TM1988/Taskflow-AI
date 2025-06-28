@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,14 @@ import { Mail, UserPlus, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+interface Role {
+  id: string;
+  name: string;
+  rank: number;
+  permissions: any;
+  isSystemRole: boolean;
+}
+
 interface InviteMemberModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -37,9 +45,54 @@ export default function InviteMemberModal({
 }: InviteMemberModalProps) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("member");
+  const [roles, setRoles] = useState<Role[]>([]);
   const [isInviting, setIsInviting] = useState(false);
   const [emailError, setEmailError] = useState("");
   const { toast } = useToast();
+
+  // Fetch available roles when modal opens
+  useEffect(() => {
+    if (open && organizationId) {
+      fetchRoles();
+    }
+  }, [open, organizationId]);
+
+  const fetchRoles = async () => {
+    try {
+      const response = await fetch(`/api/organizations/${organizationId}/roles`);
+      if (response.ok) {
+        const rolesData = await response.json();
+        setRoles(rolesData);
+        // Set default role to member if available
+        const memberRole = rolesData.find((r: Role) => r.name.toLowerCase() === 'member');
+        if (memberRole) {
+          setRole(memberRole.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+      // Fallback to basic roles
+      setRoles([
+        { id: 'member', name: 'Member', rank: 3, permissions: {}, isSystemRole: true },
+        { id: 'admin', name: 'Admin', rank: 2, permissions: {}, isSystemRole: true }
+      ]);
+    }
+  };
+
+  const getSelectedRoleDescription = () => {
+    const selectedRole = roles.find(r => r.id === role);
+    if (!selectedRole) return "";
+    
+    if (selectedRole.name.toLowerCase() === 'member') {
+      return "Can view and participate in assigned projects";
+    } else if (selectedRole.name.toLowerCase() === 'admin') {
+      return "Can manage projects and invite other members";
+    } else if (selectedRole.name.toLowerCase() === 'owner') {
+      return "Full access to organization settings and management";
+    } else {
+      return `Custom role: ${selectedRole.name}`;
+    }
+  };
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -160,15 +213,15 @@ export default function InviteMemberModal({
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="member">Member</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
+                {roles.map((roleOption) => (
+                  <SelectItem key={roleOption.id} value={roleOption.id}>
+                    {roleOption.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              {role === "member" 
-                ? "Can view and participate in assigned projects" 
-                : "Can manage projects and invite other members"
-              }
+              {getSelectedRoleDescription()}
             </p>
           </div>
 

@@ -57,7 +57,7 @@ export const githubServiceClient = {
 
   async getRepositoryCommits(repositoryId: string, userId: string) {
     const response = await fetch(
-      `/api/github/repositories/${repositoryId}/commits?userId=${userId}`,
+      `/api/github/repositories/by-id/${repositoryId}/commits?userId=${userId}`,
     );
 
     if (!response.ok) {

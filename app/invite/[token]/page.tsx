@@ -366,7 +366,7 @@ export default function InvitePage({ params }: InvitePageProps) {
           <div className="space-y-2">
             {!expired && user?.email === invitation.invitedEmail && (
               <Button 
-                className="w-full text-white" 
+                className="w-full bg-black text-white hover:bg-gray-800" 
                 onClick={handleAccept}
                 disabled={accepting || declining}
               >

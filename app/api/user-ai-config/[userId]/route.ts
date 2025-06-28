@@ -1,7 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { initializeMongoDB, getMongoDb } from "@/services/singleton";
 
-// Validate Google AI Studio API key
+// Validate OpenAI API key
+async function validateOpenAIKey(apiKey: string): Promise<boolean> {
+  try {
+    const response = await fetch('https://api.openai.com/v1/models', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    return response.ok;
+  } catch (error) {
+    console.error('Error validating OpenAI key:', error);
+    return false;
+  }
+}
+
+// Validate Google AI Studio API key (keep for backward compatibility)
 async function validateGoogleAIKey(apiKey: string): Promise<boolean> {
   try {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`, {

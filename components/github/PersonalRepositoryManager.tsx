@@ -10,7 +10,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/services/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { githubRepositoryService, GitHubRepository } from "@/services/github/repositoryService";
-import { Loader2, Search, Star, GitFork, ExternalLink, RefreshCw, Calendar } from "lucide-react";
+import { Loader2, Search, Star, GitFork, ExternalLink, RefreshCw, Calendar, Eye } from "lucide-react";
+import Link from "next/link";
 
 interface PersonalRepositoryManagerProps {
   context?: string;
@@ -210,6 +211,19 @@ export default function PersonalRepositoryManager({
                             size="sm"
                             asChild
                           >
+                            <Link
+                              href={`/repositories/${repo.fullName.split('/')[0]}/${repo.name}`}
+                              className="flex items-center gap-1"
+                            >
+                              <Eye className="h-3 w-3" />
+                              Details
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                          >
                             <a
                               href={repo.url}
                               target="_blank"
@@ -217,7 +231,7 @@ export default function PersonalRepositoryManager({
                               className="flex items-center gap-1"
                             >
                               <ExternalLink className="h-3 w-3" />
-                              View
+                              GitHub
                             </a>
                           </Button>
                         </div>

@@ -8,7 +8,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -30,7 +29,7 @@ const pageDescription = "Project analytics and performance metrics";
 
 export default function AnalyticsPage() {
   const [projects, setProjects] = useState<any[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("personal");
   const [loading, setLoading] = useState(true);
   const [showContent, setShowContent] = useState(false); // Add instant loading
   const { user } = useAuth();
@@ -61,9 +60,13 @@ export default function AnalyticsPage() {
         const userProjects = await response.json();
         setProjects(userProjects);
 
-        // Set first project as selected by default
-        if (userProjects.length > 0 && !selectedProjectId) {
-          setSelectedProjectId(userProjects[0].id);
+        // Set personal as default, or first project if user has projects
+        if (!selectedProjectId || selectedProjectId === "") {
+          if (userProjects.length > 0) {
+            setSelectedProjectId("personal"); // Default to personal even if projects exist
+          } else {
+            setSelectedProjectId("personal"); // Personal workspace users
+          }
         }
       } catch (error) {
         console.error("Error fetching projects:", error);
@@ -93,138 +96,84 @@ export default function AnalyticsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
         <p className="text-muted-foreground">
-          Track project metrics and team performance
+          Track your personal tasks and project metrics
         </p>
       </div>
 
-      {projects.length > 0 ? (
-        <>
-          <div className="flex items-center space-x-2">
-            <p className="text-sm font-medium">Select Project:</p>
-            <Select
-              value={selectedProjectId}
-              onValueChange={setSelectedProjectId}
-            >
-              <SelectTrigger className="w-[240px]">
-                <SelectValue placeholder="Select a project" />
-              </SelectTrigger>
-              <SelectContent>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      <div className="flex items-center space-x-2">
+        <p className="text-sm font-medium">View Analytics For:</p>
+        <Select
+          value={selectedProjectId}
+          onValueChange={setSelectedProjectId}
+        >
+          <SelectTrigger className="w-[240px]">
+            <SelectValue placeholder="Select view" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="personal">Personal Tasks</SelectItem>
+            {projects.map((project) => (
+              <SelectItem key={project.id} value={project.id}>
+                {project.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-          <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList>
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="velocity">Velocity</TabsTrigger>
-              <TabsTrigger value="contributions">Contributions</TabsTrigger>
-              <TabsTrigger value="performance">Performance</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="overview" className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Sprint Burndown</CardTitle>
-                    <CardDescription>
-                      Track remaining work in current sprint
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <BurndownChart projectId={selectedProjectId} />
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Team Velocity</CardTitle>
-                    <CardDescription>
-                      Story points completed per sprint
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <VelocityChart projectId={selectedProjectId} />
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Project Performance</CardTitle>
-                  <CardDescription>
-                    Overall project metrics and health indicators
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ProjectPerformance projectId={selectedProjectId} />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="velocity">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Detailed Velocity Analysis</CardTitle>
-                  <CardDescription>
-                    In-depth look at team velocity trends and patterns
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="h-[500px]">
-                  <VelocityChart
-                    projectId={selectedProjectId}
-                    height={450}
-                    detailed
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="contributions">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Contribution Metrics</CardTitle>
-                  <CardDescription>
-                    Individual and team contribution analysis
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ContributionMetrics projectId={selectedProjectId} />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="performance">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Project Performance Metrics</CardTitle>
-                  <CardDescription>
-                    Detailed project performance and risk analysis
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ProjectPerformance projectId={selectedProjectId} detailed />
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </>
-      ) : (
+      {/* Overview with all analytics in one page */}
+      <div className="space-y-6">
+        {/* Contribution Metrics - Full width at top */}
         <Card>
-          <CardContent className="py-10">
-            <div className="text-center">
-              <h3 className="text-lg font-medium mb-2">No projects found</h3>
-              <p className="text-muted-foreground">
-                Create a project first to see analytics data
-              </p>
-            </div>
+          <CardHeader>
+            <CardTitle className="text-lg">Contribution Metrics</CardTitle>
+            <CardDescription>
+              {selectedProjectId === "personal"
+                ? "Your task completion and contribution analysis"
+                : "Individual and team contribution analysis"
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ContributionMetrics projectId={selectedProjectId} />
           </CardContent>
         </Card>
-      )}
+
+        {/* Personal Performance with pie charts - Full width */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">
+              {selectedProjectId === "personal" ? "Personal Performance" : "Project Performance"}
+            </CardTitle>
+            <CardDescription>
+              {selectedProjectId === "personal"
+                ? "Your task metrics and productivity indicators"
+                : "Overall project metrics and health indicators"
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ProjectPerformance projectId={selectedProjectId} />
+          </CardContent>
+        </Card>
+
+        {/* Personal Velocity - Full width at bottom */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">
+              {selectedProjectId === "personal" ? "Personal Velocity" : "Team Velocity"}
+            </CardTitle>
+            <CardDescription>
+              {selectedProjectId === "personal"
+                ? "Your task completion rate over time"
+                : "Story points completed per sprint"
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <VelocityChart projectId={selectedProjectId} />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

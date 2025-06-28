@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
   const userId = searchParams.get("userId"); // User ID for personal tasks or to check user-specific config for non-org tasks
   const organizationId = searchParams.get("organizationId"); // Organization ID for project tasks
   const personal = searchParams.get("personal");
+  const limit = searchParams.get("limit"); // Support for limiting results
 
   // Handle personal tasks
   if (personal === "true" && userId) {
@@ -51,12 +52,21 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      // Fetch personal tasks for user
-      const tasks = await database
+      // Build query
+      let query = database
         .collection("personalTasks")
         .find({ userId })
-        .sort({ order: 1 })
-        .toArray();
+        .sort({ updatedAt: -1, order: 1 });
+
+      // Apply limit if specified
+      if (limit) {
+        const limitNum = parseInt(limit, 10);
+        if (!isNaN(limitNum) && limitNum > 0) {
+          query = query.limit(limitNum);
+        }
+      }
+
+      const tasks = await query.toArray();
 
       // Transform to expected format
       const transformedTasks = tasks?.map(task => ({
@@ -70,6 +80,7 @@ export async function GET(request: NextRequest) {
         order: task.order || 0,
         isBlocked: task.isBlocked || false,
         dueDate: task.dueDate ? task.dueDate.toISOString() : null,
+        completedAt: task.completedAt ? task.completedAt.toISOString() : null,
         createdAt: task.createdAt ? task.createdAt.toISOString() : null,
         updatedAt: task.updatedAt ? task.updatedAt.toISOString() : null,
       })) || [];

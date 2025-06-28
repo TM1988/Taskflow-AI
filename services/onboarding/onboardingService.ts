@@ -75,11 +75,23 @@ class OnboardingService {
       }
 
       const progress = await response.json();
-      return {
+      const formattedProgress = {
         ...progress,
         startedAt: new Date(progress.startedAt),
         completedAt: progress.completedAt ? new Date(progress.completedAt) : undefined
       };
+
+      // Update localStorage if onboarding is completed
+      if (formattedProgress.completed && formattedProgress.completedAt) {
+        const localStorageKey = `onboarding_completed_${userId}`;
+        localStorage.setItem(localStorageKey, 'true');
+        
+        // Clear cache
+        this.needsOnboardingCache.delete(userId);
+        this.cache.delete(userId);
+      }
+
+      return formattedProgress;
     } catch (error) {
       console.error('Error updating onboarding progress:', error);
       throw error;
@@ -224,11 +236,31 @@ class OnboardingService {
   }
 
   /**
+   * Reset onboarding localStorage for user (for testing/debugging)
+   */
+  resetLocalStorage(userId: string): void {
+    const localStorageKey = `onboarding_completed_${userId}`;
+    localStorage.removeItem(localStorageKey);
+    
+    // Clear cache too
+    this.needsOnboardingCache.delete(userId);
+    this.cache.delete(userId);
+  }
+
+  /**
    * Check if user needs onboarding (only show once, unless manually reset)
    */
   async needsOnboarding(userId: string): Promise<boolean> {
     try {
-      // Check cache first
+      // Check localStorage first for immediate response
+      const localStorageKey = `onboarding_completed_${userId}`;
+      const localCompleted = localStorage.getItem(localStorageKey);
+      
+      if (localCompleted === 'true') {
+        return false; // User has completed onboarding per localStorage
+      }
+
+      // Check cache next
       const cached = this.needsOnboardingCache.get(userId);
       if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
         return cached.result;
@@ -240,6 +272,11 @@ class OnboardingService {
       // If completedAt exists, they have finished onboarding at least once
       const hasEverCompleted = progress.completedAt !== undefined;
       const shouldShow = !hasEverCompleted;
+      
+      // Update localStorage if user has completed onboarding
+      if (hasEverCompleted) {
+        localStorage.setItem(localStorageKey, 'true');
+      }
       
       // Cache the result
       this.needsOnboardingCache.set(userId, {

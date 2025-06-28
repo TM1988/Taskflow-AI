@@ -36,6 +36,7 @@ import ColumnManager from "@/components/board/column-manager";
 import GitHubConnect from "@/components/github/GitHubConnect";
 import ProjectRepositoryManager from "@/components/projects/ProjectRepositoryManager";
 import { cn } from "@/lib/utils";
+import UserWorkload from "@/components/projects/user-workload";
 
 interface ProjectSettingsPageProps {
   params: {
@@ -297,10 +298,14 @@ export default function ProjectSettingsPage({ params }: ProjectSettingsPageProps
 
       <div className="max-w-4xl">
         <Tabs defaultValue="general" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="general" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               General
+            </TabsTrigger>
+            <TabsTrigger value="you" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              You
             </TabsTrigger>
             <TabsTrigger value="ai" className="flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
@@ -404,6 +409,10 @@ export default function ProjectSettingsPage({ params }: ProjectSettingsPageProps
                 </div>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="you">
+            <UserWorkload projectId={params.projectId} />
           </TabsContent>
 
           <TabsContent value="ai">

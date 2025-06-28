@@ -1,7 +1,7 @@
 // components/board/board-header.tsx
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Search, Filter, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -23,18 +23,25 @@ interface FilterState {
   tags: string[];
 }
 
+interface ProjectMember {
+  id: string;
+  name: string;
+  email: string;
+  photoURL?: string;
+}
+
 interface BoardHeaderProps {
-  users: any[];
-  tags: string[];
+  users: any[]; // Keep for backward compatibility but will be replaced
+  tags: string[]; // Keep for backward compatibility but will be replaced
   onSearch: (query: string) => void;
   onFilter: (filters: any) => void;
   onAddTask: () => void;
   projectId?: string;
   onTasksImported?: () => void;
-  onColumnUpdate?: (columns: any[]) => void; // Add this prop
-  hasUnsavedChanges?: boolean; // Add this prop
-  onSync?: () => void; // Add this prop
-  isSyncing?: boolean; // Add this prop
+  onColumnUpdate?: (columns: any[]) => void;
+  hasUnsavedChanges?: boolean;
+  onSync?: () => void;
+  isSyncing?: boolean;
 }
 
 export default function BoardHeader({
@@ -45,96 +52,153 @@ export default function BoardHeader({
   onAddTask,
   projectId,
   onTasksImported,
-  onColumnUpdate, // Add this prop
-  hasUnsavedChanges = false, // Add this prop
-  onSync, // Add this prop
-  isSyncing = false, // Add this prop
+  onColumnUpdate,
+  hasUnsavedChanges = false,
+  onSync,
+  isSyncing = false,
 }: BoardHeaderProps) {
-  const { toast } = useToast();
-  const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<FilterState>({
     priority: [],
     assignee: [],
     tags: [],
   });
-  const [activeFiltersCount, setActiveFiltersCount] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = e.target.value;
-    setSearchQuery(v);
-    onSearch(v);
-  };
+  // Real data state
+  const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const toggleFilter = (type: keyof FilterState, value: string) => {
-    setFilters((prev) => {
-      const vals = [...prev[type]];
-      const idx = vals.indexOf(value as any);
-      if (idx >= 0) vals.splice(idx, 1);
-      else vals.push(value as any);
-      const newF = { ...prev, [type]: vals };
-      setActiveFiltersCount(
-        newF.priority.length + newF.assignee.length + newF.tags.length
-      );
-      onFilter(newF);
-      return newF;
-    });
-  };
-
-  const clearFilters = () => {
-    const empty = { priority: [], assignee: [], tags: [] };
-    setFilters(empty);
-    setActiveFiltersCount(0);
-    onFilter(empty);
-  };
-
-  const handleImportComplete = () => {
-    console.log("Import completed, refreshing board...");
-
-    // Call the board refresh
-    if (onTasksImported) {
-      onTasksImported();
+  // Fetch real data when projectId changes
+  useEffect(() => {
+    if (projectId && projectId !== "personal") {
+      fetchProjectData();
+    } else if (projectId === "personal") {
+      fetchPersonalData();
     }
+  }, [projectId]);
 
-    // Also refresh via window reference
-    if (window.boardContentRef?.refreshTasks) {
-      window.boardContentRef.refreshTasks();
+  const fetchProjectData = async () => {
+    setLoading(true);
+    try {
+      // Fetch project members and tags in parallel
+      const [membersResponse, tagsResponse] = await Promise.all([
+        fetch(`/api/projects/${projectId}/members`),
+        fetch(`/api/projects/${projectId}/tags`)
+      ]);
+
+      if (membersResponse.ok) {
+        const members = await membersResponse.json();
+        setProjectMembers(members);
+      }
+
+      if (tagsResponse.ok) {
+        const projectTags = await tagsResponse.json();
+        setAvailableTags(projectTags);
+      }
+    } catch (error) {
+      console.error('Error fetching project data:', error);
+      // Fallback to provided data
+      setProjectMembers(users || []);
+      setAvailableTags(tags || []);
+    } finally {
+      setLoading(false);
     }
-
-    toast({
-      title: "Import Complete",
-      description: "Tasks have been imported successfully",
-    });
   };
+
+  const fetchPersonalData = async () => {
+    setLoading(true);
+    try {
+      // For personal workspace, only fetch tags (no members)
+      const response = await fetch(`/api/user-tags/${projectId === "personal" ? "current" : "fallback"}`);
+      if (response.ok) {
+        const personalTags = await response.json();
+        setAvailableTags(personalTags);
+      }
+      setProjectMembers([]); // No members for personal workspace
+    } catch (error) {
+      console.error('Error fetching personal data:', error);
+      setAvailableTags(tags || []);
+      setProjectMembers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleFilter = (filterType: keyof FilterState, value: string) => {
+    const newFilters = { ...filters };
+    const currentValues = newFilters[filterType] as string[];
+    
+    if (currentValues.includes(value)) {
+      newFilters[filterType] = currentValues.filter((v) => v !== value) as any;
+    } else {
+      newFilters[filterType] = [...currentValues, value] as any;
+    }
+    
+    setFilters(newFilters);
+    onFilter(newFilters);
+  };
+
+  const clearAllFilters = () => {
+    const clearedFilters = {
+      priority: [],
+      assignee: [],
+      tags: [],
+    };
+    setFilters(clearedFilters);
+    onFilter(clearedFilters);
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    onSearch(query);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      setSearchQuery("");
+      onSearch("");
+      searchInputRef.current?.blur();
+    }
+  };
+
+  const getActiveFilterCount = () => {
+    return filters.priority.length + filters.assignee.length + filters.tags.length;
+  };
+
+  const isPersonalWorkspace = projectId === "personal" || !projectId;
 
   return (
-    <div className="flex flex-col items-center space-y-2 py-4 px-6 bg-background">
-      <div className="flex items-center gap-3">
-        {/* Import/Export - Show for both project and personal boards */}
-        <TaskImportExport
-          projectId={projectId}
-          onTasksImported={onTasksImported}
-        />
-
+    <div className="flex items-center justify-between p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex items-center gap-4">
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
-            placeholder="Search tasks..."
-            className="pl-10 w-48 h-8"
+            ref={searchInputRef}
             value={searchQuery}
-            onChange={handleSearch}
+            onChange={handleSearchChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Search tasks..."
+            className="pl-10 w-64"
           />
         </div>
 
-        {/* Filter */}
+        {/* Filters */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="h-8 w-8 relative">
-              <Filter className="h-4 w-4" />
-              {activeFiltersCount > 0 && (
-                <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center min-w-[16px]">
-                  {activeFiltersCount}
+            <Button variant="outline" size="sm" className="relative">
+              <Filter className="h-4 w-4 mr-2" />
+              Filter
+              {getActiveFilterCount() > 0 && (
+                <Badge
+                  variant="secondary"
+                  className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                >
+                  {getActiveFilterCount()}
                 </Badge>
               )}
             </Button>
@@ -161,67 +225,129 @@ export default function BoardHeader({
 
             <DropdownMenuSeparator />
 
-            {/* Assignee */}
-            <div className="p-2">
-              <h4 className="text-xs font-medium mb-1">Assignee</h4>
-              <div className="space-y-1 max-h-36 overflow-y-auto">
-                {users.map((u) => (
-                  <DropdownMenuCheckboxItem
-                    key={u.id}
-                    checked={filters.assignee.includes(u.id)}
-                    onCheckedChange={() => toggleFilter("assignee", u.id)}
-                  >
-                    {u.name}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </div>
-            </div>
-
-            <DropdownMenuSeparator />
+            {/* Assignee (only for project workspaces) */}
+            {!isPersonalWorkspace && (
+              <>
+                <div className="p-2">
+                  <h4 className="text-xs font-medium mb-1">Assignee</h4>
+                  <div className="space-y-1 max-h-36 overflow-y-auto">
+                    <DropdownMenuCheckboxItem
+                      checked={filters.assignee.includes("unassigned")}
+                      onCheckedChange={() => toggleFilter("assignee", "unassigned")}
+                    >
+                      Unassigned
+                    </DropdownMenuCheckboxItem>
+                    {projectMembers.map((member) => (
+                      <DropdownMenuCheckboxItem
+                        key={member.id}
+                        checked={filters.assignee.includes(member.id)}
+                        onCheckedChange={() => toggleFilter("assignee", member.id)}
+                      >
+                        {member.name}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </div>
+                </div>
+                <DropdownMenuSeparator />
+              </>
+            )}
 
             {/* Tags */}
             <div className="p-2">
               <h4 className="text-xs font-medium mb-1">Tags</h4>
               <div className="space-y-1 max-h-36 overflow-y-auto">
-                {tags.map((t) => (
-                  <DropdownMenuCheckboxItem
-                    key={t}
-                    checked={filters.tags.includes(t)}
-                    onCheckedChange={() => toggleFilter("tags", t)}
-                  >
-                    {t}
-                  </DropdownMenuCheckboxItem>
-                ))}
+                {availableTags.length > 0 ? (
+                  availableTags.map((tag) => (
+                    <DropdownMenuCheckboxItem
+                      key={tag}
+                      checked={filters.tags.includes(tag)}
+                      onCheckedChange={() => toggleFilter("tags", tag)}
+                    >
+                      {tag}
+                    </DropdownMenuCheckboxItem>
+                  ))
+                ) : (
+                  <div className="text-xs text-muted-foreground p-2">
+                    {loading ? "Loading tags..." : "No tags available"}
+                  </div>
+                )}
               </div>
             </div>
 
             <DropdownMenuSeparator />
 
             <div className="p-2">
-              <Button variant="outline" size="sm" onClick={clearFilters}>
-                Clear Filters
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearAllFilters}
+                className="w-full text-xs"
+                disabled={getActiveFilterCount() === 0}
+              >
+                Clear All Filters
               </Button>
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Sync Now Button - only show when there are unsaved changes */}
-        {hasUnsavedChanges && onSync && (
-          <Button 
-            onClick={onSync} 
-            size="sm" 
-            variant="outline" 
-            className="h-8 px-3"
-            disabled={isSyncing}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-            {isSyncing ? 'Syncing...' : 'Sync Now'}
-          </Button>
+        {/* Active filters display */}
+        {getActiveFilterCount() > 0 && (
+          <div className="flex items-center gap-1">
+            {filters.priority.map((priority) => (
+              <Badge key={priority} variant="secondary" className="text-xs">
+                {priority}
+              </Badge>
+            ))}
+            {filters.assignee.map((assigneeId) => {
+              const member = projectMembers.find(m => m.id === assigneeId);
+              return (
+                <Badge key={assigneeId} variant="secondary" className="text-xs">
+                  {assigneeId === "unassigned" ? "Unassigned" : member?.name || assigneeId}
+                </Badge>
+              );
+            })}
+            {filters.tags.map((tag) => (
+              <Badge key={tag} variant="secondary" className="text-xs">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2">
+        {/* Sync indicator for unsaved changes */}
+        {hasUnsavedChanges && (
+          <div className="flex items-center gap-2 text-amber-600">
+            <div className="h-2 w-2 bg-amber-500 rounded-full animate-pulse" />
+            <span className="text-xs">Unsaved changes</span>
+            {onSync && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onSync}
+                disabled={isSyncing}
+                className="text-xs"
+              >
+                {isSyncing ? (
+                  <RefreshCw className="h-3 w-3 animate-spin" />
+                ) : (
+                  "Sync"
+                )}
+              </Button>
+            )}
+          </div>
         )}
 
+        {/* Import/Export */}
+        <TaskImportExport
+          projectId={projectId}
+          onTasksImported={onTasksImported}
+        />
+
         {/* Add Task */}
-        <Button onClick={onAddTask} size="sm" className="h-8 px-3">
-          <Plus className="mr-2 h-4 w-4" />
+        <Button onClick={onAddTask} size="sm">
+          <Plus className="h-4 w-4 mr-2" />
           Add Task
         </Button>
       </div>

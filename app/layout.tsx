@@ -5,6 +5,7 @@ import { AuthProvider } from "@/services/auth/AuthContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import LayoutWrapper from "@/components/layout/layout-wrapper";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 
@@ -29,13 +30,15 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>
-            <WorkspaceProvider>
-              <SidebarProvider>
-                <LayoutWrapper>{children}</LayoutWrapper>
-              </SidebarProvider>
-            </WorkspaceProvider>
-          </AuthProvider>
+          <TooltipProvider>
+            <AuthProvider>
+              <WorkspaceProvider>
+                <SidebarProvider>
+                  <LayoutWrapper>{children}</LayoutWrapper>
+                </SidebarProvider>
+              </WorkspaceProvider>
+            </AuthProvider>
+          </TooltipProvider>
           <Toaster />
         </ThemeProvider>
       </body>
