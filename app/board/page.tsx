@@ -81,8 +81,8 @@ function BoardPageContent() {
         window.boardContentRef.removeTaskLocally(taskId);
       }
 
-      // Then perform the actual deletion
-      await taskService.deleteTask(taskId, user?.uid);
+      // Then perform the actual deletion with projectId for personal tasks
+      await taskService.deleteTask(taskId, user?.uid, "personal");
 
       toast({
         title: "Success",

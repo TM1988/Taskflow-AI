@@ -80,6 +80,7 @@ export async function PUT(
     if (data.order !== undefined) updateData.order = data.order;
     if (data.status !== undefined) updateData.status = data.status; // Added status
     if (data.isBlocked !== undefined) updateData.isBlocked = data.isBlocked; // Added isBlocked
+    if (data.tags !== undefined) updateData.tags = data.tags; // Added tags
 
     // If it's an organization task, ensure projectId is part of the update if provided
     // This typically shouldn't change, but good for completeness if other fields are updated.

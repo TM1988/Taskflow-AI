@@ -89,13 +89,19 @@ export default function TaskDialog({
 
   const fetchProjectMembers = async () => {
     try {
+      console.log('Fetching project members for projectId:', projectId);
       const response = await fetch(`/api/projects/${projectId}/members`);
       if (response.ok) {
         const members = await response.json();
+        console.log('Fetched project members:', members);
         setProjectMembers(members);
+      } else {
+        console.error('Failed to fetch project members:', response.status, response.statusText);
+        setProjectMembers([]);
       }
     } catch (error) {
       console.error('Error fetching project members:', error);
+      setProjectMembers([]);
     }
   };
 
@@ -367,12 +373,9 @@ export default function TaskDialog({
                   {projectMembers.map((member) => (
                     <SelectItem key={member.id} value={member.id}>
                       <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage src={member.photoURL} />
-                          <AvatarFallback className="text-xs">
-                            {member.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
+                        <div className="h-6 w-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-medium">
+                          {member.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                        </div>
                         <span>{member.name}</span>
                       </div>
                     </SelectItem>

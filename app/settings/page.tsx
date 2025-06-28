@@ -87,12 +87,7 @@ function SettingsPageContent() {
   const [pushNotifications, setPushNotifications] = useState(true);
   const [weeklyDigest, setWeeklyDigest] = useState(false);
   const [newTag, setNewTag] = useState("");
-  const [userTags, setUserTags] = useState([
-    "Frontend Developer",
-    "React",
-    "TypeScript",
-    "UI/UX",
-  ]);
+  const [userTags, setUserTags] = useState<string[]>([]);
 
   // Add the missing formData state for profile settings
   const [formData, setFormData] = useState({
@@ -239,6 +234,54 @@ function SettingsPageContent() {
     }
   }, [user]);
 
+  // Fetch user tags when component mounts
+  useEffect(() => {
+    const fetchUserTags = async () => {
+      if (!user?.uid) return;
+
+      try {
+        const response = await fetch(`/api/user-tags/${user.uid}`);
+        if (response.ok) {
+          const tags = await response.json();
+          setUserTags(tags);
+        }
+      } catch (error) {
+        console.error("Error fetching user tags:", error);
+      }
+    };
+
+    fetchUserTags();
+  }, [user]);
+
+  // Function to save tags to backend
+  const saveUserTags = async (tags: string[]) => {
+    if (!user?.uid) return;
+
+    try {
+      const response = await fetch(`/api/user-tags/${user.uid}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Tags saved successfully",
+        });
+      } else {
+        throw new Error("Failed to save tags");
+      }
+    } catch (error) {
+      console.error("Error saving tags:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save tags",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Fetch database config on component mount
   useEffect(() => {
     fetchDatabaseConfig();
@@ -285,16 +328,20 @@ function SettingsPageContent() {
     }
   };
 
-  const handleAddTag = (e: React.FormEvent) => {
+  const handleAddTag = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newTag.trim() && !userTags.includes(newTag.trim())) {
-      setUserTags([...userTags, newTag.trim()]);
+      const newTags = [...userTags, newTag.trim()];
+      setUserTags(newTags);
       setNewTag("");
+      await saveUserTags(newTags);
     }
   };
 
-  const handleRemoveTag = (tagToRemove: string) => {
-    setUserTags(userTags.filter((tag) => tag !== tagToRemove));
+  const handleRemoveTag = async (tagToRemove: string) => {
+    const newTags = userTags.filter((tag) => tag !== tagToRemove);
+    setUserTags(newTags);
+    await saveUserTags(newTags);
   };
 
   const saveAIConfig = async () => {

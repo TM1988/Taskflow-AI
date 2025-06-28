@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb } from '@/services/admin/mongoAdmin';
+import { getUserDatabaseConnection } from "@/services/db/dynamicConnection";
 
 export async function GET(
   request: NextRequest,
@@ -8,18 +8,24 @@ export async function GET(
   try {
     const { userId } = params;
     
-    const db = await getAdminDb();
+    if (userId === 'current') {
+      return NextResponse.json({ error: 'Current user not implemented' }, { status: 400 });
+    }
     
-    // Get user settings or create default
-    const userSettings = await db.collection('userSettings')
+    const database = await getUserDatabaseConnection(userId);
+    if (!database) {
+      throw new Error("Database connection failed");
+    }
+    
+    // Get user custom tags
+    const userSettings = await database.collection('userSettings')
       .findOne({ userId: userId });
       
-    if (userSettings) {
-      return NextResponse.json(userSettings.tags || []);
+    if (userSettings && userSettings.tags) {
+      return NextResponse.json(userSettings.tags);
     } else {
-      // Return default personal tags
-      const defaultTags = ['personal', 'work', 'urgent', 'low-priority', 'health', 'learning'];
-      return NextResponse.json(defaultTags);
+      // Return empty array - no default tags
+      return NextResponse.json([]);
     }
   } catch (error) {
     console.error('Error fetching user tags:', error);
@@ -45,13 +51,21 @@ export async function POST(
       );
     }
     
-    const db = await getAdminDb();
+    const database = await getUserDatabaseConnection(userId);
+    if (!database) {
+      throw new Error("Database connection failed");
+    }
     
     // Update user settings with new tags
-    await db.collection('userSettings')
+    await database.collection('userSettings')
       .updateOne(
         { userId: userId },
-        { $set: { tags } },
+        { 
+          $set: { 
+            tags,
+            updatedAt: new Date()
+          }
+        },
         { upsert: true }
       );
     

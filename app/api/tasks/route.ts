@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
         priority: task.priority || "medium",
         order: task.order || 0,
         isBlocked: task.isBlocked || false,
+        tags: task.tags || [],
         dueDate: task.dueDate ? task.dueDate.toISOString() : null,
         completedAt: task.completedAt ? task.completedAt.toISOString() : null,
         createdAt: task.createdAt ? task.createdAt.toISOString() : null,
@@ -159,6 +160,7 @@ export async function GET(request: NextRequest) {
       priority: task.priority,
       order: task.order,
       isBlocked: task.isBlocked,
+      tags: task.tags || [],
       dueDate: task.dueDate ? new Date(task.dueDate).toISOString() : null,
       createdAt: task.createdAt ? new Date(task.createdAt).toISOString() : null,
       updatedAt: task.updatedAt ? new Date(task.updatedAt).toISOString() : null,
@@ -207,6 +209,7 @@ export async function POST(request: NextRequest) {
           order: data.order || 0,
           isBlocked: data.isBlocked || false,
           dueDate: data.dueDate ? new Date(data.dueDate) : null,
+          tags: data.tags || [],
           createdAt: new Date(),
           updatedAt: new Date(),
         };

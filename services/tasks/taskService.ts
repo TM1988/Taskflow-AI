@@ -98,10 +98,13 @@ export const taskService = {
     return await response.json();
   },
 
-  async deleteTask(id: string, userId?: string) {
+  async deleteTask(id: string, userId?: string, projectId?: string) {
     const params = new URLSearchParams();
     if (userId) {
       params.append('userId', userId);
+    }
+    if (projectId) {
+      params.append('projectId', projectId);
     }
 
     const response = await fetch(`/api/tasks/${id}?${params.toString()}`, {

@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
     console.log('Calculated streak:', streakDays, 'days');
     console.log('Tasks completed today:', tasksCompletedToday);
 
-    // Calculate focus time from time tracking data
+    // Calculate focus time from time tracking data only (no estimation)
     let focusTime = 0;
     
     // Get time tracking entries from this week
@@ -136,25 +136,7 @@ export async function GET(request: NextRequest) {
       return total + (entry.minutes || 0);
     }, 0);
 
-    // If no time tracking data, estimate from task completion times
-    if (focusTime === 0) {
-      const completedTasksThisWeek = allTasks.filter(task => {
-        const isCompleted = task.status === 'done' || task.status === 'completed' || task.columnId === 'done';
-        if (!isCompleted) return false;
-        if (!task.completedAt && !task.updatedAt) return false;
-        
-        const completedDate = new Date(task.completedAt || task.updatedAt);
-        return completedDate >= startOfWeek && completedDate < endOfWeek;
-      });
-
-      // Estimate 30-90 minutes per completed task based on priority
-      focusTime = completedTasksThisWeek.reduce((total, task) => {
-        let estimatedMinutes = 45; // default
-        if (task.priority === 'high') estimatedMinutes = 90;
-        else if (task.priority === 'low') estimatedMinutes = 30;
-        return total + estimatedMinutes;
-      }, 0);
-    }
+    // Don't estimate focus time - only use actual tracked time
 
     const stats = {
       activeTasks,

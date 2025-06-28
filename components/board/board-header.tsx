@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/services/auth/AuthContext"; 
 import { useToast } from "@/hooks/use-toast";
 
 interface FilterState {
@@ -65,6 +66,7 @@ export default function BoardHeader({
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   // Real data state
   const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
@@ -111,11 +113,20 @@ export default function BoardHeader({
   const fetchPersonalData = async () => {
     setLoading(true);
     try {
-      // For personal workspace, only fetch tags (no members)
-      const response = await fetch(`/api/user-tags/${projectId === "personal" ? "current" : "fallback"}`);
+      if (!user?.uid) {
+        setAvailableTags(tags || []);
+        setProjectMembers([]);
+        return;
+      }
+
+      // For personal workspace, fetch user tags
+      const response = await fetch(`/api/user-tags/${user.uid}`);
       if (response.ok) {
         const personalTags = await response.json();
         setAvailableTags(personalTags);
+      } else {
+        // Fallback to provided tags
+        setAvailableTags(tags || []);
       }
       setProjectMembers([]); // No members for personal workspace
     } catch (error) {
