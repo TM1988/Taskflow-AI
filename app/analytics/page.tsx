@@ -8,32 +8,21 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import BurndownChart from "@/components/analytics/burndown-chart";
 import VelocityChart from "@/components/analytics/velocity-chart";
 import ContributionMetrics from "@/components/analytics/contribution-metrics";
 import ProjectPerformance from "@/components/analytics/project-performance";
 import { useAuth } from "@/services/auth/AuthContext";
 import { Loader2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
 // Metadata is client-side in this case
 const pageTitle = "Analytics | TaskFlow-AI";
-const pageDescription = "Project analytics and performance metrics";
+const pageDescription = "Personal analytics and performance metrics";
 
 export default function AnalyticsPage() {
-  const [projects, setProjects] = useState<any[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("personal");
   const [loading, setLoading] = useState(true);
-  const [showContent, setShowContent] = useState(false); // Add instant loading
+  const [showContent, setShowContent] = useState(false);
   const { user } = useAuth();
-  const { toast } = useToast();
 
   // Show content immediately for instant navigation
   useEffect(() => {
@@ -41,47 +30,12 @@ export default function AnalyticsPage() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Simple loading state for user authentication
   useEffect(() => {
-    const fetchProjects = async () => {
-      if (!user) return;
-
-      try {
-        setLoading(true);
-
-        // Use the API route instead of direct service call
-        const response = await fetch(
-          `/api/analytics/projects?userId=${user.uid}`,
-        );
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch projects: ${response.status}`);
-        }
-
-        const userProjects = await response.json();
-        setProjects(userProjects);
-
-        // Set personal as default, or first project if user has projects
-        if (!selectedProjectId || selectedProjectId === "") {
-          if (userProjects.length > 0) {
-            setSelectedProjectId("personal"); // Default to personal even if projects exist
-          } else {
-            setSelectedProjectId("personal"); // Personal workspace users
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching projects:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load projects",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProjects();
-  }, [user, selectedProjectId, toast]);
+    if (user) {
+      setLoading(false);
+    }
+  }, [user]);
 
   if (loading) {
     return (
@@ -94,30 +48,10 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Personal Analytics</h1>
         <p className="text-muted-foreground">
-          Track your personal tasks and project metrics
+          Track your personal task completion and productivity metrics
         </p>
-      </div>
-
-      <div className="flex items-center space-x-2">
-        <p className="text-sm font-medium">View Analytics For:</p>
-        <Select
-          value={selectedProjectId}
-          onValueChange={setSelectedProjectId}
-        >
-          <SelectTrigger className="w-[240px]">
-            <SelectValue placeholder="Select view" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="personal">Personal Tasks</SelectItem>
-            {projects.map((project) => (
-              <SelectItem key={project.id} value={project.id}>
-                {project.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Overview with all analytics in one page */}
@@ -127,50 +61,37 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle className="text-lg">Contribution Metrics</CardTitle>
             <CardDescription>
-              {selectedProjectId === "personal"
-                ? "Your task completion and contribution analysis"
-                : "Individual and team contribution analysis"
-              }
+              Your task completion and contribution analysis
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ContributionMetrics projectId={selectedProjectId} />
+            <ContributionMetrics projectId="personal" />
           </CardContent>
         </Card>
 
         {/* Personal Performance with pie charts - Full width */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">
-              {selectedProjectId === "personal" ? "Personal Performance" : "Project Performance"}
-            </CardTitle>
+            <CardTitle className="text-lg">Personal Performance</CardTitle>
             <CardDescription>
-              {selectedProjectId === "personal"
-                ? "Your task metrics and productivity indicators"
-                : "Overall project metrics and health indicators"
-              }
+              Your task metrics and productivity indicators
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ProjectPerformance projectId={selectedProjectId} />
+            <ProjectPerformance projectId="personal" />
           </CardContent>
         </Card>
 
         {/* Personal Velocity - Full width at bottom */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">
-              {selectedProjectId === "personal" ? "Personal Velocity" : "Team Velocity"}
-            </CardTitle>
+            <CardTitle className="text-lg">Personal Velocity</CardTitle>
             <CardDescription>
-              {selectedProjectId === "personal"
-                ? "Your task completion rate over time"
-                : "Story points completed per sprint"
-              }
+              Your task completion rate over time
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <VelocityChart projectId={selectedProjectId} />
+            <VelocityChart projectId="personal" />
           </CardContent>
         </Card>
       </div>
