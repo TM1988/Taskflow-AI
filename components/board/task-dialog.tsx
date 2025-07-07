@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogOverlay,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/services/auth/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext"; // Added import
+import { AssigneeDropdownExtreme } from "@/components/ui/assignee-dropdown-extreme";
 
 interface TaskDialogProps {
   open: boolean;
@@ -73,35 +75,151 @@ export default function TaskDialog({
   const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [membersFetched, setMembersFetched] = useState(false); // Track if members have been fetched
+  const [membersCache, setMembersCache] = useState<{
+    [key: string]: ProjectMember[];
+  }>({});
+  const [lastFetchTime, setLastFetchTime] = useState<{ [key: string]: number }>(
+    {},
+  );
   const { toast } = useToast();
   const { user } = useAuth();
   const { currentOrganization, currentWorkspace } = useWorkspace();
 
+  // Cache duration (5 minutes)
+  const CACHE_DURATION = 5 * 60 * 1000;
+
   // Fetch project members when dialog opens for project tasks
   useEffect(() => {
     if (open && projectId && projectId !== "personal") {
-      fetchProjectMembers();
+      console.log(
+        "🎯 TaskDialog: Dialog opened, checking cache for project:",
+        projectId,
+      );
+
+      // Check if we have cached data that's still fresh
+      const cachedMembers = membersCache[projectId];
+      const lastFetch = lastFetchTime[projectId];
+      const isCacheFresh =
+        cachedMembers && lastFetch && Date.now() - lastFetch < CACHE_DURATION;
+
+      if (isCacheFresh) {
+        console.log(
+          "✅ TaskDialog: Using cached members for project:",
+          projectId,
+        );
+        setProjectMembers(cachedMembers);
+        setMembersFetched(true);
+      } else {
+        console.log(
+          "🔄 TaskDialog: Cache expired or missing, fetching fresh data",
+        );
+        fetchProjectMembers();
+      }
+
+      // Also fetch tags
       fetchProjectTags();
     } else if (open && projectId === "personal") {
+      console.log("🏠 TaskDialog: Personal project, fetching tags only");
       fetchPersonalTags();
+      setProjectMembers([]); // Clear members for personal tasks
+      setMembersFetched(true);
+    } else if (open) {
+      console.log("📋 TaskDialog: Opened but resetting member state");
+      setProjectMembers([]);
+      setMembersFetched(false);
     }
   }, [open, projectId]);
 
   const fetchProjectMembers = async () => {
+    // Prevent multiple simultaneous calls
+    if (loadingMembers) {
+      console.log("⏳ TaskDialog: Already loading members, skipping...");
+      return;
+    }
+
+    if (!projectId || projectId === "personal") {
+      console.log("⚠️ TaskDialog: No valid projectId for member fetch");
+      return;
+    }
+
     try {
-      console.log('Fetching project members for projectId:', projectId);
-      const response = await fetch(`/api/projects/${projectId}/members`);
+      setLoadingMembers(true);
+      console.log(
+        "� TaskDialog: Fetching project members for projectId:",
+        projectId,
+      );
+
+      // Use AbortController for better request management
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // Increased timeout to 10s
+
+      // Get organization context if available
+      let apiUrl = `/api/projects/${projectId}/members?t=${Date.now()}&source=firebase`;
+      if (currentOrganization?.id) {
+        apiUrl += `&organizationId=${currentOrganization.id}`;
+      }
+
+      const response = await fetch(apiUrl, {
+        cache: "no-cache",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      clearTimeout(timeoutId);
+
       if (response.ok) {
         const members = await response.json();
-        console.log('Fetched project members:', members);
-        setProjectMembers(members);
+        console.log("🔍 TaskDialog: Fetched project members:", members);
+        console.log("📊 TaskDialog: Number of members found:", members.length);
+
+        if (Array.isArray(members) && members.length > 0) {
+          console.log(
+            "✅ TaskDialog: Setting and caching project members:",
+            members,
+          );
+          setProjectMembers(members);
+
+          // Cache the results
+          setMembersCache((prev) => ({
+            ...prev,
+            [projectId]: members,
+          }));
+          setLastFetchTime((prev) => ({
+            ...prev,
+            [projectId]: Date.now(),
+          }));
+          setMembersFetched(true);
+        } else {
+          console.warn(
+            "⚠️ TaskDialog: No members found or invalid response format",
+          );
+          setProjectMembers([]);
+          setMembersFetched(true); // Mark as fetched even if empty
+        }
       } else {
-        console.error('Failed to fetch project members:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error(
+          "TaskDialog: Failed to fetch project members:",
+          response.status,
+          response.statusText,
+          errorText,
+        );
         setProjectMembers([]);
+        setMembersFetched(true); // Mark as fetched to prevent infinite retries
       }
     } catch (error) {
-      console.error('Error fetching project members:', error);
+      if ((error as Error).name === "AbortError") {
+        console.log("TaskDialog: Member fetch request was aborted");
+      } else {
+        console.error("Error fetching project members:", error);
+      }
       setProjectMembers([]);
+    } finally {
+      setLoadingMembers(false);
     }
   };
 
@@ -113,8 +231,8 @@ export default function TaskDialog({
         setAvailableTags(tags);
       }
     } catch (error) {
-      console.error('Error fetching project tags:', error);
-      setAvailableTags(['frontend', 'backend', 'bug', 'feature', 'urgent']); // fallback
+      console.error("Error fetching project tags:", error);
+      setAvailableTags(["frontend", "backend", "bug", "feature", "urgent"]); // fallback
     }
   };
 
@@ -126,8 +244,8 @@ export default function TaskDialog({
         setAvailableTags(tags);
       }
     } catch (error) {
-      console.error('Error fetching personal tags:', error);
-      setAvailableTags(['personal', 'work', 'urgent', 'low-priority']); // fallback
+      console.error("Error fetching personal tags:", error);
+      setAvailableTags(["personal", "work", "urgent", "low-priority"]); // fallback
     }
   };
 
@@ -137,12 +255,14 @@ export default function TaskDialog({
       setFormData({
         title: "",
         description: "",
-        columnId: columns[0]?.id || "",
+        columnId: "",
         priority: "medium",
         dueDate: null,
         assigneeId: "unassigned",
         tags: [],
       });
+      onOpenChange(false);
+      // Don't clear members when opening dialog - use cache instead
     }
   }, [open, columns]);
 
@@ -150,7 +270,7 @@ export default function TaskDialog({
   useEffect(() => {
     if (columns && columns.length > 0 && formData.columnId) {
       const currentColumnExists = columns.find(
-        (col) => col.id === formData.columnId
+        (col) => col.id === formData.columnId,
       );
 
       if (!currentColumnExists) {
@@ -163,8 +283,16 @@ export default function TaskDialog({
   }, [columns, formData.columnId]);
 
   const handleSubmit = async () => {
-    const { title, description, columnId, priority, dueDate, assigneeId, tags } = formData;
-    
+    const {
+      title,
+      description,
+      columnId,
+      priority,
+      dueDate,
+      assigneeId,
+      tags,
+    } = formData;
+
     if (!title.trim() || !columnId) {
       toast({
         title: "Error",
@@ -198,7 +326,11 @@ export default function TaskDialog({
       };
 
       // Add assignee for project tasks
-      if (projectId !== "personal" && assigneeId && assigneeId !== "unassigned") {
+      if (
+        projectId !== "personal" &&
+        assigneeId &&
+        assigneeId !== "unassigned"
+      ) {
         taskData.assigneeId = assigneeId;
       }
 
@@ -207,7 +339,11 @@ export default function TaskDialog({
       // Handle different task types
       if (projectId === "personal") {
         taskData.projectId = "personal";
-      } else if (currentWorkspace === 'organization' && currentOrganization?.id && projectId) {
+      } else if (
+        currentWorkspace === "organization" &&
+        currentOrganization?.id &&
+        projectId
+      ) {
         taskData.organizationId = currentOrganization.id;
         taskData.projectId = projectId;
       } else if (projectId) {
@@ -221,15 +357,20 @@ export default function TaskDialog({
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: "Unknown error" }));
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
       const newTask = await response.json();
-      
+
       if (onTaskCreated) {
         onTaskCreated(newTask);
       }
+
+      // Dispatch event for dashboard refresh
+      window.dispatchEvent(new CustomEvent("taskCreated"));
 
       toast({
         title: "Success",
@@ -241,7 +382,8 @@ export default function TaskDialog({
       console.error("Error creating task:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create task",
+        description:
+          error instanceof Error ? error.message : "Failed to create task",
         variant: "destructive",
       });
     } finally {
@@ -253,7 +395,7 @@ export default function TaskDialog({
     if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
       setFormData({
         ...formData,
-        tags: [...formData.tags, newTag.trim()]
+        tags: [...formData.tags, newTag.trim()],
       });
       setNewTag("");
     }
@@ -262,7 +404,7 @@ export default function TaskDialog({
   const removeTag = (tagToRemove: string) => {
     setFormData({
       ...formData,
-      tags: formData.tags.filter(tag => tag !== tagToRemove)
+      tags: formData.tags.filter((tag) => tag !== tagToRemove),
     });
   };
 
@@ -270,7 +412,7 @@ export default function TaskDialog({
     if (!formData.tags.includes(tag)) {
       setFormData({
         ...formData,
-        tags: [...formData.tags, tag]
+        tags: [...formData.tags, tag],
       });
     }
   };
@@ -359,36 +501,22 @@ export default function TaskDialog({
           {projectId && projectId !== "personal" && (
             <div className="space-y-1">
               <label className="block text-sm font-medium">Assignee</label>
-              <Select
-                value={formData.assigneeId}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, assigneeId: value })
+              <AssigneeDropdownExtreme
+                projectId={projectId}
+                selectedAssigneeId={formData.assigneeId}
+                onAssigneeSelect={(assigneeId) =>
+                  setFormData({ ...formData, assigneeId })
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select assignee (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {projectMembers.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-medium">
-                          {member.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
-                        </div>
-                        <span>{member.name}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                className="w-full"
+                organizationId={currentOrganization?.id}
+              />
             </div>
           )}
 
           {/* Tags section */}
           <div className="space-y-2">
             <label className="block text-sm font-medium">Tags</label>
-            
+
             {/* Current tags */}
             {formData.tags.length > 0 && (
               <div className="flex flex-wrap gap-1">
@@ -415,7 +543,7 @@ export default function TaskDialog({
                 placeholder="Add new tag"
                 className="text-sm"
                 onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === "Enter") {
                     e.preventDefault();
                     addTag();
                   }
@@ -437,18 +565,18 @@ export default function TaskDialog({
                 <p className="text-xs text-muted-foreground mb-1">Quick add:</p>
                 <div className="flex flex-wrap gap-1">
                   {availableTags
-                    .filter(tag => !formData.tags.includes(tag))
+                    .filter((tag) => !formData.tags.includes(tag))
                     .slice(0, 8)
                     .map((tag) => (
-                    <Badge
-                      key={tag}
-                      variant="outline"
-                      className="text-xs cursor-pointer hover:bg-accent"
-                      onClick={() => addExistingTag(tag)}
-                    >
-                      {tag}
-                    </Badge>
-                  ))}
+                      <Badge
+                        key={tag}
+                        variant="outline"
+                        className="text-xs cursor-pointer hover:bg-accent"
+                        onClick={() => addExistingTag(tag)}
+                      >
+                        {tag}
+                      </Badge>
+                    ))}
                 </div>
               </div>
             )}
@@ -465,7 +593,7 @@ export default function TaskDialog({
               className="w-full"
             />
           </div>
-          
+
           <DialogFooter>
             <Button
               type="button"
@@ -476,7 +604,9 @@ export default function TaskDialog({
             </Button>
             <Button
               type="submit"
-              disabled={isSubmitting || !formData.title.trim() || !formData.columnId}
+              disabled={
+                isSubmitting || !formData.title.trim() || !formData.columnId
+              }
             >
               {isSubmitting ? "Creating..." : "Create Task"}
             </Button>

@@ -1,13 +1,19 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation";
 
 interface TeamWorkloadProps {
   projectId?: string;
@@ -25,9 +31,18 @@ interface TeamMemberData {
   overdueTasks: number;
 }
 
-function TeamMember({ member, onClick }: { member: TeamMemberData; onClick: () => void }) {
-  const workloadPercentage = Math.min(100, (member.taskCount / member.capacity) * 100);
-  
+function TeamMember({
+  member,
+  onClick,
+}: {
+  member: TeamMemberData;
+  onClick: () => void;
+}) {
+  const workloadPercentage = Math.min(
+    100,
+    (member.taskCount / member.capacity) * 100,
+  );
+
   // Determine status based on workload
   let statusColor = "bg-green-500";
   if (workloadPercentage >= 90) {
@@ -36,10 +51,15 @@ function TeamMember({ member, onClick }: { member: TeamMemberData; onClick: () =
     statusColor = "bg-yellow-500";
   }
 
-  const initials = member.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-  
+  const initials = member.name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .substring(0, 2)
+    .toUpperCase();
+
   return (
-    <div 
+    <div
       className="flex items-start gap-4 mb-4 p-3 rounded-lg hover:bg-accent/50 cursor-pointer transition-colors"
       onClick={onClick}
     >
@@ -54,14 +74,15 @@ function TeamMember({ member, onClick }: { member: TeamMemberData; onClick: () =
             <p className="text-xs text-muted-foreground">{member.role}</p>
           </div>
           <div className="text-right">
-            <p className="text-sm font-medium">{member.taskCount}/{member.capacity}</p>
-            <div className={`h-2 w-2 rounded-full ${statusColor} ml-auto`}></div>
+            <p className="text-sm font-medium">
+              {member.taskCount}/{member.capacity}
+            </p>
+            <div
+              className={`h-2 w-2 rounded-full ${statusColor} ml-auto`}
+            ></div>
           </div>
         </div>
-        <Progress 
-          value={workloadPercentage} 
-          className="h-2"
-        />
+        <Progress value={workloadPercentage} className="h-2" />
         <div className="flex gap-2 text-xs text-muted-foreground">
           <Badge variant="outline" className="text-xs">
             {member.completedThisWeek} completed
@@ -102,22 +123,22 @@ export default function TeamWorkload({ projectId }: TeamWorkloadProps) {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Fetch project members
       const membersResponse = await fetch(`/api/projects/${projectId}/members`);
       if (!membersResponse.ok) {
-        throw new Error('Failed to fetch project members');
+        throw new Error("Failed to fetch project members");
       }
-      
+
       const members = await membersResponse.json();
-      
+
       // Fetch task workload for each member
       const workloadPromises = members.map(async (member: any) => {
         try {
           const workloadResponse = await fetch(
-            `/api/analytics/member-workload?projectId=${projectId}&memberId=${member.id}`
+            `/api/analytics/member-workload?projectId=${projectId}&memberId=${member.id}`,
           );
-          
+
           if (workloadResponse.ok) {
             const workloadData = await workloadResponse.json();
             return {
@@ -146,7 +167,10 @@ export default function TeamWorkload({ projectId }: TeamWorkloadProps) {
             };
           }
         } catch (error) {
-          console.error(`Error fetching workload for member ${member.id}:`, error);
+          console.error(
+            `Error fetching workload for member ${member.id}:`,
+            error,
+          );
           return {
             id: member.id,
             name: member.name,
@@ -160,13 +184,12 @@ export default function TeamWorkload({ projectId }: TeamWorkloadProps) {
           };
         }
       });
-      
+
       const workloadData = await Promise.all(workloadPromises);
       setTeamMembers(workloadData);
-      
     } catch (error) {
-      console.error('Error fetching team workload:', error);
-      setError('Failed to load team workload data');
+      console.error("Error fetching team workload:", error);
+      setError("Failed to load team workload data");
       setTeamMembers([]);
     } finally {
       setLoading(false);
@@ -182,7 +205,9 @@ export default function TeamWorkload({ projectId }: TeamWorkloadProps) {
       <Card>
         <CardHeader>
           <CardTitle>Team Workload</CardTitle>
-          <CardDescription>Current task allocation across team members</CardDescription>
+          <CardDescription>
+            Current task allocation across team members
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex justify-center items-center py-8">
@@ -198,12 +223,19 @@ export default function TeamWorkload({ projectId }: TeamWorkloadProps) {
       <Card>
         <CardHeader>
           <CardTitle>Team Workload</CardTitle>
-          <CardDescription>Current task allocation across team members</CardDescription>
+          <CardDescription>
+            Current task allocation across team members
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8 text-muted-foreground">
             <p>{error}</p>
-            <Button variant="outline" size="sm" onClick={fetchTeamWorkload} className="mt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchTeamWorkload}
+              className="mt-2"
+            >
               Retry
             </Button>
           </div>
@@ -217,7 +249,9 @@ export default function TeamWorkload({ projectId }: TeamWorkloadProps) {
       <Card>
         <CardHeader>
           <CardTitle>Team Workload</CardTitle>
-          <CardDescription>Current task allocation across team members</CardDescription>
+          <CardDescription>
+            Current task allocation across team members
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8 text-muted-foreground">
@@ -233,12 +267,16 @@ export default function TeamWorkload({ projectId }: TeamWorkloadProps) {
       <Card>
         <CardHeader>
           <CardTitle>Team Workload</CardTitle>
-          <CardDescription>Current task allocation across team members</CardDescription>
+          <CardDescription>
+            Current task allocation across team members
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8 text-muted-foreground">
             <p>No team members found for this project</p>
-            <p className="text-xs mt-1">Add team members in the project settings</p>
+            <p className="text-xs mt-1">
+              Add team members in the project settings
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -250,15 +288,16 @@ export default function TeamWorkload({ projectId }: TeamWorkloadProps) {
       <CardHeader>
         <CardTitle>Team Workload</CardTitle>
         <CardDescription>
-          Current task allocation across {teamMembers.length} team member{teamMembers.length !== 1 ? 's' : ''}
+          Current task allocation across {teamMembers.length} team member
+          {teamMembers.length !== 1 ? "s" : ""}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-[400px] w-full">
           <div className="pr-4">
             {teamMembers.map((member) => (
-              <TeamMember 
-                key={member.id} 
+              <TeamMember
+                key={member.id}
                 member={member}
                 onClick={() => handleMemberClick(member.id)}
               />

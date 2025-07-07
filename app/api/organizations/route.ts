@@ -92,18 +92,36 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Fetch projects for each organization
+    // Fetch projects for each organization - only include projects where user is a member
     for (const org of organizations) {
       try {
         const projectsRef = collection(db, "projects");
         const projectsQuery = query(projectsRef, where("organizationId", "==", org.id));
         const projectsSnapshot = await getDocs(projectsQuery);
         
-        const projects = projectsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          name: doc.data().name,
-          description: doc.data().description,
-        }));
+        const projects = projectsSnapshot.docs
+          .map(doc => {
+            const projectData = doc.data();
+            return {
+              id: doc.id,
+              name: projectData.name,
+              description: projectData.description,
+              ownerId: projectData.ownerId,
+              members: projectData.members || [],
+            };
+          })
+          .filter(project => {
+            // Only include projects where the user is the owner OR is in the members array
+            const isOwner = project.ownerId === userId;
+            const isMember = project.members.includes(userId);
+            return isOwner || isMember;
+          })
+          .map(project => ({
+            // Remove internal fields from the response
+            id: project.id,
+            name: project.name,
+            description: project.description,
+          }));
         
         org.projects = projects;
       } catch (error) {

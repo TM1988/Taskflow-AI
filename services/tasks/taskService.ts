@@ -98,39 +98,20 @@ export const taskService = {
     return await response.json();
   },
 
-  async deleteTask(id: string, userId?: string, projectId?: string) {
-    try {
-      console.log("[taskService.deleteTask] Starting deletion:", { id, userId, projectId });
-      
-      const params = new URLSearchParams();
-      if (userId) {
-        params.append('userId', userId);
-      }
-      if (projectId) {
-        params.append('projectId', projectId);
-      }
-
-      const url = `/api/tasks/${id}?${params.toString()}`;
-      console.log("[taskService.deleteTask] Making DELETE request to:", url);
-
-      const response = await fetch(url, {
-        method: 'DELETE',
-      });
-
-      console.log("[taskService.deleteTask] Response status:", response.status);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
-        console.error("[taskService.deleteTask] API error:", errorData);
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log("[taskService.deleteTask] Success:", result);
-      return result;
-    } catch (error) {
-      console.error("[taskService.deleteTask] Exception:", error);
-      throw error;
+  async deleteTask(id: string, userId?: string) {
+    const params = new URLSearchParams();
+    if (userId) {
+      params.append('userId', userId);
     }
+
+    const response = await fetch(`/api/tasks/${id}?${params.toString()}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to delete task: ${response.statusText}`);
+    }
+
+    return { success: true };
   },
 };

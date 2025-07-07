@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/services/auth/AuthContext"; 
+import { useAuth } from "@/services/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
 interface FilterState {
@@ -88,7 +88,7 @@ export default function BoardHeader({
       // Fetch project members and tags in parallel
       const [membersResponse, tagsResponse] = await Promise.all([
         fetch(`/api/projects/${projectId}/members`),
-        fetch(`/api/projects/${projectId}/tags`)
+        fetch(`/api/projects/${projectId}/tags`),
       ]);
 
       if (membersResponse.ok) {
@@ -101,7 +101,7 @@ export default function BoardHeader({
         setAvailableTags(projectTags);
       }
     } catch (error) {
-      console.error('Error fetching project data:', error);
+      console.error("Error fetching project data:", error);
       // Fallback to provided data
       setProjectMembers(users || []);
       setAvailableTags(tags || []);
@@ -130,7 +130,7 @@ export default function BoardHeader({
       }
       setProjectMembers([]); // No members for personal workspace
     } catch (error) {
-      console.error('Error fetching personal data:', error);
+      console.error("Error fetching personal data:", error);
       setAvailableTags(tags || []);
       setProjectMembers([]);
     } finally {
@@ -141,13 +141,13 @@ export default function BoardHeader({
   const toggleFilter = (filterType: keyof FilterState, value: string) => {
     const newFilters = { ...filters };
     const currentValues = newFilters[filterType] as string[];
-    
+
     if (currentValues.includes(value)) {
       newFilters[filterType] = currentValues.filter((v) => v !== value) as any;
     } else {
       newFilters[filterType] = [...currentValues, value] as any;
     }
-    
+
     setFilters(newFilters);
     onFilter(newFilters);
   };
@@ -177,7 +177,9 @@ export default function BoardHeader({
   };
 
   const getActiveFilterCount = () => {
-    return filters.priority.length + filters.assignee.length + filters.tags.length;
+    return (
+      filters.priority.length + filters.assignee.length + filters.tags.length
+    );
   };
 
   const isPersonalWorkspace = projectId === "personal" || !projectId;
@@ -244,7 +246,9 @@ export default function BoardHeader({
                   <div className="space-y-1 max-h-36 overflow-y-auto">
                     <DropdownMenuCheckboxItem
                       checked={filters.assignee.includes("unassigned")}
-                      onCheckedChange={() => toggleFilter("assignee", "unassigned")}
+                      onCheckedChange={() =>
+                        toggleFilter("assignee", "unassigned")
+                      }
                     >
                       Unassigned
                     </DropdownMenuCheckboxItem>
@@ -252,7 +256,9 @@ export default function BoardHeader({
                       <DropdownMenuCheckboxItem
                         key={member.id}
                         checked={filters.assignee.includes(member.id)}
-                        onCheckedChange={() => toggleFilter("assignee", member.id)}
+                        onCheckedChange={() =>
+                          toggleFilter("assignee", member.id)
+                        }
                       >
                         {member.name}
                       </DropdownMenuCheckboxItem>
@@ -310,10 +316,12 @@ export default function BoardHeader({
               </Badge>
             ))}
             {filters.assignee.map((assigneeId) => {
-              const member = projectMembers.find(m => m.id === assigneeId);
+              const member = projectMembers.find((m) => m.id === assigneeId);
               return (
                 <Badge key={assigneeId} variant="secondary" className="text-xs">
-                  {assigneeId === "unassigned" ? "Unassigned" : member?.name || assigneeId}
+                  {assigneeId === "unassigned"
+                    ? "Unassigned"
+                    : member?.name || assigneeId}
                 </Badge>
               );
             })}

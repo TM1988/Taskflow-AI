@@ -15,12 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -53,7 +48,7 @@ import {
   Database,
   AlertTriangle,
   Cloud,
-  Server
+  Server,
 } from "lucide-react";
 import { useAuth } from "@/services/auth/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -61,6 +56,7 @@ import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import SupportSection from "@/components/support/support-section";
 import StorageTab from "@/components/organizations/storage-tab";
+import { clearExtremeRolesCache } from "@/components/ui/role-selector-optimized-extreme";
 
 interface OrganizationSettingsPageProps {
   params: {
@@ -180,11 +176,13 @@ export default function OrganizationSettingsPage({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [roleModalOpen, setRoleModalOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
-  const [deleteRoleConfirm, setDeleteRoleConfirm] = useState<string | null>(null);
+  const [deleteRoleConfirm, setDeleteRoleConfirm] = useState<string | null>(
+    null,
+  );
   const [formData, setFormData] = useState({
     description: "",
   });
-  
+
   // SMTP Configuration state
   const [smtpConfig, setSmtpConfig] = useState({
     host: "",
@@ -196,7 +194,7 @@ export default function OrganizationSettingsPage({
   const [smtpSaving, setSmtpSaving] = useState(false);
   const [smtpTesting, setSmtpTesting] = useState(false);
   const [testEmailAddress, setTestEmailAddress] = useState("");
-  
+
   // Email templates state
   const [emailTemplates, setEmailTemplates] = useState({
     welcome: "",
@@ -204,7 +202,7 @@ export default function OrganizationSettingsPage({
     dueReminder: "",
   });
   const [templatesSaving, setTemplatesSaving] = useState(false);
-  
+
   // Notification settings state
   const [notificationSettings, setNotificationSettings] = useState({
     taskAssignments: true,
@@ -223,48 +221,51 @@ export default function OrganizationSettingsPage({
   const { refreshOrganizations } = useWorkspace();
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   // Get the tab from URL parameters, default to "general"
   const defaultTab = searchParams.get("tab") || "general";
 
   useEffect(() => {
     const fetchOrganization = async () => {
       try {
-        const response = await fetch(`/api/organizations/${params.organizationId}`);
+        const response = await fetch(
+          `/api/organizations/${params.organizationId}`,
+        );
         if (response.ok) {
           const org = await response.json();
           setOrganization(org);
           setFormData({
             description: org.description || "",
           });
-          
+
           // Calculate member counts for each role
           const roleCounts: Record<string, number> = {};
-          
+
           // Count owner
-          roleCounts['owner'] = 1; // Always 1 owner
-          
+          roleCounts["owner"] = 1; // Always 1 owner
+
           // Count members by their roles
           if (org.members && org.memberRoles) {
             org.members.forEach((memberId: string) => {
-              if (memberId !== org.ownerId) { // Skip owner, already counted
-                const role = org.memberRoles[memberId] || 'member';
+              if (memberId !== org.ownerId) {
+                // Skip owner, already counted
+                const role = org.memberRoles[memberId] || "member";
                 roleCounts[role] = (roleCounts[role] || 0) + 1;
               }
             });
           }
-          
+
           // Update roles with member counts
-          const rolesWithCounts = DEFAULT_ROLES.map(role => ({
+          const rolesWithCounts = DEFAULT_ROLES.map((role) => ({
             ...role,
-            memberCount: roleCounts[role.id] || 0
+            memberCount: roleCounts[role.id] || 0,
           }));
-          
+
           // Add custom roles with counts
           if (org.customRoles) {
             const customRolesWithCounts = org.customRoles.map((role: any) => ({
               ...role,
-              memberCount: roleCounts[role.id] || 0
+              memberCount: roleCounts[role.id] || 0,
             }));
             setRoles([...rolesWithCounts, ...customRolesWithCounts]);
           } else {
@@ -293,12 +294,14 @@ export default function OrganizationSettingsPage({
   useEffect(() => {
     const fetchSmtpConfig = async () => {
       try {
-        const response = await fetch(`/api/organizations/${params.organizationId}/smtp-config`);
+        const response = await fetch(
+          `/api/organizations/${params.organizationId}/smtp-config`,
+        );
         if (response.ok) {
           const data = await response.json();
-          setSmtpConfig(prev => ({
+          setSmtpConfig((prev) => ({
             ...prev,
-            ...data.smtpConfig
+            ...data.smtpConfig,
           }));
         }
       } catch (error) {
@@ -320,12 +323,14 @@ export default function OrganizationSettingsPage({
   useEffect(() => {
     const fetchEmailTemplates = async () => {
       try {
-        const response = await fetch(`/api/organizations/${params.organizationId}/email-templates`);
+        const response = await fetch(
+          `/api/organizations/${params.organizationId}/email-templates`,
+        );
         if (response.ok) {
           const data = await response.json();
-          setEmailTemplates(prev => ({
+          setEmailTemplates((prev) => ({
             ...prev,
-            ...data.emailTemplates
+            ...data.emailTemplates,
           }));
         }
       } catch (error) {
@@ -340,12 +345,14 @@ export default function OrganizationSettingsPage({
   useEffect(() => {
     const fetchNotificationSettings = async () => {
       try {
-        const response = await fetch(`/api/organizations/${params.organizationId}/notification-settings`);
+        const response = await fetch(
+          `/api/organizations/${params.organizationId}/notification-settings`,
+        );
         if (response.ok) {
           const data = await response.json();
-          setNotificationSettings(prev => ({
+          setNotificationSettings((prev) => ({
             ...prev,
-            ...data.notificationSettings
+            ...data.notificationSettings,
           }));
         }
       } catch (error) {
@@ -370,16 +377,16 @@ export default function OrganizationSettingsPage({
           body: JSON.stringify({
             description: formData.description,
           }),
-        }
+        },
       );
 
       if (response.ok) {
         const updatedOrg = await response.json();
         setOrganization(updatedOrg);
-        
+
         // Refresh organizations in context to update everywhere
         await refreshOrganizations();
-        
+
         toast({
           title: "Success",
           description: "Organization updated successfully",
@@ -393,7 +400,9 @@ export default function OrganizationSettingsPage({
       toast({
         title: "Error",
         description:
-          error instanceof Error ? error.message : "Failed to update organization",
+          error instanceof Error
+            ? error.message
+            : "Failed to update organization",
         variant: "destructive",
       });
     } finally {
@@ -412,35 +421,36 @@ export default function OrganizationSettingsPage({
         return;
       }
 
-      if (editingRole && editingRole.isDefault && editingRole.id !== 'owner') {
+      if (editingRole && editingRole.isDefault && editingRole.id !== "owner") {
         // Update default role (member or admin)
         const response = await fetch(
           `/api/organizations/${params.organizationId}/default-roles`,
           {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
+            body: JSON.stringify({
               roleId: editingRole.id,
-              ...roleData 
+              ...roleData,
             }),
-          }
+          },
         );
 
         if (response.ok) {
           // Update the local roles state
-          const updatedRoles = roles.map(r => 
-            r.id === editingRole.id 
-              ? { ...r, ...roleData }
-              : r
+          const updatedRoles = roles.map((r) =>
+            r.id === editingRole.id ? { ...r, ...roleData } : r,
           );
           setRoles(updatedRoles);
-          toast({ title: "Success", description: "Default role updated successfully" });
+          toast({
+            title: "Success",
+            description: "Default role updated successfully",
+          });
         }
       } else if (editingRole && !editingRole.isDefault) {
         // Update existing custom role
         const customRoles = roles.filter((r) => !r.isDefault);
         const updatedCustomRoles = customRoles.map((r) =>
-          r.id === editingRole.id ? { ...r, ...roleData } : r
+          r.id === editingRole.id ? { ...r, ...roleData } : r,
         );
 
         const response = await fetch(
@@ -449,11 +459,13 @@ export default function OrganizationSettingsPage({
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ customRoles: updatedCustomRoles }),
-          }
+          },
         );
 
         if (response.ok) {
           setRoles([...DEFAULT_ROLES, ...updatedCustomRoles]);
+          // Clear cache to ensure role selectors get updated data
+          clearExtremeRolesCache(params.organizationId);
           toast({ title: "Success", description: "Role updated successfully" });
         }
       } else {
@@ -475,11 +487,13 @@ export default function OrganizationSettingsPage({
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ customRoles: updatedCustomRoles }),
-          }
+          },
         );
 
         if (response.ok) {
           setRoles([...DEFAULT_ROLES, ...updatedCustomRoles]);
+          // Clear cache to ensure role selectors get updated data
+          clearExtremeRolesCache(params.organizationId);
           toast({ title: "Success", description: "Role created successfully" });
         }
       }
@@ -498,8 +512,8 @@ export default function OrganizationSettingsPage({
 
   const handleDeleteRole = async (roleId: string) => {
     try {
-      const roleToDelete = roles.find(r => r.id === roleId);
-      
+      const roleToDelete = roles.find((r) => r.id === roleId);
+
       if (!roleToDelete) {
         toast({
           title: "Error",
@@ -510,7 +524,7 @@ export default function OrganizationSettingsPage({
       }
 
       // Check if trying to delete the Owner role
-      if (roleId === 'owner') {
+      if (roleId === "owner") {
         toast({
           title: "Error",
           description: "Cannot delete the Owner role",
@@ -525,17 +539,17 @@ export default function OrganizationSettingsPage({
         {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
 
       if (response.ok) {
         // Remove the role from the local state
-        const updatedRoles = roles.filter(r => r.id !== roleId);
+        const updatedRoles = roles.filter((r) => r.id !== roleId);
         setRoles(updatedRoles);
-        
-        toast({ 
-          title: "Success", 
-          description: `Role "${roleToDelete.name}" has been deleted successfully` 
+
+        toast({
+          title: "Success",
+          description: `Role "${roleToDelete.name}" has been deleted successfully`,
         });
       } else {
         const errorData = await response.json();
@@ -545,7 +559,8 @@ export default function OrganizationSettingsPage({
       console.error("Error deleting role:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete role",
+        description:
+          error instanceof Error ? error.message : "Failed to delete role",
         variant: "destructive",
       });
     }
@@ -554,24 +569,27 @@ export default function OrganizationSettingsPage({
 
   const handleDeleteOrganization = async () => {
     try {
-      const response = await fetch(`/api/organizations/${params.organizationId}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const response = await fetch(
+        `/api/organizations/${params.organizationId}`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+        },
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to delete organization');
+        throw new Error("Failed to delete organization");
       }
 
       await refreshOrganizations();
-      
+
       toast({
         title: "Organization Deleted",
         description: `${organization?.name} has been deleted successfully.`,
       });
 
       // Redirect to organizations page
-      router.push('/organizations');
+      router.push("/organizations");
     } catch (error) {
       console.error("Error deleting organization:", error);
       toast({
@@ -588,11 +606,14 @@ export default function OrganizationSettingsPage({
   const handleSaveSmtpConfig = async () => {
     setSmtpSaving(true);
     try {
-      const response = await fetch(`/api/organizations/${params.organizationId}/smtp-config`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(smtpConfig),
-      });
+      const response = await fetch(
+        `/api/organizations/${params.organizationId}/smtp-config`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(smtpConfig),
+        },
+      );
 
       if (response.ok) {
         toast({
@@ -607,7 +628,10 @@ export default function OrganizationSettingsPage({
       console.error("Error saving SMTP config:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save SMTP configuration",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to save SMTP configuration",
         variant: "destructive",
       });
     } finally {
@@ -627,18 +651,23 @@ export default function OrganizationSettingsPage({
 
     setSmtpTesting(true);
     try {
-      const response = await fetch(`/api/organizations/${params.organizationId}/smtp-test`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...smtpConfig, testEmailAddress }),
-      });
+      const response = await fetch(
+        `/api/organizations/${params.organizationId}/smtp-test`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...smtpConfig, testEmailAddress }),
+        },
+      );
 
       const data = await response.json();
 
       if (response.ok) {
         toast({
           title: "Test Email Sent",
-          description: data.message || `Test email sent successfully to ${testEmailAddress}`,
+          description:
+            data.message ||
+            `Test email sent successfully to ${testEmailAddress}`,
         });
       } else {
         throw new Error(data.error || "Failed to send test email");
@@ -646,8 +675,9 @@ export default function OrganizationSettingsPage({
     } catch (error) {
       console.error("Error sending test email:", error);
       toast({
-        title: "Error", 
-        description: error instanceof Error ? error.message : "Failed to send test email",
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "Failed to send test email",
         variant: "destructive",
       });
     } finally {
@@ -658,11 +688,14 @@ export default function OrganizationSettingsPage({
   const handleSaveEmailTemplates = async () => {
     setTemplatesSaving(true);
     try {
-      const response = await fetch(`/api/organizations/${params.organizationId}/email-templates`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(emailTemplates),
-      });
+      const response = await fetch(
+        `/api/organizations/${params.organizationId}/email-templates`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(emailTemplates),
+        },
+      );
 
       if (response.ok) {
         toast({
@@ -677,7 +710,10 @@ export default function OrganizationSettingsPage({
       console.error("Error saving email templates:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save email templates",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to save email templates",
         variant: "destructive",
       });
     } finally {
@@ -688,11 +724,14 @@ export default function OrganizationSettingsPage({
   const handleSaveNotificationSettings = async () => {
     setNotificationsSaving(true);
     try {
-      const response = await fetch(`/api/organizations/${params.organizationId}/notification-settings`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(notificationSettings),
-      });
+      const response = await fetch(
+        `/api/organizations/${params.organizationId}/notification-settings`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(notificationSettings),
+        },
+      );
 
       if (response.ok) {
         toast({
@@ -701,13 +740,18 @@ export default function OrganizationSettingsPage({
         });
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to save notification settings");
+        throw new Error(
+          errorData.error || "Failed to save notification settings",
+        );
       }
     } catch (error) {
       console.error("Error saving notification settings:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save notification settings",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to save notification settings",
         variant: "destructive",
       });
     } finally {
@@ -731,23 +775,26 @@ export default function OrganizationSettingsPage({
   const updateStorageSettings = async (useSelfHosting: boolean) => {
     setStorageSaving(true);
     try {
-      const response = await fetch(`/api/organizations/${params.organizationId}/storage-settings`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ useSelfHosting }),
-      });
+      const response = await fetch(
+        `/api/organizations/${params.organizationId}/storage-settings`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ useSelfHosting }),
+        },
+      );
 
       if (response.ok) {
         const updatedOrg = await response.json();
         setOrganization(updatedOrg);
         setShowStorageWarning(false);
-        
+
         // Refresh organizations in context to update everywhere
         await refreshOrganizations();
-        
+
         toast({
           title: "Success",
-          description: useSelfHosting 
+          description: useSelfHosting
             ? "Organization data will now be stored in your custom database"
             : "Organization data will now be stored in the official database",
         });
@@ -759,7 +806,10 @@ export default function OrganizationSettingsPage({
       console.error("Error updating storage settings:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update storage settings",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to update storage settings",
         variant: "destructive",
       });
     } finally {
@@ -770,24 +820,24 @@ export default function OrganizationSettingsPage({
   const formatDate = (dateValue: any) => {
     try {
       if (!dateValue) return "Unknown date";
-      
+
       // Handle Firebase Timestamp objects
       if (dateValue && typeof dateValue.toDate === "function") {
         return dateValue.toDate().toLocaleDateString("en-US", {
           year: "numeric",
           month: "short",
-          day: "numeric"
+          day: "numeric",
         });
       }
-      
+
       // Handle ISO strings and regular dates
       const date = new Date(dateValue);
       if (isNaN(date.getTime())) return "Unknown date";
-      
+
       return date.toLocaleDateString("en-US", {
         year: "numeric",
-        month: "short", 
-        day: "numeric"
+        month: "short",
+        day: "numeric",
       });
     } catch {
       return "Unknown date";
@@ -856,14 +906,17 @@ export default function OrganizationSettingsPage({
                     disabled
                     className="bg-muted"
                   />
-                  <Badge variant="secondary" className="flex items-center gap-1">
+                  <Badge
+                    variant="secondary"
+                    className="flex items-center gap-1"
+                  >
                     <Lock className="h-3 w-3" />
                     Immutable
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Organization names cannot be changed after creation for security
-                  reasons.
+                  Organization names cannot be changed after creation for
+                  security reasons.
                 </p>
               </div>
 
@@ -894,7 +947,7 @@ export default function OrganizationSettingsPage({
         </TabsContent>
 
         <TabsContent value="storage">
-          <StorageTab 
+          <StorageTab
             organizationId={params.organizationId}
             organization={organization}
             isOwner={isOwner}
@@ -902,7 +955,9 @@ export default function OrganizationSettingsPage({
               // Refresh organization data
               const fetchOrganization = async () => {
                 try {
-                  const response = await fetch(`/api/organizations/${params.organizationId}`);
+                  const response = await fetch(
+                    `/api/organizations/${params.organizationId}`,
+                  );
                   if (response.ok) {
                     const org = await response.json();
                     setOrganization(org);
@@ -928,10 +983,12 @@ export default function OrganizationSettingsPage({
                   </CardDescription>
                 </div>
                 {isOwner && (
-                  <Button onClick={() => {
-                    setEditingRole(null);
-                    setRoleModalOpen(true);
-                  }}>
+                  <Button
+                    onClick={() => {
+                      setEditingRole(null);
+                      setRoleModalOpen(true);
+                    }}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Create Role
                   </Button>
@@ -954,11 +1011,17 @@ export default function OrganizationSettingsPage({
                     <TableRow key={role.id}>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          {role.id === 'owner' && <Crown className="h-4 w-4 text-amber-500" />}
-                          {role.isDefault && role.id !== 'owner' && <Shield className="h-4 w-4 text-blue-500" />}
+                          {role.id === "owner" && (
+                            <Crown className="h-4 w-4 text-amber-500" />
+                          )}
+                          {role.isDefault && role.id !== "owner" && (
+                            <Shield className="h-4 w-4 text-blue-500" />
+                          )}
                           <span className="font-medium">{role.name}</span>
                           {role.isDefault && (
-                            <Badge variant="outline" className="text-xs">Default</Badge>
+                            <Badge variant="outline" className="text-xs">
+                              Default
+                            </Badge>
                           )}
                         </div>
                       </TableCell>
@@ -972,7 +1035,8 @@ export default function OrganizationSettingsPage({
                       </TableCell>
                       <TableCell>
                         <span className="text-sm text-muted-foreground">
-                          {role.memberCount || 0} {role.memberCount === 1 ? 'member' : 'members'}
+                          {role.memberCount || 0}{" "}
+                          {role.memberCount === 1 ? "member" : "members"}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -983,19 +1047,22 @@ export default function OrganizationSettingsPage({
                             size="sm"
                             onClick={() => {
                               // Show role details in a read-only modal for Owner role only
-                              if (role.id === 'owner') {
-                                setEditingRole({ ...role, isReadonly: true } as Role & { isReadonly?: boolean });
+                              if (role.id === "owner") {
+                                setEditingRole({
+                                  ...role,
+                                  isReadonly: true,
+                                } as Role & { isReadonly?: boolean });
                               } else {
                                 setEditingRole(role);
                               }
                               setRoleModalOpen(true);
                             }}
                           >
-                            {role.id === 'owner' ? 'View Details' : 'Edit'}
+                            {role.id === "owner" ? "View Details" : "Edit"}
                           </Button>
-                          
+
                           {/* Delete for all roles except Owner, only for owners */}
-                          {role.id !== 'owner' && isOwner && (
+                          {role.id !== "owner" && isOwner && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1025,7 +1092,8 @@ export default function OrganizationSettingsPage({
                     SMTP Configuration
                   </CardTitle>
                   <CardDescription>
-                    Configure email server settings for this organization (Owner only)
+                    Configure email server settings for this organization (Owner
+                    only)
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -1036,7 +1104,9 @@ export default function OrganizationSettingsPage({
                         id="smtp-host"
                         placeholder="smtp.example.com"
                         value={smtpConfig.host}
-                        onChange={(e) => setSmtpConfig({ ...smtpConfig, host: e.target.value })}
+                        onChange={(e) =>
+                          setSmtpConfig({ ...smtpConfig, host: e.target.value })
+                        }
                       />
                     </div>
                     <div className="space-y-2">
@@ -1046,7 +1116,9 @@ export default function OrganizationSettingsPage({
                         type="number"
                         placeholder="587"
                         value={smtpConfig.port}
-                        onChange={(e) => setSmtpConfig({ ...smtpConfig, port: e.target.value })}
+                        onChange={(e) =>
+                          setSmtpConfig({ ...smtpConfig, port: e.target.value })
+                        }
                       />
                     </div>
                     <div className="space-y-2">
@@ -1055,7 +1127,12 @@ export default function OrganizationSettingsPage({
                         id="smtp-username"
                         placeholder="username@example.com"
                         value={smtpConfig.username}
-                        onChange={(e) => setSmtpConfig({ ...smtpConfig, username: e.target.value })}
+                        onChange={(e) =>
+                          setSmtpConfig({
+                            ...smtpConfig,
+                            username: e.target.value,
+                          })
+                        }
                       />
                     </div>
                     <div className="space-y-2">
@@ -1065,19 +1142,26 @@ export default function OrganizationSettingsPage({
                         type="password"
                         placeholder="••••••••"
                         value={smtpConfig.password}
-                        onChange={(e) => setSmtpConfig({ ...smtpConfig, password: e.target.value })}
+                        onChange={(e) =>
+                          setSmtpConfig({
+                            ...smtpConfig,
+                            password: e.target.value,
+                          })
+                        }
                       />
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Checkbox 
-                      id="smtp-tls" 
+                    <Checkbox
+                      id="smtp-tls"
                       checked={smtpConfig.useTLS}
-                      onCheckedChange={(checked) => setSmtpConfig({ ...smtpConfig, useTLS: !!checked })}
+                      onCheckedChange={(checked) =>
+                        setSmtpConfig({ ...smtpConfig, useTLS: !!checked })
+                      }
                     />
                     <Label htmlFor="smtp-tls">Use TLS encryption</Label>
                   </div>
-                  
+
                   {/* Test Email Section */}
                   <div className="border-t pt-4 space-y-4">
                     <div className="space-y-2">
@@ -1090,22 +1174,30 @@ export default function OrganizationSettingsPage({
                         onChange={(e) => setTestEmailAddress(e.target.value)}
                       />
                       <p className="text-sm text-muted-foreground">
-                        Enter the email address where you want to receive the test email
+                        Enter the email address where you want to receive the
+                        test email
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="flex justify-end gap-2">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       onClick={handleSendTestEmail}
-                      disabled={smtpTesting || !smtpConfig.host || !smtpConfig.username || !testEmailAddress}
+                      disabled={
+                        smtpTesting ||
+                        !smtpConfig.host ||
+                        !smtpConfig.username ||
+                        !testEmailAddress
+                      }
                     >
                       {smtpTesting ? "Sending..." : "Send Test Email"}
                     </Button>
-                    <Button 
+                    <Button
                       onClick={handleSaveSmtpConfig}
-                      disabled={smtpSaving || !smtpConfig.host || !smtpConfig.username}
+                      disabled={
+                        smtpSaving || !smtpConfig.host || !smtpConfig.username
+                      }
                     >
                       {smtpSaving ? "Saving..." : "Save SMTP Settings"}
                     </Button>
@@ -1128,38 +1220,59 @@ export default function OrganizationSettingsPage({
               <CardContent className="space-y-4">
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="welcome-template">Welcome Email Template</Label>
+                    <Label htmlFor="welcome-template">
+                      Welcome Email Template
+                    </Label>
                     <Textarea
                       id="welcome-template"
                       placeholder="Welcome to {organization_name}! We're excited to have you on board..."
                       rows={4}
                       value={emailTemplates.welcome}
-                      onChange={(e) => setEmailTemplates({ ...emailTemplates, welcome: e.target.value })}
+                      onChange={(e) =>
+                        setEmailTemplates({
+                          ...emailTemplates,
+                          welcome: e.target.value,
+                        })
+                      }
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="notification-template">Task Notification Template</Label>
+                    <Label htmlFor="notification-template">
+                      Task Notification Template
+                    </Label>
                     <Textarea
                       id="notification-template"
                       placeholder="You have been assigned a new task: {task_title}..."
                       rows={4}
                       value={emailTemplates.taskNotification}
-                      onChange={(e) => setEmailTemplates({ ...emailTemplates, taskNotification: e.target.value })}
+                      onChange={(e) =>
+                        setEmailTemplates({
+                          ...emailTemplates,
+                          taskNotification: e.target.value,
+                        })
+                      }
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="reminder-template">Due Date Reminder Template</Label>
+                    <Label htmlFor="reminder-template">
+                      Due Date Reminder Template
+                    </Label>
                     <Textarea
                       id="reminder-template"
                       placeholder="Reminder: Your task {task_title} is due on {due_date}..."
                       rows={4}
                       value={emailTemplates.dueReminder}
-                      onChange={(e) => setEmailTemplates({ ...emailTemplates, dueReminder: e.target.value })}
+                      onChange={(e) =>
+                        setEmailTemplates({
+                          ...emailTemplates,
+                          dueReminder: e.target.value,
+                        })
+                      }
                     />
                   </div>
                 </div>
                 <div className="flex justify-end">
-                  <Button 
+                  <Button
                     onClick={handleSaveEmailTemplates}
                     disabled={templatesSaving}
                   >
@@ -1177,7 +1290,8 @@ export default function OrganizationSettingsPage({
                   Notification Settings
                 </CardTitle>
                 <CardDescription>
-                  Configure when organization members receive email notifications
+                  Configure when organization members receive email
+                  notifications
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1189,12 +1303,14 @@ export default function OrganizationSettingsPage({
                         Send emails when members are assigned tasks
                       </p>
                     </div>
-                    <Checkbox 
+                    <Checkbox
                       checked={notificationSettings.taskAssignments}
-                      onCheckedChange={(checked) => setNotificationSettings({ 
-                        ...notificationSettings, 
-                        taskAssignments: !!checked 
-                      })}
+                      onCheckedChange={(checked) =>
+                        setNotificationSettings({
+                          ...notificationSettings,
+                          taskAssignments: !!checked,
+                        })
+                      }
                     />
                   </div>
                   <div className="flex items-center justify-between">
@@ -1204,12 +1320,14 @@ export default function OrganizationSettingsPage({
                         Send reminder emails 24 hours before task due dates
                       </p>
                     </div>
-                    <Checkbox 
+                    <Checkbox
                       checked={notificationSettings.dueReminders}
-                      onCheckedChange={(checked) => setNotificationSettings({ 
-                        ...notificationSettings, 
-                        dueReminders: !!checked 
-                      })}
+                      onCheckedChange={(checked) =>
+                        setNotificationSettings({
+                          ...notificationSettings,
+                          dueReminders: !!checked,
+                        })
+                      }
                     />
                   </div>
                   <div className="flex items-center justify-between">
@@ -1219,12 +1337,14 @@ export default function OrganizationSettingsPage({
                         Send emails when projects are created or updated
                       </p>
                     </div>
-                    <Checkbox 
+                    <Checkbox
                       checked={notificationSettings.projectUpdates}
-                      onCheckedChange={(checked) => setNotificationSettings({ 
-                        ...notificationSettings, 
-                        projectUpdates: !!checked 
-                      })}
+                      onCheckedChange={(checked) =>
+                        setNotificationSettings({
+                          ...notificationSettings,
+                          projectUpdates: !!checked,
+                        })
+                      }
                     />
                   </div>
                   <div className="flex items-center justify-between">
@@ -1234,21 +1354,25 @@ export default function OrganizationSettingsPage({
                         Send weekly summary emails to all members
                       </p>
                     </div>
-                    <Checkbox 
+                    <Checkbox
                       checked={notificationSettings.weeklyDigest}
-                      onCheckedChange={(checked) => setNotificationSettings({ 
-                        ...notificationSettings, 
-                        weeklyDigest: !!checked 
-                      })}
+                      onCheckedChange={(checked) =>
+                        setNotificationSettings({
+                          ...notificationSettings,
+                          weeklyDigest: !!checked,
+                        })
+                      }
                     />
                   </div>
                 </div>
                 <div className="flex justify-end">
-                  <Button 
+                  <Button
                     onClick={handleSaveNotificationSettings}
                     disabled={notificationsSaving}
                   >
-                    {notificationsSaving ? "Saving..." : "Save Notification Settings"}
+                    {notificationsSaving
+                      ? "Saving..."
+                      : "Save Notification Settings"}
                   </Button>
                 </div>
               </CardContent>
@@ -1265,9 +1389,9 @@ export default function OrganizationSettingsPage({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <SupportSection 
-                userId={user?.uid || ''} 
-                userEmail={user?.email || ''} 
+              <SupportSection
+                userId={user?.uid || ""}
+                userEmail={user?.email || ""}
                 organizationId={params.organizationId}
                 organizationName={organization?.name}
               />
@@ -1287,9 +1411,14 @@ export default function OrganizationSettingsPage({
               {isOwner && (
                 <div className="space-y-4">
                   <div className="p-4 border border-destructive rounded-lg">
-                    <h3 className="font-medium text-destructive mb-2">Delete Organization</h3>
+                    <h3 className="font-medium text-destructive mb-2">
+                      Delete Organization
+                    </h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      This will delete the organization and move it to recently deleted where it can be recovered for a limited time. All projects and data will be preserved but inaccessible until restored.
+                      This will delete the organization and move it to recently
+                      deleted where it can be recovered for a limited time. All
+                      projects and data will be preserved but inaccessible until
+                      restored.
                     </p>
                     <Button
                       variant="destructive"
@@ -1353,9 +1482,10 @@ export default function OrganizationSettingsPage({
             </DialogTitle>
             <DialogDescription className="text-left space-y-3">
               <p>
-                Switching from self-hosted to official database will result in 
-                <strong className="text-destructive"> permanent loss</strong> of all data 
-                stored in your custom database for this organization, including:
+                Switching from self-hosted to official database will result in
+                <strong className="text-destructive"> permanent loss</strong> of
+                all data stored in your custom database for this organization,
+                including:
               </p>
               <ul className="text-sm space-y-1 ml-4 list-disc">
                 <li>All projects in this organization</li>
@@ -1375,7 +1505,9 @@ export default function OrganizationSettingsPage({
               disabled={storageSaving}
               className="w-full"
             >
-              {storageSaving ? "Switching..." : "Yes, Switch to Official Database"}
+              {storageSaving
+                ? "Switching..."
+                : "Yes, Switch to Official Database"}
             </Button>
             <Button
               variant="outline"
@@ -1393,12 +1525,12 @@ export default function OrganizationSettingsPage({
 }
 
 // Role Modal Component
-function RoleModal({ 
-  open, 
-  onOpenChange, 
-  role, 
-  permissions, 
-  onSave 
+function RoleModal({
+  open,
+  onOpenChange,
+  role,
+  permissions,
+  onSave,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -1412,7 +1544,7 @@ function RoleModal({
     permissions: [] as string[],
   });
 
-  const isReadonly = role?.id === 'owner'; // Only Owner role should be readonly
+  const isReadonly = role?.id === "owner"; // Only Owner role should be readonly
 
   useEffect(() => {
     if (role) {
@@ -1439,18 +1571,23 @@ function RoleModal({
     }));
   };
 
-  const handleSelectAllCategory = (categoryPermissions: Permission[], isSelectAll: boolean) => {
-    const categoryPermissionIds = categoryPermissions.map(p => p.id);
+  const handleSelectAllCategory = (
+    categoryPermissions: Permission[],
+    isSelectAll: boolean,
+  ) => {
+    const categoryPermissionIds = categoryPermissions.map((p) => p.id);
     setFormData((prev) => ({
       ...prev,
       permissions: isSelectAll
         ? Array.from(new Set([...prev.permissions, ...categoryPermissionIds]))
-        : prev.permissions.filter(p => !categoryPermissionIds.includes(p))
+        : prev.permissions.filter((p) => !categoryPermissionIds.includes(p)),
     }));
   };
 
   const isCategoryFullySelected = (categoryPermissions: Permission[]) => {
-    return categoryPermissions.every(p => formData.permissions.includes(p.id));
+    return categoryPermissions.every((p) =>
+      formData.permissions.includes(p.id),
+    );
   };
 
   const groupedPermissions = permissions.reduce(
@@ -1461,7 +1598,7 @@ function RoleModal({
       acc[permission.category].push(permission);
       return acc;
     },
-    {} as Record<string, Permission[]>
+    {} as Record<string, Permission[]>,
   );
 
   return (
@@ -1483,7 +1620,9 @@ function RoleModal({
               <Input
                 id="roleName"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 placeholder="Enter role name"
                 disabled={isReadonly}
               />
@@ -1493,7 +1632,9 @@ function RoleModal({
               <Input
                 id="roleDescription"
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
                 placeholder="Enter role description"
                 disabled={isReadonly}
               />
@@ -1502,52 +1643,64 @@ function RoleModal({
 
           <div className="space-y-4">
             <Label>Permissions</Label>
-            {Object.entries(groupedPermissions).map(([category, categoryPermissions]) => (
-              <div key={category} className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id={`select-all-${category}`}
-                    checked={isCategoryFullySelected(categoryPermissions)}
-                    onCheckedChange={(checked) => !isReadonly && handleSelectAllCategory(categoryPermissions, !!checked)}
-                    disabled={isReadonly}
-                  />
-                  <h4 className="font-medium text-sm">{category} - Select All</h4>
-                </div>
-                <div className="grid grid-cols-1 gap-2 ml-6">
-                  {categoryPermissions.map((permission) => (
-                    <div key={permission.id} className="flex items-start space-x-2">
-                      <Checkbox
-                        id={permission.id}
-                        checked={formData.permissions.includes(permission.id)}
-                        onCheckedChange={() => !isReadonly && handlePermissionToggle(permission.id)}
-                        disabled={isReadonly}
-                      />
-                      <div className="grid gap-1.5 leading-none">
-                        <label
-                          htmlFor={permission.id}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          {permission.name}
-                        </label>
-                        <p className="text-xs text-muted-foreground">
-                          {permission.description}
-                        </p>
+            {Object.entries(groupedPermissions).map(
+              ([category, categoryPermissions]) => (
+                <div key={category} className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id={`select-all-${category}`}
+                      checked={isCategoryFullySelected(categoryPermissions)}
+                      onCheckedChange={(checked) =>
+                        !isReadonly &&
+                        handleSelectAllCategory(categoryPermissions, !!checked)
+                      }
+                      disabled={isReadonly}
+                    />
+                    <h4 className="font-medium text-sm">
+                      {category} - Select All
+                    </h4>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 ml-6">
+                    {categoryPermissions.map((permission) => (
+                      <div
+                        key={permission.id}
+                        className="flex items-start space-x-2"
+                      >
+                        <Checkbox
+                          id={permission.id}
+                          checked={formData.permissions.includes(permission.id)}
+                          onCheckedChange={() =>
+                            !isReadonly && handlePermissionToggle(permission.id)
+                          }
+                          disabled={isReadonly}
+                        />
+                        <div className="grid gap-1.5 leading-none">
+                          <label
+                            htmlFor={permission.id}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {permission.name}
+                          </label>
+                          <p className="text-xs text-muted-foreground">
+                            {permission.description}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ),
+            )}
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {isReadonly ? 'Close' : 'Cancel'}
+            {isReadonly ? "Close" : "Cancel"}
           </Button>
           {!isReadonly && (
             <Button onClick={() => onSave(formData)}>
-              {role && !role.isReadonly ? 'Update Role' : 'Create Role'}
+              {role && !role.isReadonly ? "Update Role" : "Create Role"}
             </Button>
           )}
         </DialogFooter>

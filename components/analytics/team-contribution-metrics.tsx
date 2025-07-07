@@ -1,10 +1,11 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from "@/components/ui/badge";
+import { resolveRoleName } from "@/utils/role-name-resolver";
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/services/auth/AuthContext';
 
 interface TeamMember {
@@ -102,7 +103,7 @@ export default function TeamContributionMetrics({ projectId }: TeamContributionM
                     <div>
                       <p className="font-medium">{member.name}</p>
                       <div className="flex items-center space-x-2">
-                        <p className="text-sm text-muted-foreground">{member.role}</p>
+                        <p className="text-sm text-muted-foreground">{resolveRoleName(member.role)}</p>
                         {member.isActive && (
                           <Badge variant="secondary" className="text-xs">Active</Badge>
                         )}

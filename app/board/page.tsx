@@ -16,7 +16,6 @@ function BoardPageContent() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
   const [boardRefreshTrigger, setBoardRefreshTrigger] = useState(0);
-  const [isDeleting, setIsDeleting] = useState(false);
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -73,60 +72,32 @@ function BoardPageContent() {
   };
 
   const handleTaskDelete = async (taskId: string) => {
-    // Prevent double-clicks
-    if (isDeleting) {
-      console.log("[handleTaskDelete] Already deleting, ignoring duplicate request");
-      return;
-    }
-
     try {
-      setIsDeleting(true);
-      console.log("[handleTaskDelete] Starting deletion for task:", taskId);
-      
       // Close the dialog immediately for better UX
       setTaskDetailOpen(false);
 
-      // Tell BoardContent component to remove this task locally (optimistic update)
+      // Tell BoardContent component to remove this task locally
       if (window.boardContentRef && window.boardContentRef.removeTaskLocally) {
         window.boardContentRef.removeTaskLocally(taskId);
-        console.log("[handleTaskDelete] Removed task locally from UI");
       }
 
-      // Then perform the actual deletion with projectId for personal tasks
-      console.log("[handleTaskDelete] Calling API to delete task with personal projectId");
-      
-      // Add timeout to prevent hanging
-      const deletePromise = taskService.deleteTask(taskId, user?.uid, "personal");
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Request timeout")), 10000)
-      );
-      
-      const result = await Promise.race([deletePromise, timeoutPromise]);
-      console.log("[handleTaskDelete] API deletion result:", result);
+      // Then perform the actual deletion
+      await taskService.deleteTask(taskId, user?.uid);
 
       toast({
         title: "Success",
         description: "Task deleted successfully",
       });
     } catch (error) {
-      console.error("[handleTaskDelete] Error deleting task:", error);
-      
-      // Show specific error message
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : "Failed to delete task";
-      
+      console.error("Error deleting task:", error);
       toast({
         title: "Error",
-        description: `Task deletion failed: ${errorMessage}`,
+        description: "Failed to delete task",
         variant: "destructive",
       });
 
-      // Refresh the board to ensure sync in case of error (revert optimistic update)
-      console.log("[handleTaskDelete] Refreshing board due to error");
+      // Refresh the board to ensure sync in case of error
       setBoardRefreshTrigger((prev) => prev + 1);
-    } finally {
-      setIsDeleting(false);
     }
   };
 

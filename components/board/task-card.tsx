@@ -59,7 +59,11 @@ interface TaskCardProps {
   onClick?: () => void;
 }
 
-const TaskCard = memo(function TaskCard({ task, isDragging, onClick }: TaskCardProps) {
+const TaskCard = memo(function TaskCard({
+  task,
+  isDragging,
+  onClick,
+}: TaskCardProps) {
   const [prefetched, setPrefetched] = useState(false);
 
   const prefetchTaskData = () => {
@@ -88,7 +92,7 @@ const TaskCard = memo(function TaskCard({ task, isDragging, onClick }: TaskCardP
     <Card
       className={cn(
         "mb-2 cursor-pointer transition-all hover:shadow-md",
-        isDragging && "opacity-50 rotate-2 shadow-lg"
+        isDragging && "opacity-50 rotate-2 shadow-lg",
       )}
       onClick={onClick}
       onMouseEnter={prefetchTaskData}
@@ -128,6 +132,23 @@ const TaskCard = memo(function TaskCard({ task, isDragging, onClick }: TaskCardP
               </span>
             )}
           </div>
+
+          {task.assignee && (
+            <div className="flex items-center gap-2 mt-2 p-1.5 bg-muted/50 rounded-md">
+              <Avatar className="h-5 w-5">
+                <AvatarImage
+                  src={task.assignee.avatar}
+                  alt={task.assignee.name}
+                />
+                <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                  {task.assignee.initials}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-xs text-muted-foreground truncate">
+                Assigned to {task.assignee.name}
+              </span>
+            </div>
+          )}
 
           {task.tags && task.tags.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">

@@ -24,7 +24,10 @@ export default function ProjectLayout({
       if (!user || !params.projectId) return;
 
       try {
-        const response = await fetch(`/api/projects/${params.projectId}`);
+        // Add cache-busting parameter to ensure fresh data
+        const response = await fetch(`/api/projects/${params.projectId}?t=${Date.now()}`, {
+          cache: 'no-cache'
+        });
         
         if (!response.ok) {
           const errorText = await response.text();
@@ -32,22 +35,96 @@ export default function ProjectLayout({
           throw new Error(`Failed to fetch project: ${response.status}`);
         }
 
-        const projectData = await response.json();
+        let projectData = await response.json();
         
         // Check if user has access to this project
         const isOwner = projectData.ownerId === user.uid;
         const isMember = projectData.members?.includes(user.uid);
         
-        if (!isOwner && !isMember) {
+        // Email-based fallback access check with more robust logic
+        let hasEmailAccess = false;
+        if (!isOwner && !isMember && user.email) {
+          try {
+            // Fetch project members with email details for fallback check
+            const membersResponse = await fetch(`/api/projects/${params.projectId}/members?t=${Date.now()}`, {
+              cache: 'no-cache'
+            });
+            
+            if (membersResponse.ok) {
+              const members = await membersResponse.json();
+              
+              // Check both email and user ID matches
+              hasEmailAccess = members.some((member: any) => 
+                member.email === user.email || 
+                member.id === user.uid ||
+                // Additional check for partial email matches (in case of inconsistencies)
+                (member.email && user.email && member.email.toLowerCase() === user.email.toLowerCase())
+              );
+              
+              console.log("Email-based access check:", {
+                userEmail: user.email,
+                userId: user.uid,
+                members: members.map((m: any) => ({ id: m.id, email: m.email })),
+                hasEmailAccess
+              });
+              
+              // If we found an email match but not a user ID match, there might be a sync issue
+              if (hasEmailAccess && !isMember) {
+                console.warn("User has email access but is not in project members array - possible sync issue");
+                
+                // Try to refresh the project data to see if members array is updated
+                const refreshResponse = await fetch(`/api/projects/${params.projectId}?refresh=true&t=${Date.now()}`, {
+                  cache: 'no-cache'
+                });
+                
+                if (refreshResponse.ok) {
+                  const refreshedProjectData = await refreshResponse.json();
+                  const isRefreshedMember = refreshedProjectData.members?.includes(user.uid);
+                  
+                  console.log("Refreshed member check:", {
+                    originalMembers: projectData.members,
+                    refreshedMembers: refreshedProjectData.members,
+                    isRefreshedMember
+                  });
+                  
+                  // Update our project data if the refreshed version shows user as member
+                  if (isRefreshedMember) {
+                    projectData = refreshedProjectData;
+                  }
+                }
+              }
+            }
+          } catch (emailCheckError) {
+            console.error("Email access check failed:", emailCheckError);
+          }
+        }
+        
+        console.log("Project access check:", {
+          projectId: params.projectId,
+          userId: user.uid,
+          userEmail: user.email,
+          isOwner,
+          isMember: projectData.members?.includes(user.uid), // Re-check after potential refresh
+          hasEmailAccess,
+          finalAccess: isOwner || projectData.members?.includes(user.uid) || hasEmailAccess,
+          ownerId: projectData.ownerId,
+          members: projectData.members
+        });
+        
+        // Final access check using the potentially updated projectData
+        const finalIsMember = projectData.members?.includes(user.uid);
+        
+        if (!isOwner && !finalIsMember && !hasEmailAccess) {
           console.warn("User does not have access to this project");
           console.log("Project data:", {
             ownerId: projectData.ownerId,
             members: projectData.members,
-            userId: user.uid
+            userId: user.uid,
+            userEmail: user.email
           });
           toast({
             title: "Access Denied",
-            description: "You don't have access to this project",
+            description: "You don't have access to this project. Please check if you've been added to the project team by the project owner. If you were just added, please wait a moment and try refreshing the page, as it may take time to sync.",
             variant: "destructive",
           });
           router.push("/dashboard");
@@ -78,7 +155,7 @@ export default function ProjectLayout({
         console.error("Error fetching project:", error);
         toast({
           title: "Error",
-          description: "Failed to load project",
+          description: "Failed to load project. Please try refreshing the page.",
           variant: "destructive",
         });
         router.push("/dashboard");
@@ -88,7 +165,7 @@ export default function ProjectLayout({
     };
 
     fetchProject();
-  }, [params.projectId, user, currentOrganization?.id, currentProject?.id, currentWorkspace, router, setWorkspace, toast]);
+  }, [params.projectId, user?.uid, router, setWorkspace, toast]); // Simplified dependencies
 
   if (loading) {
     return (

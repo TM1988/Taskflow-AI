@@ -30,13 +30,25 @@ import {
   Trash,
   Save,
   X,
+  Info,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/services/auth/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
 import { DateSelector } from "@/components/ui/date-selector";
-import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { enrichTaskWithAssigneeInfo } from "@/utils/task-enricher";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Plus, X as XIcon } from "lucide-react";
+import {
+  AssigneeDropdownExtreme,
+  invalidateProjectMembersCache,
+} from "@/components/ui/assignee-dropdown-extreme";
 
 interface TaskDetailProps {
   open: boolean;
@@ -44,6 +56,13 @@ interface TaskDetailProps {
   taskId: string | null;
   onTaskUpdate: (task: any) => void;
   onTaskDelete: (taskId: string) => void;
+}
+
+interface ProjectMember {
+  id: string;
+  name: string;
+  email: string;
+  photoURL?: string;
 }
 
 // Helper function to safely format dates
@@ -146,10 +165,65 @@ export default function TaskDetail({
   const [activeTab, setActiveTab] = useState("details");
   const [isEditing, setIsEditing] = useState(false);
   const [editedTask, setEditedTask] = useState<any>(null);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState("");
   const { user } = useAuth();
   const { currentOrganization, currentProject } = useWorkspace();
   const { toast } = useToast();
+
+  // Fetch available tags
+  const fetchProjectTags = async (projectId: string) => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/tags`);
+      if (response.ok) {
+        const tags = await response.json();
+        setAvailableTags(tags);
+      }
+    } catch (error) {
+      console.error("Error fetching project tags:", error);
+    }
+  };
+
+  const fetchPersonalTags = async () => {
+    try {
+      const response = await fetch(`/api/user-tags/${user?.uid}`);
+      if (response.ok) {
+        const tags = await response.json();
+        setAvailableTags(tags);
+      }
+    } catch (error) {
+      console.error("Error fetching personal tags:", error);
+    }
+  };
+
+  // Tag management functions
+  const addTag = () => {
+    if (newTag.trim() && !editedTask?.tags?.includes(newTag.trim())) {
+      setEditedTask({
+        ...editedTask,
+        tags: [...(editedTask?.tags || []), newTag.trim()],
+      });
+      setNewTag("");
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setEditedTask({
+      ...editedTask,
+      tags: (editedTask?.tags || []).filter(
+        (tag: string) => tag !== tagToRemove,
+      ),
+    });
+  };
+
+  const addExistingTag = (tag: string) => {
+    if (!editedTask?.tags?.includes(tag)) {
+      setEditedTask({
+        ...editedTask,
+        tags: [...(editedTask?.tags || []), tag],
+      });
+    }
+  };
 
   const resetTaskState = () => {
     console.log("Resetting task state");
@@ -176,17 +250,43 @@ export default function TaskDetail({
         resetTaskState();
       }, 200); // Small delay to allow dialog animation
     }
-  }, [open, taskId, task?.id, task]);
+  }, [open, taskId]);
 
   // Initialize editedTask when task changes
   useEffect(() => {
     if (task) {
+      const assigneeId = task.assigneeId || task.assignee?.id || "unassigned";
+
       setEditedTask({
         ...task,
         dueDate: parseDate(task.dueDate),
+        tags: task.tags || [],
+        assigneeId: assigneeId,
+      });
+
+      console.log("🎯 [TASK DETAIL] Setting editedTask assigneeId:", {
+        taskId: task.id,
+        originalAssigneeId: task.assigneeId,
+        assigneeObjectId: task.assignee?.id,
+        finalAssigneeId: assigneeId,
+        setToAssigneeId: assigneeId,
+        hasAssigneeInfo: !!task.assignee,
+        assigneeName: task.assignee?.name || task.assigneeName,
+        fullTaskData: task,
       });
     }
   }, [task]);
+
+  // Fetch project tags when dialog opens
+  useEffect(() => {
+    if (open && task) {
+      if (currentProject?.id && currentProject.id !== "personal") {
+        fetchProjectTags(currentProject.id);
+      } else {
+        fetchPersonalTags();
+      }
+    }
+  }, [open, task]); // Removed currentProject?.id to prevent infinite loops
 
   // Only fetch task data when dialog is open and taskId exists
   useEffect(() => {
@@ -215,11 +315,13 @@ export default function TaskDetail({
         // Build API URLs with organization context
         let taskApiUrl = `/api/task-direct/${taskId}?userId=${user?.uid}`;
         let commentsApiUrl = `/api/tasks/${taskId}/comments?userId=${user?.uid}`;
-        
+
         if (currentOrganization?.id && currentProject?.id) {
           taskApiUrl += `&organizationId=${currentOrganization.id}&projectId=${currentProject.id}`;
           commentsApiUrl += `&organizationId=${currentOrganization.id}&projectId=${currentProject.id}`;
-          console.log(`[TaskDetail] Using organization context: org=${currentOrganization.id}, project=${currentProject.id}`);
+          console.log(
+            `[TaskDetail] Using organization context: org=${currentOrganization.id}, project=${currentProject.id}`,
+          );
         }
 
         // Implement parallel fetching of task data and comments
@@ -231,7 +333,19 @@ export default function TaskDetail({
         // Process task data
         if (taskResponse.ok) {
           const data = await taskResponse.json();
-          console.log(`Task data received for ID: ${taskId}`, data);
+          console.log(
+            `🔍 [TASK DETAIL] Raw task data received for ID: ${taskId}:`,
+            {
+              id: data.id,
+              title: data.title,
+              assigneeId: data.assigneeId,
+              assignee: data.assignee,
+              assigneeName: data.assigneeName,
+              hasAssigneeId: !!data.assigneeId,
+              hasAssigneeObject: !!data.assignee,
+              fullData: data,
+            },
+          );
 
           // Parse dates if needed
           if (data.dueDate && typeof data.dueDate === "string") {
@@ -244,8 +358,76 @@ export default function TaskDetail({
 
           // Update task state if component still mounted
           if (isMounted) {
-            console.log("Setting task data in state");
-            setTask(data);
+            console.log(
+              "🔍 [TASK DETAIL] CRITICAL DEBUG - About to set task state:",
+            );
+            console.log("🔍 [TASK DETAIL] Task data being set:", {
+              taskId: data.id,
+              assigneeId: data.assigneeId,
+              assigneeName: data.assigneeName,
+              hasAssignee: !!data.assignee,
+              assigneeObject: data.assignee,
+              projectId: currentProject?.id,
+              organizationId: currentOrganization?.id,
+              rawAssigneeId: data.assigneeId,
+              assigneeIdType: typeof data.assigneeId,
+              assigneeIdValue: JSON.stringify(data.assigneeId),
+            });
+
+            console.log("🚨 [TASK DETAIL] ASSIGNEE DEBUG CHECK:");
+            console.log("- assigneeId exists?", !!data.assigneeId);
+            console.log("- assigneeId value:", data.assigneeId);
+            console.log(
+              "- assigneeId is string?",
+              typeof data.assigneeId === "string",
+            );
+            console.log(
+              "- assigneeId is unassigned?",
+              data.assigneeId === "unassigned",
+            );
+            console.log("- assignee object exists?", !!data.assignee);
+            console.log("- assignee object:", data.assignee);
+
+            console.log(
+              "🎯 [TASK DETAIL] COMPONENT LOADED - Task ID:",
+              data.id,
+              "Project:",
+              currentProject?.id,
+              "Data assignee:",
+              data.assignee,
+            );
+
+            // Enrich task with assignee information if it's a project task
+            if (currentProject?.id && currentProject.id !== "personal") {
+              try {
+                console.log("🚀 [TASK DETAIL] Starting task enrichment...");
+                const enrichedTask = await enrichTaskWithAssigneeInfo(
+                  data,
+                  currentProject.id,
+                  currentOrganization?.id,
+                );
+                console.log("✅ [TASK DETAIL] Task enrichment completed:", {
+                  taskId: enrichedTask.id,
+                  assigneeId: enrichedTask.assigneeId,
+                  assigneeName: enrichedTask.assigneeName,
+                  hasAssignee: !!enrichedTask.assignee,
+                  assigneeObject: enrichedTask.assignee,
+                });
+                setTask(enrichedTask);
+              } catch (error) {
+                console.error(
+                  "💥 [TASK DETAIL] Error enriching task with assignee info:",
+                  error,
+                );
+                setTask(data);
+              }
+            } else {
+              console.log(
+                "⏭️ [TASK DETAIL] Skipping enrichment - personal project",
+              );
+              setTask(data);
+            }
+
             setIsEditing(false);
           }
         } else {
@@ -273,7 +455,14 @@ export default function TaskDetail({
     return () => {
       isMounted = false;
     };
-  }, [taskId, open, task?.id, currentOrganization?.id, currentProject?.id, user?.uid]);
+  }, [
+    taskId,
+    open,
+    task?.id,
+    currentOrganization?.id,
+    currentProject?.id,
+    user?.uid,
+  ]);
 
   // Add delay before showing error
   useEffect(() => {
@@ -318,7 +507,9 @@ export default function TaskDetail({
           authorId: user.uid,
           authorName: user.displayName || user.email,
           userId: user.uid,
-          ...(currentOrganization?.id && { organizationId: currentOrganization.id }),
+          ...(currentOrganization?.id && {
+            organizationId: currentOrganization.id,
+          }),
           ...(currentProject?.id && { projectId: currentProject.id }),
         }),
       });
@@ -347,12 +538,18 @@ export default function TaskDetail({
     if (!editedTask || !taskId) return;
 
     try {
-      const updateData = {
+      const updateData: any = {
         title: editedTask.title,
         description: editedTask.description,
         priority: editedTask.priority,
         dueDate: editedTask.dueDate ? editedTask.dueDate.toISOString() : null,
+        tags: editedTask.tags || [],
       };
+
+      // Add assignee for project tasks
+      if (currentProject?.id !== "personal") {
+        updateData.assigneeId = editedTask.assigneeId || "unassigned";
+      }
 
       console.log("Updating task with data:", updateData);
 
@@ -362,7 +559,9 @@ export default function TaskDetail({
         body: JSON.stringify({
           ...updateData,
           userId: user?.uid,
-          ...(currentOrganization?.id && { organizationId: currentOrganization.id }),
+          ...(currentOrganization?.id && {
+            organizationId: currentOrganization.id,
+          }),
           ...(currentProject?.id && { projectId: currentProject.id }),
         }),
       });
@@ -373,7 +572,7 @@ export default function TaskDetail({
 
         // Use the complete task data from the API response
         const updatedTaskData = responseData.task || responseData;
-        
+
         // Update the task state with the fresh data from the server
         // Ensure ID consistency for proper local updates
         const mergedTask = {
@@ -383,7 +582,7 @@ export default function TaskDetail({
           id: updatedTaskData.id || task.id || task._id,
           _id: updatedTaskData._id || updatedTaskData.id || task._id || task.id,
         };
-        
+
         setTask(mergedTask);
         setEditedTask(mergedTask); // Also update the edited task to prevent stale data
         setIsEditing(false);
@@ -392,9 +591,25 @@ export default function TaskDetail({
         console.log("Notifying parent component of task update:", mergedTask);
         onTaskUpdate(mergedTask);
 
+        // Dispatch event for dashboard refresh
+        window.dispatchEvent(new CustomEvent("taskUpdated"));
+
+        // Refresh workload data if assignee changed
+        if (task.assigneeId !== mergedTask.assigneeId) {
+          console.log(
+            "🔄 [TASK DETAIL] Assignee changed, refreshing workload data",
+          );
+          // Dispatch event to refresh team workload
+          window.dispatchEvent(
+            new CustomEvent("workloadChanged", {
+              detail: { projectId: currentProject?.id },
+            }),
+          );
+        }
+
         // Remove redundant board refresh calls - the parent component handles the update
         // The local state update via onTaskUpdate is sufficient
-        
+
         toast({
           title: "Success",
           description: "Task updated successfully",
@@ -462,8 +677,11 @@ export default function TaskDetail({
                       <Button
                         size="sm"
                         variant="destructive"
-                        onClick={() => setDeleteConfirmOpen(true)}
-                        disabled={loading}
+                        onClick={() => {
+                          if (task && task.id) {
+                            onTaskDelete(task.id);
+                          }
+                        }}
                       >
                         <Trash className="h-4 w-4 mr-1" />
                         Delete
@@ -577,18 +795,152 @@ export default function TaskDetail({
                         <label className="text-sm font-medium">Due Date</label>
                         <Input
                           type="date"
-                          value={editedTask?.dueDate ? (typeof editedTask.dueDate === 'string' ? editedTask.dueDate.split('T')[0] : editedTask.dueDate.toISOString().split('T')[0]) : ""}
+                          value={
+                            editedTask?.dueDate
+                              ? typeof editedTask.dueDate === "string"
+                                ? editedTask.dueDate.split("T")[0]
+                                : editedTask.dueDate.toISOString().split("T")[0]
+                              : ""
+                          }
                           onChange={(e) =>
-                            setEditedTask({ ...editedTask, dueDate: e.target.value ? new Date(e.target.value) : null })
+                            setEditedTask({
+                              ...editedTask,
+                              dueDate: e.target.value
+                                ? new Date(e.target.value)
+                                : null,
+                            })
                           }
                           className="mt-1"
                         />
+                      </div>
+                    </div>
+
+                    {/* Assignee selection for project tasks */}
+                    {currentProject?.id && currentProject.id !== "personal" && (
+                      <div>
+                        <label className="text-sm font-medium">Assignee</label>
+                        <AssigneeDropdownExtreme
+                          projectId={currentProject.id}
+                          selectedAssigneeId={
+                            editedTask?.assigneeId ||
+                            task?.assigneeId ||
+                            task?.assignee?.id ||
+                            "unassigned"
+                          }
+                          onAssigneeSelect={(assigneeId) => {
+                            console.log(
+                              "🔄 [TASK DETAIL] Assignee selected:",
+                              assigneeId,
+                            );
+                            setEditedTask({ ...editedTask, assigneeId });
+                          }}
+                          className="w-full mt-1"
+                          organizationId={currentOrganization?.id}
+                        />
+                      </div>
+                    )}
+
+                    {/* Tags Section */}
+                    <div>
+                      <label className="text-sm font-medium">Tags</label>
+                      <div className="mt-1 space-y-2">
+                        {/* Current Tags */}
+                        <div className="flex flex-wrap gap-2">
+                          {(editedTask?.tags || []).map((tag: string) => (
+                            <Badge
+                              key={tag}
+                              variant="outline"
+                              className="flex items-center gap-1"
+                            >
+                              {tag}
+                              <XIcon
+                                className="h-3 w-3 cursor-pointer hover:text-red-500"
+                                onClick={() => removeTag(tag)}
+                              />
+                            </Badge>
+                          ))}
+                        </div>
+
+                        {/* Add New Tag */}
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Add a tag..."
+                            value={newTag}
+                            onChange={(e) => setNewTag(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                addTag();
+                              }
+                            }}
+                            className="flex-1"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={addTag}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        {/* Available Tags */}
+                        {availableTags.length > 0 && (
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">
+                              Available tags:
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {availableTags
+                                .filter(
+                                  (tag) =>
+                                    !(editedTask?.tags || []).includes(tag),
+                                )
+                                .map((tag) => (
+                                  <Badge
+                                    key={tag}
+                                    variant="secondary"
+                                    className="cursor-pointer text-xs"
+                                    onClick={() => addExistingTag(tag)}
+                                  >
+                                    {tag}
+                                  </Badge>
+                                ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
                 </div>
               )}
             </DialogHeader>
+
+            {/* Warning Banner for No Confirmation Delete */}
+            {!isEditing && (
+              <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-amber-600 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>
+                          Clicking the delete button will immediately delete the
+                          task without any confirmation dialog. This action
+                          cannot be undone.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <p className="text-sm text-amber-800 font-medium">
+                    Warning: Delete button has no confirmation
+                  </p>
+                </div>
+              </div>
+            )}
 
             {!isEditing && (
               <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -614,12 +966,28 @@ export default function TaskDetail({
                       <h3 className="text-sm font-medium mb-2">Assignee</h3>
                       <div className="flex items-center gap-2">
                         <Avatar className="h-6 w-6">
+                          {task.assignee?.avatar ? (
+                            <AvatarImage
+                              src={task.assignee.avatar}
+                              alt={task.assignee.name}
+                            />
+                          ) : null}
                           <AvatarFallback>
-                            <User className="h-3 w-3" />
+                            {task.assignee?.initials || (
+                              <User className="h-3 w-3" />
+                            )}
                           </AvatarFallback>
                         </Avatar>
                         <span className="text-sm">
-                          {task.assigneeName || "Unassigned"}
+                          {task.assignee?.name ||
+                            task.assigneeName ||
+                            (task.assigneeId && task.assigneeId !== "unassigned"
+                              ? `User ${task.assigneeId.slice(-4)}`
+                              : "Unassigned")}
+                        </span>
+                        <span className="text-xs text-muted-foreground block">
+                          ID: {task.assigneeId || "none"} | Type:{" "}
+                          {typeof task.assigneeId}
                         </span>
                       </div>
                     </div>
@@ -676,8 +1044,6 @@ export default function TaskDetail({
                     <Button onClick={handleAddComment}>Post</Button>
                   </div>
                 </TabsContent>
-
-
               </Tabs>
             )}
           </>
@@ -687,23 +1053,6 @@ export default function TaskDetail({
           </div>
         )}
       </DialogContent>
-
-      <ConfirmationDialog
-        open={deleteConfirmOpen}
-        onOpenChange={setDeleteConfirmOpen}
-        title="Delete Task"
-        description="Are you sure you want to delete this task? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
-        onConfirm={() => {
-          if (task && task.id) {
-            setDeleteConfirmOpen(false);
-            onTaskDelete(task.id);
-            // Don't call onOpenChange here - let the parent handle it
-          }
-        }}
-        variant="destructive"
-      />
     </Dialog>
   );
 }

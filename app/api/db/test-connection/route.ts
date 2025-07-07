@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MongoClient } from 'mongodb';
 
+// Safe MongoDB connection options to avoid TLS conflicts
+const mongoTestOptions = {
+  serverSelectionTimeoutMS: 5000, // 5 second timeout
+  connectTimeoutMS: 5000,
+  // Only add basic TLS options for testing
+  tls: true,
+  tlsAllowInvalidCertificates: false,
+  tlsAllowInvalidHostnames: false,
+};
+
 export async function POST(request: NextRequest) {
   try {
     const { connectionString, databaseName } = await request.json();
@@ -13,10 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Test the connection
-    const client = new MongoClient(connectionString, {
-      serverSelectionTimeoutMS: 5000, // 5 second timeout
-      connectTimeoutMS: 5000,
-    });
+    const client = new MongoClient(connectionString, mongoTestOptions);
 
     try {
       // Connect to the MongoDB cluster

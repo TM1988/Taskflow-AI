@@ -4,8 +4,7 @@ import { useParams } from "next/navigation";
 import DashboardMetrics from "@/components/dashboard/dashboard-metrics";
 import RecentActivity from "@/components/dashboard/recent-activity";
 import RepositoryList from "@/components/dashboard/repository-list";
-import TeamWorkload from "@/components/dashboard/team-workload";
-import TeamWorkloadAI from "@/components/dashboard/team-workload-ai";
+import TeamWorkload from "@/components/dashboard/team-workload-ai";
 import TimeTrackingWidget from "@/components/dashboard/time-tracking-widget";
 import EnhancedAISuggestions from "@/components/dashboard/ai-suggestions-enhanced";
 import { useAuth } from "@/services/auth/AuthContext";
@@ -18,7 +17,9 @@ export default function ProjectDashboardPage() {
     <div className="p-6 space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Project Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Project Dashboard
+          </h1>
           <p className="text-muted-foreground">
             Team insights and project management overview
           </p>
@@ -36,16 +37,14 @@ export default function ProjectDashboardPage() {
         </div>
       </div>
 
+      {/* Team Workload component */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <TeamWorkloadAI projectId={projectId} />
+        <TeamWorkload projectId={projectId} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="lg:col-span-2">
           <RecentActivity />
-        </div>
-        <div>
-          <TeamWorkload />
         </div>
       </div>
 

@@ -8,6 +8,25 @@ const officialDbName = process.env.MONGODB_DB || "myVercelAppDB";
 // Cache for database connections
 const connectionCache = new Map<string, { client: MongoClient; db: Db }>();
 
+// Shared MongoDB connection options
+const mongoOptions = {
+  maxPoolSize: 10,
+  serverSelectionTimeoutMS: 30000,
+  socketTimeoutMS: 60000,
+  connectTimeoutMS: 30000,
+  heartbeatFrequencyMS: 10000,
+  retryWrites: true,
+  retryReads: true,
+  // TLS/SSL options to fix Atlas connection issues
+  tls: true,
+  tlsAllowInvalidCertificates: false,
+  tlsAllowInvalidHostnames: false,
+  // Additional connection stability options
+  maxIdleTimeMS: 30000,
+  maxConnecting: 5,
+  directConnection: false,
+};
+
 export async function getUserDatabaseConnection(userId: string, forceRefresh: boolean = false): Promise<Db> {
   // If force refresh is requested, invalidate cache first
   if (forceRefresh) {
@@ -44,7 +63,7 @@ export async function getUserDatabaseConnection(userId: string, forceRefresh: bo
     
     console.log(`Creating new custom database connection for user ${userId} to ${customDatabaseName}`);
     try {
-      const client = new MongoClient(customConnectionString);
+      const client = new MongoClient(customConnectionString, mongoOptions);
       await client.connect();
       const database = client.db(customDatabaseName);
       
@@ -64,7 +83,7 @@ export async function getUserDatabaseConnection(userId: string, forceRefresh: bo
     }
     
     try {
-      const client = new MongoClient(officialUri);
+      const client = new MongoClient(officialUri, mongoOptions);
       await client.connect();
       const database = client.db(officialDbName);
       
@@ -129,7 +148,7 @@ export async function getOrganizationDatabaseConnection(organizationId: string, 
     }
     
     try {
-      const client = new MongoClient(customConnectionString);
+      const client = new MongoClient(customConnectionString, mongoOptions);
       await client.connect();
       const database = client.db(customDatabaseName);
       
@@ -148,7 +167,7 @@ export async function getOrganizationDatabaseConnection(organizationId: string, 
     }
     
     try {
-      const client = new MongoClient(officialUri);
+      const client = new MongoClient(officialUri, mongoOptions);
       await client.connect();
       const database = client.db(officialDbName);
       
@@ -180,7 +199,7 @@ export async function getAdminDb(): Promise<Db> {
     return connectionCache.get(cacheKey)!.db;
   }
   
-  const client = new MongoClient(officialUri);
+  const client = new MongoClient(officialUri, mongoOptions);
   await client.connect();
   const database = client.db(officialDbName);
   

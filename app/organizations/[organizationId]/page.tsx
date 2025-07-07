@@ -33,13 +33,22 @@ import {
   Shield,
   UserCog,
   UserMinus,
-  ChevronRight
+  ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/services/auth/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
+import { resolveRoleName, getMemberRoleInfo } from "@/utils/role-name-resolver";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import InvitationManager from "@/components/organizations/invitation-manager";
+import InviteMemberModalFast from "@/components/organizations/invite-member-modal-fast";
+import { MemberRoleSelectorOptimizedExtreme } from "@/components/ui/role-selector-optimized-extreme";
+import {
+  DropdownSimple,
+  DropdownItemSimple,
+  DropdownSeparatorSimple,
+  DropdownLabelSimple,
+} from "@/components/ui/dropdown-simple";
 import {
   Select,
   SelectContent,
@@ -62,19 +71,18 @@ interface OrganizationDetailPageProps {
   };
 }
 
-export default function OrganizationDetailPage({ params }: OrganizationDetailPageProps) {
+export default function OrganizationDetailPage({
+  params,
+}: OrganizationDetailPageProps) {
   const [organization, setOrganization] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("member");
-  const [inviting, setInviting] = useState(false);
+
   const [removingMember, setRemovingMember] = useState<string | null>(null);
   const [creatingProject, setCreatingProject] = useState(false);
   const [projectForm, setProjectForm] = useState({
     name: "",
-    description: ""
+    description: "",
   });
   const [memberUsers, setMemberUsers] = useState<any[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
@@ -88,6 +96,9 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
   const { refreshOrganizations, setWorkspace } = useWorkspace();
   const router = useRouter();
 
+  // Simple invite modal state
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+
   const fetchMemberData = async (memberIds: string[]) => {
     if (!memberIds.length) return;
 
@@ -95,10 +106,10 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
       setLoadingMembers(true);
       console.log("Fetching member data for:", memberIds);
 
-      const response = await fetch('/api/users/batch', {
-        method: 'POST',
+      const response = await fetch("/api/users/batch", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ userIds: memberIds }),
       });
@@ -122,8 +133,10 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
       setLoadingProjects(true);
       console.log("Fetching projects for organization:", params.organizationId);
 
-      const response = await fetch(`/api/organizations/${params.organizationId}/projects`);
-      
+      const response = await fetch(
+        `/api/organizations/${params.organizationId}/projects`,
+      );
+
       if (response.ok) {
         const projectsData = await response.json();
         console.log("Fetched projects:", projectsData);
@@ -141,15 +154,17 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
   const fetchOrganization = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/organizations/${params.organizationId}`);
-      
+      const response = await fetch(
+        `/api/organizations/${params.organizationId}`,
+      );
+
       if (response.ok) {
         const org = await response.json();
-        
+
         // Check if current user is a member of this organization
         const isOwner = org.ownerId === user?.uid;
         const isMember = org.members?.includes(user?.uid);
-        
+
         // If user is not a member and not the owner, redirect them
         if (!isOwner && !isMember) {
           toast({
@@ -169,22 +184,22 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
           const roleId = org.memberRoles[user.uid];
           userRole = roleId === "admin" ? "Admin" : "Member";
         }
-        
+
         setOrganization({
           ...org,
           isOwner,
           userRole,
-          currentUserIsMember: isMember || isOwner
+          currentUserIsMember: isMember || isOwner,
         });
 
         // Fetch member data and projects after setting organization
         if (org.members && org.members.length > 0) {
           await fetchMemberData(org.members);
         }
-        
+
         // Fetch projects
         await fetchProjects();
-        
+
         // Refresh workspace context to ensure dropdown is up to date
         await refreshOrganizations();
       } else if (response.status === 404) {
@@ -214,54 +229,11 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
     fetchOrganization();
   }, [params.organizationId, user, fetchOrganization]);
 
-  const handleInviteMember = async () => {
-    if (!inviteEmail.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter an email address",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setInviting(true);
-      
-      const response = await fetch(`/api/organizations/${organization.id}/invite`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: inviteEmail.trim(),
-          roleId: inviteRole,
-          inviterName: user?.displayName || user?.email || "Someone",
-        }),
-      });
-
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: `Invitation sent to ${inviteEmail}`,
-        });
-        setInviteModalOpen(false);
-        setInviteEmail("");
-        setInviteRole("member");
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to send invitation");
-      }
-    } catch (error) {
-      console.error("Error inviting member:", error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to send invitation",
-        variant: "destructive",
-      });
-    } finally {
-      setInviting(false);
-    }
-  };
+  // Handle invitation sent callback
+  const handleInvitationSent = useCallback(() => {
+    // Refresh organization data to update member list
+    fetchOrganization();
+  }, [fetchOrganization]);
 
   const handleRemoveMember = async (memberId: string) => {
     if (memberId === organization.ownerId) {
@@ -275,20 +247,25 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
 
     try {
       setRemovingMember(memberId);
-      
-      const response = await fetch(`/api/organizations/${organization.id}/members/${memberId}`, {
-        method: "DELETE",
-      });
+
+      const response = await fetch(
+        `/api/organizations/${organization.id}/members/${memberId}`,
+        {
+          method: "DELETE",
+        },
+      );
 
       if (response.ok) {
         // Update local state
-        const updatedMembers = organization.members.filter((id: string) => id !== memberId);
+        const updatedMembers = organization.members.filter(
+          (id: string) => id !== memberId,
+        );
         setOrganization({
           ...organization,
           members: updatedMembers,
-          memberCount: updatedMembers.length
+          memberCount: updatedMembers.length,
         });
-        
+
         toast({
           title: "Success",
           description: "Member removed from organization",
@@ -301,7 +278,8 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
       console.error("Error removing member:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to remove member",
+        description:
+          error instanceof Error ? error.message : "Failed to remove member",
         variant: "destructive",
       });
     } finally {
@@ -321,31 +299,34 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
 
     try {
       setCreatingProject(true);
-      
-      const response = await fetch(`/api/organizations/${organization.id}/projects`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+
+      const response = await fetch(
+        `/api/organizations/${organization.id}/projects`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: projectForm.name.trim(),
+            description: projectForm.description.trim(),
+            ownerId: user?.uid,
+          }),
         },
-        body: JSON.stringify({
-          name: projectForm.name.trim(),
-          description: projectForm.description.trim(),
-          ownerId: user?.uid,
-        }),
-      });
+      );
 
       if (response.ok) {
         const newProject = await response.json();
-        
+
         // Refresh project list from server to ensure consistency
         await fetchProjects();
-        
+
         // Refresh workspace context to update dropdown
         await refreshOrganizations();
-        
+
         setProjectModalOpen(false);
         setProjectForm({ name: "", description: "" });
-        
+
         toast({
           title: "Success",
           description: `Project "${newProject.name}" created successfully`,
@@ -358,7 +339,8 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
       console.error("Error creating project:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create project",
+        description:
+          error instanceof Error ? error.message : "Failed to create project",
         variant: "destructive",
       });
     } finally {
@@ -369,18 +351,18 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
   const handleDeleteProject = async (projectId: string) => {
     try {
       setDeletingProject(projectId);
-      
+
       const response = await fetch(`/api/projects/${projectId}`, {
         method: "DELETE",
       });
 
       if (response.ok) {
         // Update projects list
-        setProjects(projects.filter(p => p.id !== projectId));
-        
+        setProjects(projects.filter((p) => p.id !== projectId));
+
         // Refresh workspace context to update dropdown
         await refreshOrganizations();
-        
+
         toast({
           title: "Success",
           description: "Project deleted successfully",
@@ -393,7 +375,8 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
       console.error("Error deleting project:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete project",
+        description:
+          error instanceof Error ? error.message : "Failed to delete project",
         variant: "destructive",
       });
     } finally {
@@ -404,24 +387,24 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
   const formatDate = (dateValue: any) => {
     try {
       if (!dateValue) return "Unknown date";
-      
+
       // Handle Firebase Timestamp objects
       if (dateValue && typeof dateValue.toDate === "function") {
         return dateValue.toDate().toLocaleDateString("en-US", {
           year: "numeric",
           month: "long",
-          day: "numeric"
+          day: "numeric",
         });
       }
-      
+
       // Handle ISO strings and regular dates
       const date = new Date(dateValue);
       if (isNaN(date.getTime())) return "Unknown date";
-      
+
       return date.toLocaleDateString("en-US", {
         year: "numeric",
-        month: "long", 
-        day: "numeric"
+        month: "long",
+        day: "numeric",
       });
     } catch {
       return "Unknown date";
@@ -431,13 +414,14 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
   const getMemberDisplayInfo = (memberId: string) => {
     const isOwner = memberId === organization.ownerId;
     const isCurrentUser = memberId === user?.uid;
-    
-    // Get role from organization.memberRoles or default based on ownership
-    const memberRole = organization.memberRoles?.[memberId] || (isOwner ? "owner" : "member");
-    
+
+    // Get role information using the resolver
+    const roleInfo = getMemberRoleInfo(memberId, organization);
+    const resolvedRoleName = resolveRoleName(roleInfo.roleId, organization);
+
     // Find user data from fetched member data
-    const userData = memberUsers.find(u => u.id === memberId);
-    
+    const userData = memberUsers.find((u) => u.id === memberId);
+
     // For join date: owner uses org creation date, others use their actual join date
     let joinedAt = organization.createdAt; // Default fallback
     if (isOwner) {
@@ -445,51 +429,51 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
     } else if (organization.memberJoinDates?.[memberId]) {
       joinedAt = organization.memberJoinDates[memberId]; // Use actual join date
     }
-    
+
     console.log(`Member ${memberId} join date debug:`, {
       isOwner,
       isCurrentUser,
       rawJoinDate: organization.memberJoinDates?.[memberId],
       finalJoinDate: joinedAt,
-      orgCreatedAt: organization.createdAt
+      orgCreatedAt: organization.createdAt,
     });
-    
+
     if (isCurrentUser && user) {
       return {
         name: user.displayName || user.email || "You",
-        role: isOwner ? "Owner" : (memberRole === "admin" ? "Admin" : "Member"),
+        role: resolvedRoleName,
         email: user.email || "",
         photoURL: user.photoURL,
         joinedAt: joinedAt,
         isOwner,
         isCurrentUser,
-        roleId: memberRole
+        roleId: roleInfo.roleId,
       };
     }
-    
+
     if (userData) {
       return {
         name: userData.displayName || userData.email || "Team Member",
-        role: isOwner ? "Owner" : (memberRole === "admin" ? "Admin" : "Member"),
+        role: resolvedRoleName,
         email: userData.email || "member@example.com",
         photoURL: userData.photoURL,
         joinedAt: joinedAt,
         isOwner,
         isCurrentUser: false,
-        roleId: memberRole
+        roleId: roleInfo.roleId,
       };
     }
 
     // Fallback for unknown users
     return {
       name: isOwner ? "Organization Owner" : "Team Member",
-      role: isOwner ? "Owner" : (memberRole === "admin" ? "Admin" : "Member"),
+      role: resolvedRoleName,
       email: "member@example.com",
       photoURL: null,
       joinedAt: joinedAt,
       isOwner,
       isCurrentUser: false,
-      roleId: memberRole
+      roleId: roleInfo.roleId,
     };
   };
 
@@ -505,29 +489,32 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
 
     try {
       setChangingRole(memberId);
-      
+
       console.log(`Attempting to change role for ${memberId} to ${newRole}`);
-      
-      const response = await fetch(`/api/organizations/${organization.id}/members/${memberId}/role`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
+
+      const response = await fetch(
+        `/api/organizations/${organization.id}/members/${memberId}/role`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            role: newRole,
+          }),
         },
-        body: JSON.stringify({
-          role: newRole,
-        }),
-      });
+      );
 
       console.log(`Role change response status: ${response.status}`);
-      
+
       if (response.ok) {
         const result = await response.json();
         console.log(`Role change successful:`, result);
-        
+
         // Update local organization state
         const updatedMemberRoles = {
           ...organization.memberRoles,
-          [memberId]: newRole
+          [memberId]: newRole,
         };
 
         // If the current user's role was changed, update their role display
@@ -539,7 +526,7 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
         setOrganization({
           ...organization,
           memberRoles: updatedMemberRoles,
-          userRole: updatedUserRole
+          userRole: updatedUserRole,
         });
 
         toast({
@@ -548,8 +535,11 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
         });
       } else {
         const responseText = await response.text();
-        console.error(`Role change failed with status ${response.status}:`, responseText);
-        
+        console.error(
+          `Role change failed with status ${response.status}:`,
+          responseText,
+        );
+
         let errorMessage;
         try {
           const errorData = JSON.parse(responseText);
@@ -557,14 +547,15 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
         } catch (e) {
           errorMessage = `Server error (${response.status}): ${responseText}`;
         }
-        
+
         throw new Error(errorMessage);
       }
     } catch (error) {
       console.error("Error changing role:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update role",
+        description:
+          error instanceof Error ? error.message : "Failed to update role",
         variant: "destructive",
       });
     } finally {
@@ -583,22 +574,25 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
     }
 
     try {
-      const response = await fetch(`/api/organizations/${organization.id}/transfer-ownership`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `/api/organizations/${organization.id}/transfer-ownership`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            newOwnerId: newOwnerId,
+          }),
         },
-        body: JSON.stringify({
-          newOwnerId: newOwnerId,
-        }),
-      });
+      );
 
       if (response.ok) {
         toast({
           title: "Success",
           description: "Ownership transferred successfully",
         });
-        
+
         // Refresh the organization data to reflect changes
         await fetchOrganization();
       } else {
@@ -609,7 +603,10 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
       console.error("Error transferring ownership:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to transfer ownership",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to transfer ownership",
         variant: "destructive",
       });
     }
@@ -632,7 +629,8 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
           <Building className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-xl font-semibold mb-2">Organization Not Found</h3>
           <p className="text-muted-foreground mb-6">
-            The organization you&apos;re looking for doesn&apos;t exist or you don&apos;t have access to it.
+            The organization you&apos;re looking for doesn&apos;t exist or you
+            don&apos;t have access to it.
           </p>
           <Button onClick={() => router.push("/organizations")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -644,7 +642,10 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
   }
 
   const isOwner = organization && user && organization.ownerId === user.uid;
-  const userRole = user && organization?.memberRoles && user.uid ? organization.memberRoles[user.uid] || 'member' : 'member';
+  const userRole =
+    user && organization?.memberRoles && user.uid
+      ? organization.memberRoles[user.uid] || "member"
+      : "member";
 
   return (
     <div className="container mx-auto py-8">
@@ -658,7 +659,7 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
-        
+
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-3">
             <div>
@@ -671,14 +672,24 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
                 <div>
                   <h1 className="text-3xl font-bold">{organization.name}</h1>
                   <div className="flex items-center gap-2 mt-1">
-                    <Badge variant={organization.isOwner ? "default" : organization.userRole === "Admin" ? "secondary" : "outline"}>
-                      {organization.isOwner && <Crown className="h-3 w-3 mr-1" />}
+                    <Badge
+                      variant={
+                        organization.isOwner
+                          ? "default"
+                          : organization.userRole === "Admin"
+                            ? "secondary"
+                            : "outline"
+                      }
+                    >
+                      {organization.isOwner && (
+                        <Crown className="h-3 w-3 mr-1" />
+                      )}
                       {organization.userRole || "Member"}
                     </Badge>
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-6 text-sm text-muted-foreground ml-19">
                 <div className="flex items-center gap-1">
                   <Users className="h-4 w-4" />
@@ -695,7 +706,7 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -704,16 +715,24 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => router.push(`/organizations/${organization.id}/settings`)}>
+                <DropdownMenuItem
+                  onClick={() =>
+                    router.push(`/organizations/${organization.id}/settings`)
+                  }
+                >
                   <Settings className="mr-2 h-4 w-4" />
                   Settings
                 </DropdownMenuItem>
                 {organization.isOwner && (
                   <>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       className="text-destructive"
-                      onClick={() => router.push(`/organizations/${organization.id}/settings?tab=danger`)}
+                      onClick={() =>
+                        router.push(
+                          `/organizations/${organization.id}/settings?tab=danger`,
+                        )
+                      }
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
                       Delete Organization
@@ -741,7 +760,9 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
               <div className="flex items-center gap-3">
                 <Users className="h-8 w-8 text-blue-500" />
                 <div>
-                  <p className="text-2xl font-bold">{organization.memberCount || 1}</p>
+                  <p className="text-2xl font-bold">
+                    {organization.memberCount || 1}
+                  </p>
                   <p className="text-sm text-muted-foreground">Members</p>
                 </div>
               </div>
@@ -768,11 +789,11 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
 
         <TabsContent value="projects" className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Projects ({projects.length})</h3>
+            <h3 className="text-lg font-semibold">
+              Projects ({projects.length})
+            </h3>
             {(organization.isOwner || organization.userRole === "Admin") && (
-              <Button 
-                onClick={() => setProjectModalOpen(true)}
-              >
+              <Button onClick={() => setProjectModalOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 New Project
               </Button>
@@ -789,26 +810,39 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
                 <Card key={project.id} className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <h4 className="font-semibold">{project.name}</h4>
-                    {(organization.isOwner || project.ownerId === user?.uid) && (
+                    {(organization.isOwner ||
+                      project.ownerId === user?.uid) && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                          >
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={async () => {
-                              await setWorkspace('organization', params.organizationId, project.id);
+                              await setWorkspace(
+                                "organization",
+                                params.organizationId,
+                                project.id,
+                              );
                               router.push(`/projects/${project.id}/dashboard`);
                             }}
                           >
                             <Folder className="mr-2 h-4 w-4" />
                             Open Project
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={async () => {
-                              await setWorkspace('organization', params.organizationId, project.id);
+                              await setWorkspace(
+                                "organization",
+                                params.organizationId,
+                                project.id,
+                              );
                               router.push(`/projects/${project.id}/board`);
                             }}
                           >
@@ -816,7 +850,7 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
                             View Board
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={() => handleDeleteProject(project.id)}
                             className="text-destructive"
                             disabled={deletingProject === project.id}
@@ -832,21 +866,25 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
                       </DropdownMenu>
                     )}
                   </div>
-                  
+
                   <p className="text-sm text-muted-foreground mb-4">
                     {project.description || "No description"}
                   </p>
-                  
+
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span>Created {formatDate(project.createdAt)}</span>
                     </div>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={async () => {
                         // Ensure workspace context is updated before navigation
-                        await setWorkspace('organization', params.organizationId, project.id);
+                        await setWorkspace(
+                          "organization",
+                          params.organizationId,
+                          project.id,
+                        );
                         router.push(`/projects/${project.id}/dashboard`);
                       }}
                     >
@@ -861,7 +899,8 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
               <Folder className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h4 className="font-semibold mb-2">No Projects Yet</h4>
               <p className="text-muted-foreground mb-4">
-                Projects help organize tasks and track progress toward your goals
+                Projects help organize tasks and track progress toward your
+                goals
               </p>
               {(organization.isOwner || organization.userRole === "Admin") && (
                 <Button onClick={() => setProjectModalOpen(true)}>
@@ -875,7 +914,9 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
 
         <TabsContent value="members" className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Members ({organization.memberCount || 1})</h3>
+            <h3 className="text-lg font-semibold">
+              Members ({organization.memberCount || 1})
+            </h3>
             {organization.isOwner && (
               <Button onClick={() => setInviteModalOpen(true)}>
                 <UserPlus className="h-4 w-4 mr-2" />
@@ -913,77 +954,84 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={memberInfo.isOwner ? "default" : memberInfo.roleId === "admin" ? "secondary" : "outline"}>
-                          {memberInfo.isOwner && <Crown className="h-3 w-3 mr-1" />}
+                        <Badge
+                          variant={
+                            memberInfo.isOwner
+                              ? "default"
+                              : memberInfo.roleId === "admin"
+                                ? "secondary"
+                                : "outline"
+                          }
+                        >
+                          {memberInfo.isOwner && (
+                            <Crown className="h-3 w-3 mr-1" />
+                          )}
                           {memberInfo.role}
                         </Badge>
-                        
-                        {/* 3-dot menu for member actions */}
+
+                        {/* Ultra-Fast Role Selector for member role changes */}
                         {organization.isOwner && !memberInfo.isOwner && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Member Actions</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              
-                              {/* Change Role Submenu */}
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                    <UserCog className="mr-2 h-4 w-4" />
-                                    Change Role
-                                    <ChevronRight className="ml-auto h-4 w-4" />
-                                  </DropdownMenuItem>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent side="right" alignOffset={-5}>
-                                  <DropdownMenuItem 
-                                    onClick={() => handleChangeRole(memberId, "member")}
-                                    disabled={changingRole === memberId || memberInfo.roleId === "member"}
-                                  >
-                                    Member
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem 
-                                    onClick={() => handleChangeRole(memberId, "admin")}
-                                    disabled={changingRole === memberId || memberInfo.roleId === "admin"}
-                                  >
-                                    Admin
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                              
-                              <DropdownMenuSeparator />
-                              
-                              {/* Transfer Ownership (only for owner) */}
-                              <DropdownMenuItem 
-                                onClick={() => handleTransferOwnership(memberId)}
-                                className="text-orange-600"
-                                disabled={changingRole === memberId}
-                              >
-                                <Crown className="mr-2 h-4 w-4" />
-                                Transfer Ownership
-                              </DropdownMenuItem>
-                              
-                              <DropdownMenuSeparator />
-                              
-                              {/* Remove from Organization */}
-                              <DropdownMenuItem 
-                                onClick={() => handleRemoveMember(memberId)}
-                                className="text-destructive"
-                                disabled={removingMember === memberId || changingRole === memberId}
-                              >
-                                {removingMember === memberId ? (
-                                  <div className="h-4 w-4 mr-2 animate-spin border-2 border-current border-t-transparent rounded-full" />
-                                ) : (
-                                  <UserMinus className="mr-2 h-4 w-4" />
-                                )}
-                                Remove from Organization
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <div className="flex items-center gap-2">
+                            <MemberRoleSelectorOptimizedExtreme
+                              currentRole={memberInfo.roleId}
+                              onChange={(newRole) =>
+                                handleChangeRole(memberId, newRole)
+                              }
+                              disabled={changingRole === memberId}
+                              organizationId={params.organizationId}
+                              className="min-w-[120px]"
+                            />
+
+                            {/* Additional actions menu */}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>
+                                  Member Actions
+                                </DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+
+                                {/* Transfer Ownership (only for owner) */}
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    handleTransferOwnership(memberId)
+                                  }
+                                  className="text-orange-600"
+                                  disabled={changingRole === memberId}
+                                >
+                                  <Crown className="mr-2 h-4 w-4" />
+                                  Transfer Ownership
+                                </DropdownMenuItem>
+
+                                <DropdownMenuSeparator />
+
+                                {/* Remove from Organization */}
+                                <DropdownMenuItem
+                                  onClick={() => handleRemoveMember(memberId)}
+                                  className="text-destructive"
+                                  disabled={
+                                    removingMember === memberId ||
+                                    changingRole === memberId
+                                  }
+                                >
+                                  {removingMember === memberId ? (
+                                    <div className="h-4 w-4 mr-2 animate-spin border-2 border-current border-t-transparent rounded-full" />
+                                  ) : (
+                                    <UserMinus className="mr-2 h-4 w-4" />
+                                  )}
+                                  Remove from Organization
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1006,62 +1054,13 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
         </TabsContent>
       </Tabs>
 
-      {/* Invite Member Modal */}
-      <Dialog open={inviteModalOpen} onOpenChange={setInviteModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Invite Team Member</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="inviteEmail">Email Address</Label>
-              <div className="relative">
-                <Mail className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="inviteEmail"
-                  type="email"
-                  placeholder="colleague@example.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="inviteRole">Role</Label>
-              <Select value={inviteRole} onValueChange={setInviteRole}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="member">Member</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {inviteRole === "admin" ? "Can manage organization and invite others" : "Can view and work on projects"}
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setInviteModalOpen(false);
-                setInviteEmail("");
-                setInviteRole("member");
-              }}
-              disabled={inviting}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleInviteMember} disabled={inviting || !inviteEmail.trim()}>
-              {inviting ? "Sending..." : "Send Invitation"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Ultra-Fast Invite Member Modal */}
+      <InviteMemberModalFast
+        open={inviteModalOpen}
+        onOpenChange={setInviteModalOpen}
+        organizationId={params.organizationId}
+        onInvitationSent={handleInvitationSent}
+      />
 
       {/* Create Project Modal */}
       <Dialog open={projectModalOpen} onOpenChange={setProjectModalOpen}>
@@ -1076,10 +1075,12 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
                 id="projectName"
                 placeholder="Enter project name"
                 value={projectForm.name}
-                onChange={(e) => setProjectForm(prev => ({
-                  ...prev,
-                  name: e.target.value
-                }))}
+                onChange={(e) =>
+                  setProjectForm((prev) => ({
+                    ...prev,
+                    name: e.target.value,
+                  }))
+                }
               />
             </div>
             <div className="space-y-2">
@@ -1088,10 +1089,12 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
                 id="projectDescription"
                 placeholder="Describe your project"
                 value={projectForm.description}
-                onChange={(e) => setProjectForm(prev => ({
-                  ...prev,
-                  description: e.target.value
-                }))}
+                onChange={(e) =>
+                  setProjectForm((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
                 rows={3}
               />
             </div>
@@ -1104,8 +1107,8 @@ export default function OrganizationDetailPage({ params }: OrganizationDetailPag
             >
               Cancel
             </Button>
-            <Button 
-              onClick={handleCreateProject} 
+            <Button
+              onClick={handleCreateProject}
               disabled={creatingProject || !projectForm.name.trim()}
             >
               {creatingProject ? "Creating..." : "Create Project"}

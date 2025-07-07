@@ -34,12 +34,12 @@ export async function GET(
       .findOne({ projectId });
 
     if (!config) {
-      // Return default config if none exists
+      // Return default config if none exists - now defaults to Google AI Studio
       return NextResponse.json({
         projectId,
-        aiProvider: "openai",
+        aiProvider: "google",
         apiKey: null,
-        model: "gpt-3.5-turbo",
+        model: "gemini-pro",
         enabled: false,
         isEnabled: false,
         hasApiKey: false

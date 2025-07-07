@@ -1,10 +1,11 @@
-'use client';
+"use client";
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from "@/components/ui/badge";
+import { resolveRoleName } from "@/utils/role-name-resolver";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -280,7 +281,7 @@ const UserBulkActions: React.FC<UserBulkActionsProps> = ({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline">{user.role}</Badge>
+                  <Badge variant="outline">{resolveRoleName(user.role)}</Badge>
                   <Badge variant={user.status === 'active' ? 'default' : 'destructive'}>
                     {user.status}
                   </Badge>
