@@ -111,31 +111,20 @@ export default function TeamWorkload({ projectId }: TeamWorkloadAIProps) {
     try {
       setLoading(true);
 
-      // First fetch project members with organization context
-      const membersApiUrl = currentOrganization?.id 
-        ? `/api/projects/${projectId}/members?organizationId=${currentOrganization.id}`
-        : `/api/projects/${projectId}/members`;
-      
-      console.log("🌐 [TEAM WORKLOAD] Fetching members from:", membersApiUrl);
-      const membersResponse = await fetch(membersApiUrl);
+      // First fetch project members
+      const membersResponse = await fetch(`/api/projects/${projectId}/members`);
       if (!membersResponse.ok) {
         throw new Error("Failed to fetch project members");
       }
 
       const members = await membersResponse.json();
-      console.log("👥 [TEAM WORKLOAD] Got members:", {
-        memberCount: members.length,
-        memberNames: members.map((m: any) => m.name),
-        organizationId: currentOrganization?.id
-      });
 
       // Then fetch workload data for each member
       const workloadPromises = members.map(async (member: any) => {
         try {
-          const workloadApiUrl = `/api/analytics/member-workload?projectId=${projectId}&memberId=${member.id}${currentOrganization?.id ? `&organizationId=${currentOrganization.id}` : ""}`;
-          console.log(`📊 [TEAM WORKLOAD] Fetching workload for ${member.name} from:`, workloadApiUrl);
-          
-          const workloadResponse = await fetch(workloadApiUrl);
+          const workloadResponse = await fetch(
+            `/api/analytics/member-workload?projectId=${projectId}&memberId=${member.id}${currentOrganization?.id ? `&organizationId=${currentOrganization.id}` : ""}`,
+          );
 
           let workloadData = {
             activeTasks: 0,
@@ -150,7 +139,8 @@ export default function TeamWorkload({ projectId }: TeamWorkloadAIProps) {
           if (workloadResponse.ok) {
             const responseData = await workloadResponse.json();
             console.log(
-              `📈 [TEAM WORKLOAD] Workload API response for ${member.name} (${member.id}):`,
+              "Workload API response for member",
+              member.id,
               responseData,
             );
 
@@ -166,12 +156,6 @@ export default function TeamWorkload({ projectId }: TeamWorkloadAIProps) {
               overdueTasks: responseData.overdueTasks || 0,
               workloadPercentage: responseData.workloadPercentage || 0,
             };
-          } else {
-            console.warn(`⚠️ [TEAM WORKLOAD] Workload API failed for ${member.name}:`, {
-              status: workloadResponse.status,
-              statusText: workloadResponse.statusText,
-              url: workloadApiUrl
-            });
           }
 
           // Ensure we have valid numbers
