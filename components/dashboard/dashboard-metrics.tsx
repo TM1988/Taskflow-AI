@@ -123,19 +123,43 @@ export default function DashboardMetrics({ projectId }: DashboardMetricsProps) {
   const { user, loading: authLoading } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+
+  // Fetch organization ID for the project
+  useEffect(() => {
+    if (projectId) {
+      const fetchProjectOrganization = async () => {
+        try {
+          const response = await fetch(`/api/projects/${projectId}`);
+          if (response.ok) {
+            const project = await response.json();
+            setOrganizationId(project.organizationId || null);
+            console.log("[DASHBOARD METRICS] Project organization ID:", project.organizationId);
+          }
+        } catch (error) {
+          console.error("[DASHBOARD METRICS] Error fetching project organization:", error);
+        }
+      };
+      fetchProjectOrganization();
+    }
+  }, [projectId]);
 
   useEffect(() => {
-    console.log('Dashboard metrics effect - user:', user?.uid, 'authLoading:', authLoading);
+    console.log('[DASHBOARD METRICS] Effect - user:', user?.uid, 'authLoading:', authLoading, 'organizationId:', organizationId);
     if (!authLoading && user?.uid) {
-      console.log('User found and auth loaded, fetching dashboard stats...');
-      fetchDashboardStats();
+      // For personal dashboard, fetch immediately
+      // For project dashboard, wait until we have organization ID (or confirmed there isn't one)
+      if (!projectId || organizationId !== null) {
+        console.log('[DASHBOARD METRICS] User found and auth loaded, fetching dashboard stats...');
+        fetchDashboardStats();
+      }
     } else if (!authLoading && !user?.uid) {
       console.log('No user found after auth loading complete');
       setLoading(false);
     } else {
       console.log('Still loading auth or no user');
     }
-  }, [user?.uid, authLoading]);
+  }, [user?.uid, authLoading, organizationId]); // Added organizationId to dependencies
 
   // Listen for task updates
   useEffect(() => {
@@ -164,12 +188,18 @@ export default function DashboardMetrics({ projectId }: DashboardMetricsProps) {
     
     try {
       setLoading(true);
-      console.log('Fetching dashboard stats for user:', user?.uid, 'project:', projectId);
+      console.log('[DASHBOARD METRICS] Fetching dashboard stats for user:', user?.uid, 'project:', projectId, 'organization:', organizationId);
       
-      const apiUrl = projectId 
+      let apiUrl = projectId 
         ? `/api/dashboard/project-stats?userId=${user?.uid}&projectId=${projectId}`
         : `/api/dashboard/personal-stats?userId=${user?.uid}`;
         
+      // Add organization ID if available for project stats
+      if (projectId && organizationId) {
+        apiUrl += `&organizationId=${organizationId}`;
+      }
+        
+      console.log('[DASHBOARD METRICS] API URL:', apiUrl);
       const response = await fetch(apiUrl);
       console.log('Dashboard stats response status:', response.status);
       
