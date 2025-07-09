@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -61,6 +62,7 @@ export default function ProjectSettingsPage({ params }: ProjectSettingsPageProps
   const [currentKey, setCurrentKey] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("gemini-1.5-flash-latest");
 
   const { user } = useAuth();
   const { toast } = useToast();
@@ -118,6 +120,7 @@ export default function ProjectSettingsPage({ params }: ProjectSettingsPageProps
           console.log("Loaded Project AI config:", data);
           setIsEnabled(data.isEnabled || data.enabled || false);
           setCurrentKey(data.hasApiKey ? "••••••••••••••••" : null);
+          setSelectedModel(data.model || "gemini-1.5-flash-latest");
         }
       } catch (error) {
         console.error("Error fetching Project AI config:", error);
@@ -138,6 +141,7 @@ export default function ProjectSettingsPage({ params }: ProjectSettingsPageProps
         body: JSON.stringify({
           apiKey: apiKey || undefined,
           isEnabled,
+          model: selectedModel,
         }),
       });
 
@@ -482,6 +486,25 @@ export default function ProjectSettingsPage({ params }: ProjectSettingsPageProps
                     disabled={!currentKey && !apiKey}
                   />
                 </div>
+
+                {isEnabled && (
+                  <div className="space-y-2">
+                    <Label htmlFor="ai-model">AI Model</Label>
+                    <Select value={selectedModel} onValueChange={setSelectedModel}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select AI model" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gemini-1.5-flash-latest">Gemini 1.5 Flash</SelectItem>
+                        <SelectItem value="gemini-1.5-pro-latest">Gemini 1.5 Pro</SelectItem>
+                        <SelectItem value="gemini-2.0-flash-exp">Gemini 2.0 Flash (Experimental)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-sm text-muted-foreground">
+                      Choose which AI model to use for this project's task suggestions
+                    </p>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <h3 className="font-medium">How to get your API key:</h3>

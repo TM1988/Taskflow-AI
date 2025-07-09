@@ -28,8 +28,8 @@ interface AISuggestion {
   category: 'productivity' | 'deadlines' | 'workload' | 'collaboration';
 }
 
-// Get Google AI API key from user's settings or project settings
-async function getGoogleAIKey(userId: string, projectId?: string) {
+// Get Google AI API key and model from user's settings or project settings
+async function getGoogleAIConfig(userId: string, projectId?: string) {
   try {
     await initializeMongoDB();
     const { mongoDb } = await getMongoDb();
@@ -49,7 +49,10 @@ async function getGoogleAIKey(userId: string, projectId?: string) {
           // Check if project has AI enabled and has an API key
           if (projectData.aiConfig?.isEnabled && projectData.aiConfig?.apiKey) {
             console.log('Using project AI configuration');
-            return projectData.aiConfig.apiKey;
+            return {
+              apiKey: projectData.aiConfig.apiKey,
+              model: projectData.aiConfig.model || 'gemini-1.5-flash-latest'
+            };
           }
         }
       } catch (error) {
@@ -61,16 +64,19 @@ async function getGoogleAIKey(userId: string, projectId?: string) {
     const userSettings = await mongoDb.collection('userAiConfigs').findOne({ userId });
     console.log('Found user AI config:', userSettings ? 'Yes' : 'No', userSettings?.isEnabled ? '(enabled)' : '(disabled)');
     
-    // Return the API key only if user has enabled AI and has a key
+    // Return the API key and model only if user has enabled AI and has a key
     if (userSettings?.isEnabled && userSettings?.apiKey) {
       console.log('Using personal AI configuration');
-      return userSettings.apiKey;
+      return {
+        apiKey: userSettings.apiKey,
+        model: userSettings.model || 'gemini-1.5-flash-latest'
+      };
     }
     
     console.log('No AI configuration found');
     return null;
   } catch (error) {
-    console.error('Error fetching Google AI key:', error);
+    console.error('Error fetching Google AI config:', error);
     return null;
   }
 }
@@ -79,9 +85,11 @@ async function getGoogleAIKey(userId: string, projectId?: string) {
 async function generateAISuggestions(
   tasks: Task[], 
   apiKey: string, 
+  model: string,
   projectId?: string, 
   teamMembers?: any[], 
-  teamWorkloadData?: any
+  teamWorkloadData?: any,
+  githubData?: any
 ): Promise<AISuggestion[]> {
   try {
     // Prepare comprehensive task data for AI analysis
@@ -144,12 +152,24 @@ async function generateAISuggestions(
             membersWithOverdueTasks: teamWorkloadData?.membersWithOverdueTasks?.length || 0
           }
         }
+      }),
+      // Include GitHub data if available
+      ...(githubData && githubData.connected && {
+        githubIntegration: {
+          connected: true,
+          username: githubData.username,
+          recentActivity: {
+            commits: githubData.recentCommits || [],
+            pullRequests: githubData.recentPRs || [],
+            totalRecentEvents: githubData.totalEvents || 0
+          }
+        }
       })
     };
 
     const isTeamContext = teamMembers && teamMembers.length > 0;
     
-    const prompt = `You are a productivity AI assistant for Taskflow AI, a comprehensive task management platform. Based on the user's actual task data${isTeamContext ? ' and team workload information' : ''}, generate 3-5 specific, actionable productivity suggestions.
+    const prompt = `You are a productivity AI assistant for Taskflow AI, a comprehensive task management platform. Based on the user's actual task data${isTeamContext ? ' and team workload information' : ''}, generate 3-4 specific, actionable productivity suggestions.
 
 ${projectId ? `PROJECT CONTEXT: You are analyzing tasks for a specific project${isTeamContext ? ' with a team of ' + teamMembers.length + ' members' : ''}. Focus on ${isTeamContext ? 'team collaboration, workload distribution, task assignment, and project completion progress' : 'project-specific insights like task organization, project deadlines, and project completion progress'}.` : 'PERSONAL CONTEXT: You are analyzing personal tasks across all projects and standalone tasks. Focus on individual productivity, personal workflow optimization, and overall task management.'}
 
@@ -194,7 +214,14 @@ AI FEATURES:
 - Productivity pattern analysis
 ${isTeamContext ? '- Team workload optimization suggestions' : ''}
 
-${isTeamContext ? `TEAM WORKLOAD FEATURES:
+${githubData && githubData.connected ? `GITHUB INTEGRATION:
+- Connected GitHub account: ${githubData.username}
+- Recent commits and pull request activity tracking
+- Code development pattern analysis
+- Suggestions for aligning development work with task management
+- Insights based on commit frequency and repository activity
+
+` : ''}${isTeamContext ? `TEAM WORKLOAD FEATURES:
 - Each team member has task limits to prevent overload
 - Track member workload percentage (assigned tasks / task limit)
 - Identify overloaded members (>90% of task limit)
@@ -215,6 +242,8 @@ ${JSON.stringify(taskAnalysis, null, 2)}
 INSTRUCTIONS:
 - Analyze the user's actual task patterns, priorities, deadlines, and completion rates
 ${isTeamContext ? '- Analyze team workload distribution, member performance, and collaboration patterns' : ''}
+${githubData && githubData.connected ? '- Analyze GitHub activity patterns and suggest ways to better align development work with task management' : ''}
+${githubData && githubData.connected ? '- Look for opportunities to create tasks based on recent commits or suggest better commit practices' : ''}
 - Identify productivity bottlenecks, missed deadlines, or workload issues
 ${isTeamContext ? '- Identify overloaded team members (>90% task limit) and suggest task redistribution' : ''}
 ${isTeamContext ? '- Identify underutilized team members (<30% task limit) and suggest assigning more tasks' : ''}
@@ -222,7 +251,8 @@ ${isTeamContext ? '- Address team members with overdue tasks or upcoming deadlin
 - Provide specific suggestions based on their real data and existing Taskflow features
 - Focus on task organization, priority optimization, deadline management, and productivity patterns
 ${isTeamContext ? '- Include team collaboration optimization and workload balancing suggestions' : ''}
-- Reference actual Taskflow features like: task priorities, due dates, project organization, task tags, status management${isTeamContext ? ', team workload management, task assignment' : ''}
+${githubData && githubData.connected ? '- Include development workflow optimization based on GitHub activity' : ''}
+- Reference actual Taskflow features like: task priorities, due dates, project organization, task tags, status management${isTeamContext ? ', team workload management, task assignment' : ''}${githubData && githubData.connected ? ', GitHub integration' : ''}
 - Suggest actionable steps they can take within the existing Taskflow platform
 - Respond ONLY with a JSON array, no extra text or explanations
 
@@ -247,7 +277,7 @@ ${isTeamContext ? `TEAM WORKLOAD PRIORITIES:
 
 ` : ''}Generate suggestions that directly address their ${isTeamContext ? 'task and team workload' : 'task'} patterns and leverage Taskflow's existing capabilities.`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -266,7 +296,10 @@ ${isTeamContext ? `TEAM WORKLOAD PRIORITIES:
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
       console.error('Google AI API error:', response.status, response.statusText);
+      console.error('API Error Response:', errorText);
+      console.error('Request URL:', `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey?.substring(0, 10)}...`);
       return generateSmartAnalysis(tasks);
     }
 
@@ -287,7 +320,7 @@ ${isTeamContext ? `TEAM WORKLOAD PRIORITIES:
       // Validate and format the response
       if (Array.isArray(suggestions) && suggestions.length > 0) {
         return suggestions.map((suggestion, index) => ({
-          id: suggestion.id || `ai-suggestion-${index}`,
+          id: `ai-suggestion-${Date.now()}-${index}`, // Use timestamp to ensure uniqueness
           type: suggestion.type || 'optimization',
           title: suggestion.title || 'AI Suggestion',
           description: suggestion.description || 'AI-generated insight',
@@ -529,13 +562,17 @@ function generateSmartAnalysis(
     });
   }
 
-  return suggestions;
+  return suggestions.slice(0, 4); // Limit smart analysis to 4 suggestions max
 }
 
 export async function GET(request: NextRequest) {
   try {
     const userId = request.headers.get('x-user-id');
     const projectId = request.headers.get('x-project-id'); // Add project support
+    
+    // Check if requesting single suggestion
+    const url = new URL(request.url);
+    const singleSuggestion = url.searchParams.get('single') === 'true';
     
     if (!userId) {
       return NextResponse.json(
@@ -571,15 +608,71 @@ export async function GET(request: NextRequest) {
       id: task._id.toString(),
     }));
 
-    // Get Google AI API key (prioritize project AI over personal AI)
-    const apiKey = await getGoogleAIKey(userId, projectId || undefined);
-    const aiConnected = !!apiKey;
+    // Get Google AI API configuration (prioritize project AI over personal AI)
+    const aiConfig = await getGoogleAIConfig(userId, projectId || undefined);
+    const aiConnected = !!aiConfig?.apiKey;
 
     console.log('AI Connection status:', aiConnected ? 'Connected' : 'Not connected');
-    console.log('API Key available:', !!apiKey);
+    console.log('API Key available:', !!aiConfig?.apiKey);
+    console.log('Selected model:', aiConfig?.model || 'No model selected');
 
     let teamMembers: any[] = [];
     let teamWorkloadData: any = {};
+    let githubData: any = {};
+
+    // Fetch GitHub data if user has GitHub integration
+    try {
+      const db = await import('@/lib/firebase').then(m => m.db);
+      const { doc, getDoc } = await import('firebase/firestore');
+      
+      const userRef = doc(db, "users", userId);
+      const userSnap = await getDoc(userRef);
+      
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        if (userData.githubToken && userData.githubUsername) {
+          // Fetch recent GitHub activity for AI analysis
+          try {
+            const githubApiUrl = `https://api.github.com/users/${userData.githubUsername}/events?per_page=10`;
+            const githubResponse = await fetch(githubApiUrl, {
+              headers: {
+                'Authorization': `token ${userData.githubToken}`,
+                'Accept': 'application/vnd.github.v3+json'
+              }
+            });
+            
+            if (githubResponse.ok) {
+              const events = await githubResponse.json();
+              const recentCommits = events.filter((event: any) => event.type === 'PushEvent').slice(0, 5);
+              const recentPRs = events.filter((event: any) => event.type === 'PullRequestEvent').slice(0, 3);
+              
+              githubData = {
+                connected: true,
+                username: userData.githubUsername,
+                recentCommits: recentCommits.map((event: any) => ({
+                  repo: event.repo.name,
+                  message: event.payload.commits?.[0]?.message || 'No message',
+                  date: event.created_at,
+                  branch: event.payload.ref?.replace('refs/heads/', '') || 'main'
+                })),
+                recentPRs: recentPRs.map((event: any) => ({
+                  repo: event.repo.name,
+                  title: event.payload.pull_request?.title || 'No title',
+                  action: event.payload.action,
+                  date: event.created_at
+                })),
+                totalEvents: events.length
+              };
+            }
+          } catch (error) {
+            console.error('Error fetching GitHub data:', error);
+            githubData = { connected: false, error: 'Failed to fetch GitHub data' };
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking GitHub integration:', error);
+    }
 
     // If this is a project context, fetch team member data
     if (projectId && projectId !== "personal") {
@@ -676,7 +769,7 @@ export async function GET(request: NextRequest) {
 
     // Use AI-powered suggestions if key available
     const suggestions = aiConnected 
-      ? await generateAISuggestions(tasks, apiKey, projectId || undefined, teamMembers, teamWorkloadData)
+      ? await generateAISuggestions(tasks, aiConfig.apiKey, aiConfig.model, projectId || undefined, teamMembers, teamWorkloadData, githubData)
       : generateSmartAnalysis(tasks, projectId || undefined, teamMembers, teamWorkloadData);
     
     const activeTasks = tasks.filter(task => task.status !== 'completed');
@@ -693,7 +786,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      suggestions: suggestions.slice(0, 6), // Limit to 6 suggestions
+      suggestions: singleSuggestion ? suggestions.slice(0, 1) : suggestions.slice(0, 10), // Return 1 if single, otherwise 10
       aiConnected,
       insights: {
         totalTasks: tasks.length,

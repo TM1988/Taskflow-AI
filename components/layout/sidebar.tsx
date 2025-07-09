@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import Image from "next/image";
 import {
   ActivityIcon,
   BarChart3Icon,
@@ -96,12 +97,30 @@ export default function Sidebar() {
     <div className="flex flex-col h-full">
       <div className="flex items-center px-4 py-6">
         {!collapsed && (
-          <div className="flex items-center gap-2 font-semibold">
-            <LogoIcon className="h-6 w-6 text-primary" />
+          <div className="flex items-center gap-3 font-semibold">
+            <div className="relative w-6 h-6">
+              <Image
+                src="/logo.png"
+                alt="TaskFlow-AI Logo"
+                width={24}
+                height={24}
+                className="rounded"
+              />
+            </div>
             <span className="text-lg">TaskFlow-AI</span>
           </div>
         )}
-        {collapsed && <LogoIcon className="h-6 w-6 text-primary mx-auto" />}
+        {collapsed && (
+          <div className="relative w-6 h-6 mx-auto">
+            <Image
+              src="/logo.png"
+              alt="TaskFlow-AI Logo"
+              width={24}
+              height={24}
+              className="rounded"
+            />
+          </div>
+        )}
       </div>
       <div className="flex-1 px-3 py-2">
         <nav className="flex flex-col gap-1">

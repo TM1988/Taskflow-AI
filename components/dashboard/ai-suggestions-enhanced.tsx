@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,8 +11,8 @@ import {
   Lightbulb,
   AlertTriangle,
   Clock,
-  RefreshCw,
   Settings,
+  RefreshCw,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/services/auth/AuthContext";
@@ -67,17 +67,11 @@ export default function EnhancedAISuggestions({
     localStorage.setItem(storageKey, JSON.stringify(Array.from(completed)));
   };
 
-  const fetchSuggestions = async () => {
+  const fetchSuggestions = useCallback(async (forceRefresh = false) => {
     if (!user?.uid) return;
 
     setLoading(true);
     try {
-      console.log("Fetching AI suggestions for:", {
-        userId: user.uid,
-        projectId,
-        isPersonal,
-      });
-
       const headers: Record<string, string> = {
         "x-user-id": user.uid,
       };
@@ -86,29 +80,23 @@ export default function EnhancedAISuggestions({
         headers["x-project-id"] = projectId;
       }
 
-      const response = await fetch("/api/ai/task-suggestions", {
+      // Add cache-busting parameter when forcing refresh
+      const url = forceRefresh 
+        ? `/api/ai/task-suggestions?refresh=${Date.now()}`
+        : "/api/ai/task-suggestions";
+
+      const response = await fetch(url, {
         method: "GET",
         headers,
       });
 
       if (response.ok) {
         const data = await response.json();
-        console.log("AI suggestions response:", data);
 
         const receivedSuggestions = data.suggestions || [];
         setSuggestions(receivedSuggestions);
         setAiConnected(data.aiConnected || false);
-
-        // Only show toast if AI is connected and has actual suggestions
-        if (data.aiConnected && receivedSuggestions.length > 0) {
-          console.log(`AI loaded ${receivedSuggestions.length} suggestions`);
-        }
       } else {
-        console.error(
-          "Failed to fetch suggestions:",
-          response.status,
-          response.statusText,
-        );
         setAiConnected(false);
         setSuggestions([]);
       }
@@ -119,9 +107,42 @@ export default function EnhancedAISuggestions({
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.uid, projectId]);
 
-  const getFallbackSuggestions = (): AISuggestion[] => {
+  // New function to fetch just one additional suggestion
+  const fetchOneSuggestion = useCallback(async () => {
+    if (!user?.uid || !aiConnected) return;
+
+    try {
+      const headers: Record<string, string> = {
+        "x-user-id": user.uid,
+      };
+
+      if (projectId && projectId !== "personal") {
+        headers["x-project-id"] = projectId;
+      }
+
+      // Request just one new suggestion
+      const response = await fetch(`/api/ai/task-suggestions?single=true&refresh=${Date.now()}`, {
+        method: "GET", 
+        headers,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const newSuggestions = data.suggestions || [];
+        
+        if (newSuggestions.length > 0) {
+          // Add only the first new suggestion to existing ones
+          setSuggestions(prev => [...prev, newSuggestions[0]]);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching single suggestion:", error);
+    }
+  }, [user?.uid, projectId, aiConnected]);
+
+  const getFallbackSuggestions = useMemo((): AISuggestion[] => {
     const fallback: AISuggestion[] = [
       {
         id: "ai-setup",
@@ -156,17 +177,27 @@ export default function EnhancedAISuggestions({
     }
 
     return fallback;
-  };
+  }, [isPersonal, projectId]);
 
-  const markSuggestionComplete = (suggestionId: string) => {
+  const markSuggestionComplete = async (suggestionId: string) => {
     const newCompleted = new Set(completedSuggestions);
     newCompleted.add(suggestionId);
     setCompletedSuggestions(newCompleted);
     saveCompletedSuggestions(newCompleted);
 
+    // Immediately remove the completed suggestion from the UI
+    setSuggestions((prev) => prev.filter((s) => s.id !== suggestionId));
+
+    // Only fetch one new suggestion if AI is connected and we have less than 3 suggestions
+    if (aiConnected) {
+      setTimeout(() => {
+        fetchOneSuggestion();
+      }, 1000); // Small delay to let the completion process finish, then add one new suggestion
+    }
+
     toast({
       title: "Suggestion Completed",
-      description: "Great! You've marked this suggestion as done.",
+      description: aiConnected ? "Great! Adding a new suggestion for you." : "Great! You've marked this suggestion as done.",
     });
   };
 
@@ -182,17 +213,20 @@ export default function EnhancedAISuggestions({
   const resetCompletedSuggestions = () => {
     setCompletedSuggestions(new Set());
     saveCompletedSuggestions(new Set());
-    fetchSuggestions(); // Refresh suggestions
+    
+    // Clear the suggestions cache to force regeneration
+    setSuggestions([]);
+    fetchSuggestions(true);
 
     toast({
       title: "Suggestions Reset",
-      description: "All suggestion history has been cleared.",
+      description: "All suggestion history has been cleared and new suggestions are being generated.",
     });
   };
 
   useEffect(() => {
     fetchSuggestions();
-  }, [user?.uid, projectId]);
+  }, [fetchSuggestions]);
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -222,15 +256,65 @@ export default function EnhancedAISuggestions({
     }
   };
 
-  // Filter out completed suggestions
-  const activeSuggestions = suggestions.filter(
-    (s) => !completedSuggestions.has(s.id),
+  // Memoize expensive computations
+  const activeSuggestions = useMemo(() => 
+    suggestions.filter((s) => !completedSuggestions.has(s.id)),
+    [suggestions, completedSuggestions]
   );
-  const hasCompletedSuggestions = completedSuggestions.size > 0;
+  
+  const hasCompletedSuggestions = useMemo(() => 
+    completedSuggestions.size > 0, 
+    [completedSuggestions]
+  );
 
-  // Don't show the component at all if AI is not connected and no suggestions
-  if (!loading && !aiConnected && activeSuggestions.length === 0) {
-    return null;
+  // Show fallback suggestions when AI is disabled
+  const displaySuggestions = useMemo(() => {
+    if (!aiConnected && activeSuggestions.length === 0) {
+      return getFallbackSuggestions;
+    }
+    return activeSuggestions;
+  }, [aiConnected, activeSuggestions, getFallbackSuggestions]);
+
+  // Only show disabled state if absolutely no suggestions and not loading
+  if (!loading && !aiConnected && displaySuggestions.length === 0) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <Brain className="h-5 w-5 text-gray-400" />
+              AI Suggestions
+              <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                AI Disabled
+              </Badge>
+            </CardTitle>
+            <Link href={isPersonal ? "/settings?tab=ai" : `/projects/${projectId}/settings`}>
+              <Button variant="outline" size="sm">
+                <Settings className="h-4 w-4 mr-2" />
+                Enable AI
+              </Button>
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <AlertTriangle className="h-12 w-12 text-gray-400 mb-4" />
+            <div className="text-muted-foreground mb-2">
+              AI suggestions are currently disabled
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Enable AI features to get intelligent task suggestions and insights
+            </p>
+            <Link href={isPersonal ? "/settings?tab=ai" : `/projects/${projectId}/settings`}>
+              <Button>
+                <Settings className="h-4 w-4 mr-2" />
+                Configure AI Settings
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
   if (loading) {
@@ -268,13 +352,23 @@ export default function EnhancedAISuggestions({
               className={
                 aiConnected
                   ? "bg-green-100 text-green-800"
-                  : "bg-gray-100 text-gray-600"
+                  : "bg-orange-100 text-orange-800"
               }
             >
-              {aiConnected ? "AI Connected" : "Smart Analysis"}
+              {aiConnected ? "AI Connected" : "AI Disabled"}
             </Badge>
           </CardTitle>
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => fetchSuggestions(true)}
+              disabled={loading}
+              className="text-xs"
+            >
+              <RefreshCw className={`h-3 w-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
             {hasCompletedSuggestions && (
               <Button
                 variant="ghost"
@@ -285,21 +379,11 @@ export default function EnhancedAISuggestions({
                 Reset History
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={fetchSuggestions}
-              disabled={loading}
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-              />
-            </Button>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {activeSuggestions.length === 0 ? (
+        {displaySuggestions.length === 0 ? (
           <div className="text-center py-8">
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
             <h3 className="font-medium text-gray-900 mb-1 dark:text-gray-100">
@@ -323,19 +407,30 @@ export default function EnhancedAISuggestions({
           </div>
         ) : (
           <div className="space-y-3">
-            {activeSuggestions.slice(0, 5).map((suggestion) => (
+            {!aiConnected && displaySuggestions.length > 0 && (
+              <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <AlertTriangle className="h-4 w-4 text-orange-600" />
+                <div className="text-sm text-orange-800">
+                  AI is disabled. These are cached suggestions. 
+                  <Link href={isPersonal ? "/settings?tab=ai" : `/projects/${projectId}/settings`} className="underline ml-1">
+                    Enable AI for fresh suggestions
+                  </Link>
+                </div>
+              </div>
+            )}
+            
+            {displaySuggestions.slice(0, 3).map((suggestion) => (
               <div
                 key={suggestion.id}
-                className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors dark:border-gray-700 dark:hover:border-gray-600"
+                className="border border-gray-200 rounded-lg p-3 hover:border-gray-300 transition-colors dark:border-gray-700 dark:hover:border-gray-600"
               >
                 <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 mt-0.5">
                     {getTypeIcon(suggestion.type)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      {" "}
-                      <h4 className="font-medium text-gray-900 truncate">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">
                         {suggestion.title}
                       </h4>
                       <Badge
@@ -344,19 +439,19 @@ export default function EnhancedAISuggestions({
                         {suggestion.priority}
                       </Badge>
                     </div>
-                    <p className="text-sm text-gray-600 leading-relaxed dark:text-gray-300">
+                    <p className="text-xs text-gray-600 leading-relaxed dark:text-gray-300 mb-2">
                       {suggestion.description}
                     </p>
-                    <div className="flex items-center justify-between mt-3">
+                    <div className="flex items-center justify-between">
                       <Badge variant="outline" className="text-xs">
                         {suggestion.category}
                       </Badge>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => removeSuggestion(suggestion.id)}
-                          className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                          className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 h-7 px-2"
                         >
                           <X className="h-3 w-3 mr-1" />
                           Dismiss
@@ -365,10 +460,10 @@ export default function EnhancedAISuggestions({
                           variant="outline"
                           size="sm"
                           onClick={() => markSuggestionComplete(suggestion.id)}
-                          className="text-xs"
+                          className="text-xs h-7 px-2"
                         >
                           <CheckCircle className="h-3 w-3 mr-1" />
-                          Mark Done
+                          Done
                         </Button>
                       </div>
                     </div>
@@ -379,10 +474,10 @@ export default function EnhancedAISuggestions({
           </div>
         )}
 
-        {aiConnected && activeSuggestions.length > 5 && (
+        {aiConnected && displaySuggestions.length > 3 && (
           <div className="text-center pt-2">
             <p className="text-sm text-muted-foreground">
-              {activeSuggestions.length - 5} more suggestions available
+              {displaySuggestions.length - 3} more suggestions available
             </p>
           </div>
         )}

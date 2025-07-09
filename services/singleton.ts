@@ -1,4 +1,5 @@
 import { MongoClient, Db } from "mongodb";
+import { getMongoOptions, getDbName } from "./db/mongoConfig";
 
 // Singleton service for managing shared resources
 export class SingletonService {
@@ -18,6 +19,7 @@ export class SingletonService {
   // Export the getMongoDb function for direct use
   async getMongoDb(): Promise<{ mongoDb: Db; mongoClient: MongoClient }> {
     if (!this.mongoClient || !this.mongoDb) {
+      const mongoOptions = getMongoOptions();
       this.mongoClient = new MongoClient(process.env.MONGODB_URI || "", mongoOptions);
       await this.mongoClient.connect();
       this.mongoDb = this.mongoClient.db();
@@ -38,31 +40,11 @@ let isInitialized = false;
 let isConnecting = false;
 
 const MONGODB_URI = process.env.MONGODB_URI!;
-const DB_NAME = "myVercelAppDB";
+const DB_NAME = getDbName();
 
 if (!MONGODB_URI) {
   throw new Error("Please define the MONGODB_URI environment variable");
 }
-
-// MongoDB connection options for better reliability and TLS support
-const mongoOptions = {
-  maxPoolSize: 10,
-  serverSelectionTimeoutMS: 30000, // Increased from 15000 to 30000
-  socketTimeoutMS: 60000, // Increased from 45000 to 60000
-  connectTimeoutMS: 30000, // Added explicit connect timeout
-  heartbeatFrequencyMS: 10000, // Added heartbeat frequency
-  retryWrites: true,
-  retryReads: true,
-  // TLS/SSL options to fix Atlas connection issues
-  tls: true,
-  tlsAllowInvalidCertificates: false,
-  tlsAllowInvalidHostnames: false,
-  // Removed tlsInsecure as it conflicts with tlsAllowInvalidCertificates
-  // Additional connection stability options
-  maxIdleTimeMS: 30000,
-  maxConnecting: 5, // Increased from 3 to 5
-  directConnection: false,
-};
 
 export async function initializeMongoDB(): Promise<void> {
   if (isInitialized && mongoClient && mongoDb) {
@@ -99,6 +81,7 @@ export async function initializeMongoDB(): Promise<void> {
       try {
         console.log(`🔄 MongoDB connection attempt ${attempt}/${maxRetries}`);
         
+        const mongoOptions = getMongoOptions(MONGODB_URI);
         mongoClient = new MongoClient(MONGODB_URI, mongoOptions);
         
         // Add connection timeout wrapper

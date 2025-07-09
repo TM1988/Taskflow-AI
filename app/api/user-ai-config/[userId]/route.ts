@@ -52,7 +52,7 @@ export async function GET(
         userId,
         aiProvider: "google",
         apiKey: null,
-        model: "gemini-pro",
+        model: "gemini-1.5-flash-latest",
         enabled: false,
         isEnabled: false,
         hasApiKey: false

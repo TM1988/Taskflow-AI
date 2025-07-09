@@ -38,11 +38,13 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
   
   // Check if current page should show the layout (sidebar + header)
   const isAuthPage = pathname.startsWith("/auth") || pathname.startsWith("/invite");
+  const isLandingPage = pathname === "/landing" || pathname === "/";
+  const shouldHideLayout = isAuthPage || isLandingPage;
   
   // Check onboarding status for authenticated users
   useEffect(() => {
     const checkOnboarding = async () => {
-      if (user && !isAuthPage && !onboardingChecked) {
+      if (user && !shouldHideLayout && !onboardingChecked) {
         try {
           const needsOnboarding = await onboardingService.needsOnboarding(user.uid);
           setShowOnboarding(needsOnboarding);
@@ -62,10 +64,10 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
     } else {
       checkOnboarding();
     }
-  }, [user, isAuthPage, onboardingChecked]);
+  }, [user, shouldHideLayout, onboardingChecked]);
 
-  // For auth pages, don't show sidebar and header
-  if (isAuthPage) {
+  // For auth pages and landing page, don't show sidebar and header
+  if (shouldHideLayout) {
     return <div className="min-h-screen bg-background">{children}</div>;
   }
 

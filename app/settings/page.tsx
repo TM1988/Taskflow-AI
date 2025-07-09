@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -101,6 +102,7 @@ function SettingsPageContent() {
   const [currentKey, setCurrentKey] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("gemini-1.5-flash-latest");
 
   const [defaultProjectName, setDefaultProjectName] = useState("");
   const [currentProject, setCurrentProject] = useState<any>(null);
@@ -215,6 +217,7 @@ function SettingsPageContent() {
           console.log("Loaded AI config:", data);
           setIsEnabled(data.isEnabled || false);
           setCurrentKey(data.hasApiKey ? "••••••••••••••••" : null);
+          setSelectedModel(data.model || "gemini-1.5-flash-latest");
         }
       } catch (error) {
         console.error("Error fetching AI config:", error);
@@ -359,6 +362,7 @@ function SettingsPageContent() {
         body: JSON.stringify({
           apiKey: apiKey || undefined,
           isEnabled,
+          model: selectedModel,
         }),
       });
 
@@ -1372,6 +1376,24 @@ Note: Projects and user data are stored in Firestore, not in your custom databas
                   </div>
                   <Switch checked={isEnabled} onCheckedChange={setIsEnabled} />
                 </div>
+
+                {isEnabled && (
+                  <div className="space-y-2">
+                    <Label htmlFor="ai-model">AI Model</Label>
+                    <Select value={selectedModel} onValueChange={setSelectedModel}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select AI model" />
+                      </SelectTrigger>                        <SelectContent>
+                          <SelectItem value="gemini-1.5-flash-latest">Gemini 1.5 Flash</SelectItem>
+                          <SelectItem value="gemini-1.5-pro-latest">Gemini 1.5 Pro</SelectItem>
+                          <SelectItem value="gemini-2.0-flash-exp">Gemini 2.0 Flash (Experimental)</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p className="text-sm text-muted-foreground">
+                      Choose which AI model to use for generating task suggestions
+                    </p>
+                  </div>
+                )}
 
                 <Button
                   onClick={saveAIConfig}
