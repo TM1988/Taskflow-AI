@@ -174,4 +174,28 @@
     .dark select.dialog-select:focus {
         background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%3b82f6' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
     }
+
+    /* Landing page header button alignment adjustments */
+    .landing-header-buttons {
+        @apply flex items-center space-x-4;
+        transform: translateX(-1rem) !important;
+    }
+
+    @media (min-width: 768px) {
+        .landing-header-buttons {
+            transform: translateX(-2rem) !important;
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .landing-header-buttons {
+            transform: translateX(-5rem) !important;
+        }
+    }
+
+    @media (min-width: 1280px) {
+        .landing-header-buttons {
+            transform: translateX(-6rem) !important;
+        }
+    }
 }

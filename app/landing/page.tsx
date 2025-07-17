@@ -27,8 +27,13 @@ export default function LandingPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // Set initial scroll state and mounted state
+    setMounted(true);
+    setIsScrolled(window.scrollY > 50);
+    
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
     };
@@ -50,7 +55,7 @@ export default function LandingPage() {
     if (user) {
       router.push("/dashboard");
     } else {
-      router.push("/auth");
+      router.push("/auth/login");
     }
   };
 
@@ -125,12 +130,12 @@ export default function LandingPage() {
           }
         }
         
-        @keyframes scroll-horizontal {
+        @keyframes scroll-left {
           0% {
             transform: translateX(0);
           }
           100% {
-            transform: translateX(-33.333%);
+            transform: translateX(calc(-100% - 2rem));
           }
         }
         
@@ -140,7 +145,7 @@ export default function LandingPage() {
         }
         
         .animate-scroll {
-          animation: scroll-horizontal 20s linear infinite;
+          animation: scroll-left 30s linear infinite;
         }
         
         .animation-delay-200 {
@@ -162,39 +167,47 @@ export default function LandingPage() {
       <div className="min-h-screen bg-background relative">
       {/* Navigation Header */}
       <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${
-        isScrolled ? "bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b" : ""
+        mounted && isScrolled ? "bg-background/80 backdrop-blur-md border-b border-border/40" : "bg-background/50 backdrop-blur-sm"
       }`}>
-        <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-4">
-          <div className="flex items-center space-x-2">
+        <div className="container mx-auto max-w-7xl flex h-14 items-center justify-between px-6">
+          {/* Left Section: Logo */}
+          <div className="flex items-center space-x-3 flex-shrink-0">
             <Image
               src="/logo.png"
               alt="Taskflow AI"
-              width={28}
-              height={28}
+              width={24}
+              height={24}
               className="rounded-sm"
             />
-            <span className="font-bold text-lg">Taskflow AI</span>
+            <span className="font-semibold text-base tracking-tight">Taskflow AI</span>
           </div>
           
-          {/* Navigation Links */}
+          {/* Center Section: Navigation Links */}
           <div className="hidden md:flex items-center space-x-8">
-            <button onClick={() => scrollToSection('features')} className="text-sm font-medium hover:text-primary transition-colors">Features</button>
-            <button onClick={() => scrollToSection('pricing')} className="text-sm font-medium hover:text-primary transition-colors">Pricing</button>
-            <button onClick={() => scrollToSection('about')} className="text-sm font-medium hover:text-primary transition-colors">About</button>
-            <button onClick={() => scrollToSection('testimonials')} className="text-sm font-medium hover:text-primary transition-colors">Testimonials</button>
+            <button onClick={() => scrollToSection('features')} className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200">Features</button>
+            <button onClick={() => scrollToSection('pricing')} className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200">Pricing</button>
+            <button onClick={() => scrollToSection('about')} className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200">About</button>
+            <button onClick={() => scrollToSection('testimonials')} className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-200">Testimonials</button>
           </div>
           
-          <div className="flex items-center space-x-4">
+          {/* Right Section: Theme Toggle & Dashboard Button */}
+          <div className="flex items-center space-x-3 flex-shrink-0">
             <ThemeToggle />
             {user ? (
-              <Button onClick={() => router.push("/dashboard")}>
-                Go to Dashboard
-                <ArrowRight className="ml-2 h-4 w-4" />
+              <Button 
+                onClick={() => router.push("/dashboard")} 
+                size="sm"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4 py-2 h-8 text-sm rounded-md transition-colors duration-200"
+              >
+                Dashboard
               </Button>
             ) : (
-              <Button onClick={() => router.push("/auth/register")}>
-                Sign Up Free
-                <ArrowRight className="ml-2 h-4 w-4" />
+              <Button 
+                onClick={() => router.push("/auth/register")} 
+                size="sm"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4 py-2 h-8 text-sm rounded-md transition-colors duration-200"
+              >
+                Sign up
               </Button>
             )}
           </div>
@@ -202,33 +215,31 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="container mx-auto max-w-7xl flex min-h-screen flex-col items-center justify-center space-y-8 py-20 text-center px-4 relative z-10">
-        <div className="animate-fade-in-up">
+      <section className="container mx-auto max-w-7xl flex min-h-screen flex-col justify-center space-y-8 py-20 px-6 relative z-10">
+        <div className="animate-fade-in-up max-w-4xl ml-16">
           <Badge variant="secondary" className="mb-6">
             Free & Open Source Project Management
           </Badge>
         </div>
         
-        <div className="animate-fade-in-up animation-delay-200">
+        <div className="animate-fade-in-up animation-delay-200 max-w-4xl ml-16">
           <div className="mb-8">
-            <div className="relative flex items-center justify-center">
-              <h1 className="text-4xl font-bold leading-tight tracking-tighter md:text-6xl lg:text-7xl lg:leading-[1.1]">
-                Transform Your Team's
-                <br />
-                <span className="text-primary">Productivity</span>
-              </h1>
-            </div>
+            <h1 className="text-4xl font-bold leading-tight tracking-tighter md:text-6xl lg:text-7xl lg:leading-[1.1]">
+              Transform Your Team's
+              <br />
+              <span className="text-primary">Productivity</span>
+            </h1>
           </div>
         </div>
         
-        <div className="animate-fade-in-up animation-delay-400">
-          <p className="max-w-[750px] text-xl text-muted-foreground sm:text-2xl leading-relaxed">
+        <div className="animate-fade-in-up animation-delay-400 max-w-3xl ml-16">
+          <p className="text-xl text-muted-foreground sm:text-2xl leading-relaxed">
             Experience the future of project management with AI-driven insights, 
             seamless collaboration, and powerful analytics. Completely free and open source.
           </p>
         </div>
         
-        <div className="animate-fade-in-up animation-delay-600 flex flex-col gap-4 sm:flex-row">
+        <div className="animate-fade-in-up animation-delay-600 flex flex-col gap-4 sm:flex-row ml-16">
           <Button size="lg" onClick={handleGetStarted} className="group transition-all duration-300 hover:scale-105 hover:shadow-lg">
             Get Started
             <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -239,36 +250,7 @@ export default function LandingPage() {
           </Button>
         </div>
         
-        {/* Feature highlights */}
-        <div className="animate-fade-in-up animation-delay-800 mt-20 grid grid-cols-1 gap-6 sm:grid-cols-3 w-full max-w-4xl">
-          <Card className="group transition-all duration-300 hover:scale-105 hover:shadow-xl border-2 hover:border-primary/20">
-            <CardContent className="flex flex-col items-center space-y-3 p-6">
-              <div className="transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12">
-                <Globe className="h-10 w-10 text-primary" />
-              </div>
-              <h3 className="font-semibold text-lg">Self-Hosted Data</h3>
-              <p className="text-sm text-muted-foreground text-center">Host your data on your own infrastructure</p>
-            </CardContent>
-          </Card>
-          <Card className="group transition-all duration-300 hover:scale-105 hover:shadow-xl border-2 hover:border-primary/20">
-            <CardContent className="flex flex-col items-center space-y-3 p-6">
-              <div className="transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12">
-                <Shield className="h-10 w-10 text-primary" />
-              </div>
-              <h3 className="font-semibold text-lg">Open Source</h3>
-              <p className="text-sm text-muted-foreground text-center">Transparent development process</p>
-            </CardContent>
-          </Card>
-          <Card className="group transition-all duration-300 hover:scale-105 hover:shadow-xl border-2 hover:border-primary/20">
-            <CardContent className="flex flex-col items-center space-y-3 p-6">
-              <div className="transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12">
-                <Zap className="h-10 w-10 text-primary" />
-              </div>
-              <h3 className="font-semibold text-lg">No Limits</h3>
-              <p className="text-sm text-muted-foreground text-center">Unlimited projects and users</p>
-            </CardContent>
-          </Card>
-        </div>
+
       </section>
 
       {/* Scrolling Features Section */}
@@ -278,87 +260,85 @@ export default function LandingPage() {
           <p className="text-muted-foreground">See what makes Taskflow AI the choice for modern teams</p>
         </div>
         
-        <div className="relative">
+        <div className="relative overflow-hidden">
           <div className="flex animate-scroll">
-            <div className="flex space-x-8 min-w-max">
-              {/* First Set */}
-              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border">
+            {/* First set */}
+            <div className="flex space-x-8 flex-shrink-0">
+              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border whitespace-nowrap">
                 <Target className="h-8 w-8 text-primary" />
                 <span className="font-medium">Smart Task Management</span>
               </div>
-              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border">
+              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border whitespace-nowrap">
                 <Users className="h-8 w-8 text-primary" />
                 <span className="font-medium">Real-time Collaboration</span>
               </div>
-              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border">
+              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border whitespace-nowrap">
                 <BarChart3 className="h-8 w-8 text-primary" />
                 <span className="font-medium">Advanced Analytics</span>
               </div>
-              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border">
+              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border whitespace-nowrap">
                 <Shield className="h-8 w-8 text-primary" />
                 <span className="font-medium">Secure Framework</span>
               </div>
-              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border">
+              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border whitespace-nowrap">
                 <Clock className="h-8 w-8 text-primary" />
                 <span className="font-medium">Time Tracking</span>
               </div>
-              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border">
+              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border whitespace-nowrap">
                 <TrendingUp className="h-8 w-8 text-primary" />
                 <span className="font-medium">Performance Insights</span>
+              </div>
+              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border whitespace-nowrap">
+                <Globe className="h-8 w-8 text-primary" />
+                <span className="font-medium">Self-Hosted Data</span>
+              </div>
+              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border whitespace-nowrap">
+                <Shield className="h-8 w-8 text-primary" />
+                <span className="font-medium">Open Source</span>
+              </div>
+              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border whitespace-nowrap">
+                <Zap className="h-8 w-8 text-primary" />
+                <span className="font-medium">No Limits</span>
               </div>
             </div>
-            <div className="flex space-x-8 min-w-max ml-8">
-              {/* Second Set */}
-              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border">
+            
+            {/* Second identical set for seamless loop */}
+            <div className="flex space-x-8 flex-shrink-0 ml-8">
+              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border whitespace-nowrap">
                 <Target className="h-8 w-8 text-primary" />
                 <span className="font-medium">Smart Task Management</span>
               </div>
-              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border">
+              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border whitespace-nowrap">
                 <Users className="h-8 w-8 text-primary" />
                 <span className="font-medium">Real-time Collaboration</span>
               </div>
-              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border">
+              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border whitespace-nowrap">
                 <BarChart3 className="h-8 w-8 text-primary" />
                 <span className="font-medium">Advanced Analytics</span>
               </div>
-              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border">
+              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border whitespace-nowrap">
                 <Shield className="h-8 w-8 text-primary" />
                 <span className="font-medium">Secure Framework</span>
               </div>
-              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border">
+              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border whitespace-nowrap">
                 <Clock className="h-8 w-8 text-primary" />
                 <span className="font-medium">Time Tracking</span>
               </div>
-              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border">
+              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border whitespace-nowrap">
                 <TrendingUp className="h-8 w-8 text-primary" />
                 <span className="font-medium">Performance Insights</span>
               </div>
-            </div>
-            <div className="flex space-x-8 min-w-max ml-8">
-              {/* Third Set */}
-              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border">
-                <Target className="h-8 w-8 text-primary" />
-                <span className="font-medium">Smart Task Management</span>
+              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border whitespace-nowrap">
+                <Globe className="h-8 w-8 text-primary" />
+                <span className="font-medium">Self-Hosted Data</span>
               </div>
-              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border">
-                <Users className="h-8 w-8 text-primary" />
-                <span className="font-medium">Real-time Collaboration</span>
-              </div>
-              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border">
-                <BarChart3 className="h-8 w-8 text-primary" />
-                <span className="font-medium">Advanced Analytics</span>
-              </div>
-              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border">
+              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border whitespace-nowrap">
                 <Shield className="h-8 w-8 text-primary" />
-                <span className="font-medium">Secure Framework</span>
+                <span className="font-medium">Open Source</span>
               </div>
-              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border">
-                <Clock className="h-8 w-8 text-primary" />
-                <span className="font-medium">Time Tracking</span>
-              </div>
-              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border">
-                <TrendingUp className="h-8 w-8 text-primary" />
-                <span className="font-medium">Performance Insights</span>
+              <div className="flex items-center space-x-4 bg-background/80 backdrop-blur rounded-lg p-4 border whitespace-nowrap">
+                <Zap className="h-8 w-8 text-primary" />
+                <span className="font-medium">No Limits</span>
               </div>
             </div>
           </div>
@@ -366,20 +346,20 @@ export default function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="container mx-auto max-w-7xl space-y-12 py-20 px-4">
-        <div className="mx-auto flex max-w-[58rem] flex-col items-center space-y-4 text-center">
+      <section id="features" className="container mx-auto max-w-7xl space-y-12 py-20 px-6">
+        <div className="max-w-3xl space-y-4 ml-16">
           <div className="animate-fade-in-up">
             <h2 className="font-bold text-3xl leading-[1.1] sm:text-4xl md:text-5xl">
               Features
             </h2>
           </div>
           <div className="animate-fade-in-up animation-delay-200">
-            <p className="max-w-[85%] leading-normal text-muted-foreground sm:text-lg sm:leading-7">
+            <p className="leading-normal text-muted-foreground sm:text-lg sm:leading-7">
               Everything you need to manage projects efficiently and scale your team's success.
             </p>
           </div>
         </div>
-        <div className="mx-auto grid justify-center gap-6 sm:grid-cols-2 md:max-w-[64rem] md:grid-cols-3">
+        <div className="grid justify-start gap-6 sm:grid-cols-2 md:grid-cols-3 ml-16">
           {features.map((feature, index) => (
             <div key={index} className="animate-fade-in-up" style={{animationDelay: `${(index + 3) * 100}ms`}}>
               <Card className="group relative overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-xl border-2 hover:border-primary/20 h-full">
@@ -403,26 +383,26 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="container mx-auto max-w-7xl py-20 px-4">
-        <div className="mx-auto flex max-w-[58rem] flex-col items-center space-y-4 text-center">
+      <section id="pricing" className="container mx-auto max-w-7xl py-20 px-6">
+        <div className="max-w-3xl space-y-4 mb-16 text-center mx-auto">
           <div className="animate-fade-in-up">
             <h2 className="font-bold text-3xl leading-[1.1] sm:text-4xl md:text-5xl">
               Simple Pricing
             </h2>
           </div>
           <div className="animate-fade-in-up animation-delay-200">
-            <p className="max-w-[85%] leading-normal text-muted-foreground sm:text-lg sm:leading-7">
+            <p className="leading-normal text-muted-foreground sm:text-lg sm:leading-7">
               No hidden costs, no subscriptions, no limits. Taskflow AI is completely free and open source.
             </p>
           </div>
         </div>
         
-        <div className="mx-auto mt-16 max-w-lg animate-fade-in-up animation-delay-400">
+        <div className="max-w-lg animate-fade-in-up animation-delay-400 mx-auto">
           <Card className="relative group transition-all duration-300 hover:scale-105 hover:shadow-2xl border-2 hover:border-primary/30">
-            <Badge className="absolute -top-3 left-1/2 -translate-x-1/2" variant="default">
+            <Badge className="absolute -top-3 left-6" variant="default">
               100% Free & Open Source
             </Badge>
-            <CardHeader className="text-center pt-8">
+            <CardHeader className="pt-8 text-center">
               <CardTitle className="text-3xl group-hover:text-primary transition-colors duration-300">Free Forever</CardTitle>
               <div className="text-5xl font-bold">$0</div>
               <CardDescription className="text-lg">
@@ -451,13 +431,13 @@ export default function LandingPage() {
         </div>
         
         {/* Why Free Section */}
-        <div id="about" className="mx-auto mt-16 max-w-[58rem] animate-fade-in-up animation-delay-600">
+        <div id="about" className="mt-16 max-w-3xl animate-fade-in-up animation-delay-600 mx-auto">
           <Card className="group transition-all duration-300 hover:scale-105 hover:shadow-xl border-2 hover:border-primary/20">
-            <CardHeader className="text-center">
+            <CardHeader>
               <CardTitle className="text-2xl group-hover:text-primary transition-colors duration-300">Why is Taskflow AI Free?</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-center text-muted-foreground leading-relaxed text-lg">
+              <p className="text-muted-foreground leading-relaxed text-lg">
                 We believe great project management tools should be accessible to everyone. 
                 Taskflow AI is open source because we want to empower teams worldwide to collaborate 
                 better, without barriers. No subscriptions, no hidden fees, no limits - just powerful tools for everyone.
@@ -468,21 +448,21 @@ export default function LandingPage() {
       </section>
 
       {/* Testimonials Section */}
-      <section id="testimonials" className="container mx-auto max-w-7xl py-20 px-4 bg-muted/30">
-        <div className="mx-auto flex max-w-[58rem] flex-col items-center space-y-4 text-center mb-16">
+      <section id="testimonials" className="container mx-auto max-w-7xl py-20 px-6 bg-muted/30">
+        <div className="max-w-3xl space-y-4 mb-16 ml-16">
           <div className="animate-fade-in-up">
             <h2 className="font-bold text-3xl leading-[1.1] sm:text-4xl md:text-5xl">
               Loved by Teams Worldwide
             </h2>
           </div>
           <div className="animate-fade-in-up animation-delay-200">
-            <p className="max-w-[85%] leading-normal text-muted-foreground sm:text-lg sm:leading-7">
+            <p className="leading-normal text-muted-foreground sm:text-lg sm:leading-7">
               See what teams are saying about their experience with Taskflow AI
             </p>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-3 gap-8 ml-16">
           <Card className="group transition-all duration-300 hover:scale-105 hover:shadow-xl">
             <CardContent className="p-6">
               <div className="flex items-center mb-4">
@@ -559,7 +539,7 @@ export default function LandingPage() {
           </Card>
         </div>
 
-        <div className="text-center mt-12">
+        <div className="mt-12 max-w-2xl ml-16">
           <Card>
             <CardContent className="p-8">
               <h3 className="text-xl font-semibold mb-4">Join Thousands of Happy Teams</h3>

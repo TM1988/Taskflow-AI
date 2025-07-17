@@ -5,9 +5,12 @@ import { DragDropContext, DropResult, Droppable } from "@hello-pangea/dnd";
 import { Loader2 } from "lucide-react";
 import KanbanColumn from "@/components/board/kanban-column";
 import SimpleTaskDialog from "@/components/board/simple-task-dialog";
+import ActiveUsers from "@/components/collaboration/active-users";
+import CursorOverlay from "@/components/collaboration/cursor-overlay";
 import { useAuth } from "@/services/auth/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
+import { useRealtimeCollaboration } from "@/hooks/use-realtime-collaboration";
 import BoardHeader from "@/components/board/board-header";
 import { enrichTasksWithAssigneeInfo } from "@/utils/task-enricher";
 
@@ -45,6 +48,9 @@ export default function BoardContent({
   const [columns, setColumns] = useState<any[]>([]);
   const [refreshCounter, setRefreshCounter] = useState<number>(0);
 
+  // Real-time collaboration state
+  const [activeCursors, setActiveCursors] = useState<Map<string, any>>(new Map());
+
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState<{
@@ -78,6 +84,50 @@ export default function BoardContent({
     ],
     [],
   );
+
+  // Real-time collaboration setup
+  const {
+    getActiveUsers,
+    broadcastTaskUpdate,
+    broadcastTaskCreate,
+    broadcastTaskDelete,
+    isConnected: isCollaborationConnected,
+  } = useRealtimeCollaboration({
+    projectId: workspaceProject?.id || projectId || '',
+    organizationId: currentOrganization?.id || organizationId,
+    onTaskUpdate: (task) => {
+      updateTaskLocally(task);
+    },
+    onTaskCreate: (task) => {
+      setTasks((prevTasks) => [...prevTasks, task]);
+    },
+    onTaskDelete: (taskId) => {
+      removeTaskLocally(taskId);
+    },
+    onColumnUpdate: (column) => {
+      setColumns((prevColumns) =>
+        prevColumns.map((col) =>
+          col.id === column.id ? { ...col, ...column } : col
+        )
+      );
+    },
+    onCursorMove: (cursor) => {
+      setActiveCursors((prev) => {
+        const newCursors = new Map(prev);
+        newCursors.set(cursor.userId, cursor);
+        return newCursors;
+      });
+      
+      // Remove stale cursors after 3 seconds
+      setTimeout(() => {
+        setActiveCursors((prev) => {
+          const newCursors = new Map(prev);
+          newCursors.delete(cursor.userId);
+          return newCursors;
+        });
+      }, 3000);
+    },
+  });
 
   const updateTaskLocally = useCallback(
     (updatedTask: any) => {
@@ -131,9 +181,15 @@ export default function BoardContent({
     setTasks((prevTasks) =>
       prevTasks.filter((task) => task.id !== taskId && task._id !== taskId),
     );
+    
+    // Broadcast task deletion to other users
+    if (workspaceProject?.id && workspaceProject.id !== "personal") {
+      broadcastTaskDelete(taskId);
+    }
+    
     // Keep refresh counter for deletion as it might affect layout
     setRefreshCounter((prev) => prev + 1);
-  }, []);
+  }, [workspaceProject?.id, broadcastTaskDelete]);
 
   const fetchBoardData = useCallback(async () => {
     if (!user?.uid) return;
@@ -525,17 +581,25 @@ export default function BoardContent({
             currentOrganization?.id,
           );
           setTasks((prevTasks) => [...prevTasks, enrichedTask[0]]);
+          
+          // Broadcast task creation to other users
+          broadcastTaskCreate(enrichedTask[0]);
         } catch (error) {
           console.error("Error enriching new task with assignee info:", error);
           setTasks((prevTasks) => [...prevTasks, newTask]);
+          broadcastTaskCreate(newTask);
         }
       } else {
         setTasks((prevTasks) => [...prevTasks, newTask]);
+        // Only broadcast for non-personal boards
+        if (workspaceProject?.id && workspaceProject.id !== "personal") {
+          broadcastTaskCreate(newTask);
+        }
       }
       // Remove refresh counter to prevent visual glitches
       // setRefreshCounter(prev => prev + 1);
     },
-    [workspaceProject?.id, currentOrganization?.id],
+    [workspaceProject?.id, currentOrganization?.id, broadcastTaskCreate],
   );
 
   const handleTaskUpdated = useCallback(
@@ -555,6 +619,9 @@ export default function BoardContent({
               t.id === updatedTask.id ? { ...t, ...enrichedTask[0] } : t,
             ),
           );
+          
+          // Broadcast task update to other users
+          broadcastTaskUpdate(enrichedTask[0]);
         } catch (error) {
           console.error(
             "Error enriching updated task with assignee info:",
@@ -565,6 +632,7 @@ export default function BoardContent({
               t.id === updatedTask.id ? { ...t, ...updatedTask } : t,
             ),
           );
+          broadcastTaskUpdate(updatedTask);
         }
       } else {
         setTasks((prevTasks) =>
@@ -572,12 +640,16 @@ export default function BoardContent({
             t.id === updatedTask.id ? { ...t, ...updatedTask } : t,
           ),
         );
+        // Only broadcast for non-personal boards
+        if (workspaceProject?.id && workspaceProject.id !== "personal") {
+          broadcastTaskUpdate(updatedTask);
+        }
       }
 
       // Remove refresh counter to prevent visual glitches
       // setRefreshCounter(prev => prev + 1);
     },
-    [workspaceProject?.id, currentOrganization?.id],
+    [workspaceProject?.id, currentOrganization?.id, broadcastTaskUpdate],
   );
 
   const handleDragEnd = useCallback(
@@ -842,19 +914,39 @@ export default function BoardContent({
 
   return (
     <div className="h-full flex flex-col min-w-0">
-      <BoardHeader
-        users={headerUsers}
-        tags={projectTags}
-        onSearch={handleSearch}
-        onFilter={handleFilter}
-        onAddTask={() => setIsTaskDialogOpen(true)}
-        projectId={currentProject?.id}
-        onTasksImported={fetchBoardData}
-        onColumnUpdate={handleColumnUpdate}
-      />
+      <div className="flex items-center justify-between">
+        <BoardHeader
+          users={headerUsers}
+          tags={projectTags}
+          onSearch={handleSearch}
+          onFilter={handleFilter}
+          onAddTask={() => setIsTaskDialogOpen(true)}
+          projectId={currentProject?.id}
+          onTasksImported={fetchBoardData}
+          onColumnUpdate={handleColumnUpdate}
+        />
+        
+        {/* Real-time collaboration indicator */}
+        {workspaceProject?.id && workspaceProject.id !== "personal" && (
+          <div className="flex items-center gap-4 px-4">
+            <ActiveUsers getActiveUsers={getActiveUsers} />
+            {isCollaborationConnected && (
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+                <span className="text-xs text-muted-foreground">Live</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex-1 overflow-x-auto min-h-0">
+        <div className="flex-1 overflow-x-auto min-h-0 relative">
+          {/* Cursor overlay for real-time collaboration */}
+          {workspaceProject?.id && workspaceProject.id !== "personal" && (
+            <CursorOverlay cursors={activeCursors} />
+          )}
+          
           <div className="flex gap-4 p-4 h-full items-start">
             {columns.map((column) => (
               <div key={column.id} className="flex-1 min-w-[145px]">

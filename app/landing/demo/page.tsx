@@ -105,7 +105,7 @@ export default function DemoPage() {
                 managing your projects with AI-powered insights.
               </p>
               <div className="space-y-2">
-                <Button className="w-full" onClick={() => router.push("/auth")}>
+                <Button className="w-full" onClick={() => router.push("/auth/login")}>
                   Sign Up Free
                 </Button>
                 <Button variant="outline" className="w-full" onClick={() => router.push("/dashboard")}>
@@ -126,7 +126,7 @@ export default function DemoPage() {
                 It's completely free with unlimited users and powerful features.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button size="lg" onClick={() => router.push("/auth")}>
+                <Button size="lg" onClick={() => router.push("/auth/login")}>
                   Get Started Free
                 </Button>
                 <Button size="lg" variant="outline" onClick={() => router.push("/landing")}>
