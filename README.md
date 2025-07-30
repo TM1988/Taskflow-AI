@@ -27,6 +27,5 @@ Contact me at: **tmgd.og1@gmail.com** if you want to collaborate!
     *   MongoDB
     *   Next.js
     *   Tailwind CSS
-    *   Cloudinary
 
 Couldnt really think of much else to put here :]
