@@ -20,7 +20,7 @@ This project is open-source. You may use the project with proper attribution!
 
 Contact me at: **tmgd.og1@gmail.com** if you want to collaborate!
 
-## Acknowledgments
+## Stuff Used
 
 *   This project uses libraries from:
     *   Firebase
