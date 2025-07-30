@@ -16,7 +16,9 @@ Cool project development tracker with github integration for AI suggestions!
 
 ## License Information
 
-This project is open-source. License information is not specified in the repository.
+This project is open-source. You may use the project with proper attribution!
+
+Contact me at: **tmgd.og1@gmail.com** if you want to collaborate!
 
 ## Acknowledgments
 
