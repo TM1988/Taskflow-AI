@@ -116,7 +116,11 @@ export default function GitHubCallbackPage() {
 
         // Validate state parameter to prevent CSRF attacks
         const storedState = localStorage.getItem("github_oauth_state");
-        if (!state || !storedState || state !== storedState) {
+        
+        // Check if this is a CLI-initiated OAuth flow
+        const isCLIOAuth = state && state.startsWith('cli_oauth_');
+        
+        if (!isCLIOAuth && (!state || !storedState || state !== storedState)) {
           setStatus("error");
           setErrorMessage("Invalid OAuth state. This may be a security issue. Please try connecting again.");
           // Clean up potentially compromised state
@@ -126,8 +130,10 @@ export default function GitHubCallbackPage() {
           return;
         }
 
-        // Clean up state now that it's validated
-        localStorage.removeItem("github_oauth_state");
+        // Clean up state now that it's validated (only for web app flows)
+        if (!isCLIOAuth) {
+          localStorage.removeItem("github_oauth_state");
+        }
 
         // Check if we've already processed this code to prevent duplicate submissions
         const processedCode = sessionStorage.getItem("github_processed_code");
@@ -148,7 +154,11 @@ export default function GitHubCallbackPage() {
         let projectId = undefined;
         let organizationId = undefined;
         
-        if (contextData) {
+        // For CLI OAuth flows, always use personal context
+        if (isCLIOAuth) {
+          context = "personal";
+          console.log("CLI OAuth flow detected, using personal context");
+        } else if (contextData) {
           try {
             const parsed = JSON.parse(contextData);
             context = parsed.context || "personal";
@@ -208,7 +218,11 @@ export default function GitHubCallbackPage() {
         
         // Clean up processed code tracking and context data on success
         sessionStorage.removeItem("github_processed_code");
-        localStorage.removeItem("github_oauth_context");
+        
+        // Only clean up context data for non-CLI flows
+        if (!isCLIOAuth) {
+          localStorage.removeItem("github_oauth_context");
+        }
         
         // Set flag to show repository selector after redirect
         localStorage.setItem("github_just_connected", "true");
@@ -220,8 +234,16 @@ export default function GitHubCallbackPage() {
         
         toast({
           title: "Success",
-          description: "GitHub connected successfully",
+          description: isCLIOAuth ? "GitHub connected successfully! You can now return to the CLI." : "GitHub connected successfully",
         });
+
+        // For CLI OAuth, show a special message and don't redirect automatically
+        if (isCLIOAuth) {
+          setRedirectDescription("GitHub connected successfully! You can now return to the CLI and continue.");
+          // Don't auto-redirect for CLI flows, let user manually return to CLI
+          clearTimeout(timeoutId);
+          return;
+        }
 
         // Redirect to appropriate page based on context
         let redirectPath = "/";
