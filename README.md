@@ -19,8 +19,6 @@ Cool project development tracker with github integration for AI suggestions!
 
 This project is open-source. You may use the project with proper attribution!
 
-Contact me at: **tmgd.og1@gmail.com** if you want to collaborate!
-
 ## Stuff Used
 
 *   This project uses libraries from:
