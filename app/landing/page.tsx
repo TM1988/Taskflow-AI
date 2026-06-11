@@ -447,7 +447,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Testimonials Section */}
+      {/* Testimonials Section
       <section id="testimonials" className="container mx-auto max-w-7xl py-20 px-6 bg-muted/30">
         <div className="max-w-3xl space-y-4 mb-16 ml-16">
           <div className="animate-fade-in-up">
@@ -553,7 +553,7 @@ export default function LandingPage() {
             </CardContent>
           </Card>
         </div>
-      </section>
+      </section> */}
 
       {/* Footer */}
       <footer id="contact" className="border-t py-12 md:py-16 bg-muted/30">
