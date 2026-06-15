@@ -117,7 +117,6 @@ export default function LandingPage() {
   ];
 
   return (
-    <>
       <style jsx global>{`
         @keyframes fade-in-up {
           from {
