@@ -588,10 +588,6 @@ export default function LandingPage() {
               <ul className="space-y-2 text-sm">
                 <li><a href="#features" className="text-muted-foreground hover:text-primary transition-colors">Features</a></li>
                 <li><a href="#pricing" className="text-muted-foreground hover:text-primary transition-colors">Pricing</a></li>
-                <li><a href="/dashboard" className="text-muted-foreground hover:text-primary transition-colors">Dashboard</a></li>
-                <li><a href="/projects" className="text-muted-foreground hover:text-primary transition-colors">Projects</a></li>
-                <li><a href="/analytics" className="text-muted-foreground hover:text-primary transition-colors">Analytics</a></li>
-                <li><a href="/integrations" className="text-muted-foreground hover:text-primary transition-colors">Integrations</a></li>
               </ul>
             </div>
 
@@ -599,27 +595,26 @@ export default function LandingPage() {
             <div>
               <h3 className="font-semibold mb-4">Resources</h3>
               <ul className="space-y-2 text-sm">
-                <li><a href="/docs" className="text-muted-foreground hover:text-primary transition-colors">Documentation</a></li>
-                <li><a href="/api" className="text-muted-foreground hover:text-primary transition-colors">API Reference</a></li>
+                <li><a href="docs.taskflow-ai.tech" className="text-muted-foreground hover:text-primary transition-colors">Documentation</a></li>
               </ul>
             </div>
 
-            {/* Company Links */}
+            {/* Company Links
             <div>
               <h3 className="font-semibold mb-4">Company</h3>
               <ul className="space-y-2 text-sm">
                 <li><a href="/about" className="text-muted-foreground hover:text-primary transition-colors">About Us</a></li>
-                <li><a href="/contact" className="text-muted-foreground hover:text-primary transition-colors">Contact</a></li>
+                <li><a href="/contact" className="text-muted-foreground hover:text-primary transition-colors">Contact</a></li> 
                 <li><a href="/privacy" className="text-muted-foreground hover:text-primary transition-colors">Privacy Policy</a></li>
                 <li><a href="/terms" className="text-muted-foreground hover:text-primary transition-colors">Terms of Service</a></li>
               </ul>
             </div>
-          </div>
-
+          </div> */}
+        
           {/* Footer Bottom */}
           <div className="border-t pt-8 flex flex-col md:flex-row justify-between items-center">
             <p className="text-sm text-muted-foreground">
-              © 2025 Taskflow AI. Open source and free forever. Built with ❤️ by the Taskflow AI team.
+              © 2025 Taskflow AI. Open source and free forever. {/* Built with ❤️ by the Taskflow AI team. */}
             </p>
             <div className="flex items-center space-x-4 mt-4 md:mt-0">
               <span className="text-xs text-muted-foreground">Made with</span>
